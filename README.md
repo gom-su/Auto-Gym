@@ -1,4 +1,12 @@
-# Workout Notification PoC
+# Auto-Gym
+
+Auto-Gym is a personal Android training application built with Kotlin. The current implementation is an offline workout notification and floating-panel proof of concept; variable programs, full history, portable plan exchange, analytics, and agent-assisted planning are planned work.
+
+Track work in the [GitHub Project](https://github.com/users/gom-su/projects/1). See the [roadmap](ROADMAP.md), [product definition](docs/product/PRODUCT_DEFINITION.md), [backlog](docs/product/BACKLOG.md), and [current implementation gaps](docs/product/IMPLEMENTATION_GAPS.md). The repository is licensed under [MPL-2.0](LICENSE).
+
+The demo uses fixed synthetic workout data. Keep real workout records, body measurements, private documents, and credentials outside version control. Public examples and fixtures must be fictitious. The future external agent proposes plans for deterministic validation and explicit user approval; this project does not build or train AI models or provide clinical functionality.
+
+## Current prototype
 
 A native, self-contained, offline Android demo: 3 exercises, 7 sets, and 10-second rest periods. Built with Kotlin, Compose Material 3, RemoteViews, WindowManager, StateFlow, and DataStore. No backend, Internet access, or sensor permissions.
 

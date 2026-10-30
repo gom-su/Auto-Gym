@@ -36,6 +36,19 @@ local.properties
 .sdk/
 *.log
 
+# Private source documents, real workout exports, and publication audit reports
+.local/
+private/
+personal-data/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
 # Keep the required Gradle Wrapper binary despite the Java template's *.jar rule
 !gradle/wrapper/gradle-wrapper.jar
 

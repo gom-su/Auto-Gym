@@ -1,0 +1,26 @@
+name: Product feature
+description: Define a feature or implementation subtask with verifiable acceptance criteria.
+title: "[ID] Feature title"
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and source requirement
+      description: Link the requirement ID and product definition section.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and open decisions
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Verification evidence
+      description: Use synthetic data. Distinguish automated, emulator, and physical-device results.
