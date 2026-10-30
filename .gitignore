@@ -25,3 +25,27 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+
+# Android project and local build environment
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+.tools/
+.sdk/
+*.log
+
+# Keep the required Gradle Wrapper binary despite the Java template's *.jar rule
+!gradle/wrapper/gradle-wrapper.jar
+
+dist/
+
+# Intermediate diagnostic captures; final evidence remains versioned
+docs/evidence/device/
+docs/evidence/current/
+docs/evidence/latest/
+docs/evidence/emulator/
+docs/evidence/01-idle.png
+docs/evidence/shade-debug.png
+docs/evidence/shade.xml

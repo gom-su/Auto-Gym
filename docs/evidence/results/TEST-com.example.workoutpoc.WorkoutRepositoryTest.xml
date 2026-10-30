@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.workoutpoc.WorkoutRepositoryTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-10-30T17:08:15.783Z" hostname="DESKTOP-RMAF93A" time="0.294">
+  <properties/>
+  <testcase name="failed write never publishes unsaved state" classname="com.example.workoutpoc.WorkoutRepositoryTest" time="0.093"/>
+  <testcase name="concurrent complete is serialized and durable" classname="com.example.workoutpoc.WorkoutRepositoryTest" time="0.007"/>
+  <testcase name="expired persisted rest is reconciled during restore" classname="com.example.workoutpoc.WorkoutRepositoryTest" time="0.002"/>
+  <testcase name="real DataStore file restores edits records and deadline across instances" classname="com.example.workoutpoc.WorkoutRepositoryTest" time="0.192"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

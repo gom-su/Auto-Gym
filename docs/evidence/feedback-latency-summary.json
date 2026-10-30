@@ -1,0 +1,27 @@
+{
+  "notification": {
+    "n": 24,
+    "meanMs": 436.8,
+    "medianMs": 434.0,
+    "p95Ms": 490,
+    "minMs": 378,
+    "maxMs": 543,
+    "blocks": {
+      "0": 445.1,
+      "1": 428.4
+    }
+  },
+  "overlay": {
+    "n": 24,
+    "meanMs": 260.3,
+    "medianMs": 250.0,
+    "p95Ms": 400,
+    "minMs": 155,
+    "maxMs": 414,
+    "blocks": {
+      "0": 252.3,
+      "1": 268.2
+    }
+  },
+  "overlayMeanReductionPercent": 40.4
+}

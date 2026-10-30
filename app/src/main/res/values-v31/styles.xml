@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.WorkoutPoC" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorAccent">#A9EF68</item>
+        <item name="android:windowSplashScreenBackground">#101612</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_workout</item>
+    </style>
+</resources>

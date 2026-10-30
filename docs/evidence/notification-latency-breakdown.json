@@ -1,0 +1,14 @@
+[
+{"control":"weight_plus","pixelChangeMs":443,"injectionMs":35,"accessibilityTextMs":366},
+{"control":"reps_plus","pixelChangeMs":408,"injectionMs":29,"accessibilityTextMs":389},
+{"control":"rir0","pixelChangeMs":421,"injectionMs":27,"accessibilityTextMs":362},
+{"control":"weight_plus","pixelChangeMs":412,"injectionMs":39,"accessibilityTextMs":341},
+{"control":"reps_plus","pixelChangeMs":453,"injectionMs":28,"accessibilityTextMs":419},
+{"control":"rir1","pixelChangeMs":392,"injectionMs":32,"accessibilityTextMs":349},
+{"control":"weight_plus","pixelChangeMs":413,"injectionMs":29,"accessibilityTextMs":384},
+{"control":"reps_plus","pixelChangeMs":413,"injectionMs":23,"accessibilityTextMs":383},
+{"control":"rir0","pixelChangeMs":414,"injectionMs":39,"accessibilityTextMs":380},
+{"control":"weight_plus","pixelChangeMs":392,"injectionMs":31,"accessibilityTextMs":361},
+{"control":"reps_plus","pixelChangeMs":412,"injectionMs":28,"accessibilityTextMs":379},
+{"control":"rir1","pixelChangeMs":439,"injectionMs":26,"accessibilityTextMs":398}
+]

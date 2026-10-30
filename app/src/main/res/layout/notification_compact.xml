@@ -1,0 +1,5 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:background="#FFFFFF">
+    <TextView android:id="@+id/compact_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:maxLines="2" android:ellipsize="end" android:textColor="#17201A" android:textSize="12sp"/>
+    <TextView android:id="@+id/compact_complete" style="@style/NotificationControl" android:layout_width="76dp" android:text="Completar" android:textSize="12sp"/>
+    <TextView android:id="@+id/compact_edit" style="@style/NotificationControl" android:layout_width="48dp" android:text="Editar" android:textSize="12sp"/>
+</LinearLayout>

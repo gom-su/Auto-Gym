@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.workoutpoc.WorkoutReducerTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-30T17:08:15.752Z" hostname="DESKTOP-RMAF93A" time="0.027">
+  <properties/>
+  <testcase name="rest uses monotonic clock and extension invalidates old finish" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.023"/>
+  <testcase name="same exercise carries last weight but new exercise loads defaults" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.0"/>
+  <testcase name="undo restores exactly the last saved set even from completed" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.0"/>
+  <testcase name="duplicate complete skip and stale session cannot advance twice" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.0"/>
+  <testcase name="seven sets finish with no final rest or overflow" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.002"/>
+  <testcase name="reboot uses wall fallback" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.0"/>
+  <testcase name="finish early keeps records and reset rejects old commands" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.0"/>
+  <testcase name="weight reps and rir bounds" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.001"/>
+  <testcase name="acceptance values and stored record" classname="com.example.workoutpoc.WorkoutReducerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,24 @@
+<resources>
+    <style name="Theme.WorkoutPoC" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorAccent">#A9EF68</item>
+    </style>
+    <style name="NotificationControl">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@android:color/primary_text_light</item>
+        <item name="android:background">@drawable/notification_control</item>
+        <item name="android:clickable">true</item>
+    </style>
+    <style name="OverlayControl" parent="android:style/Widget.Material.Button.Borderless">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:textColor">#EDF5E8</item>
+        <item name="android:textSize">18sp</item>
+    </style>
+</resources>

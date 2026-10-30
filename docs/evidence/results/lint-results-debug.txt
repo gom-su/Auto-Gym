@@ -1,0 +1,388 @@
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:88: Warning: Avoid passing null as the view root (needed to resolve layout parameters on the inflated layout's root element) [InflateParams]
+        } else LayoutInflater.from(context).inflate(R.layout.overlay_panel, null).apply {
+                                                                            ~~~~
+
+   Explanation for issues of type "InflateParams":
+   When inflating a layout, avoid passing in null as the parent view, since
+   otherwise any layout parameters on the root of the inflated layout will be
+   ignored.
+
+   https://www.bignerdranch.com/blog/understanding-androids-layoutinflater-inflate/
+
+C:\Users\USER\Documents\GymLogger\gradle\wrapper\gradle-wrapper.properties:3: Warning: A newer version of Gradle than 8.13 is available: 8.14.6 [AndroidGradlePluginVersion]
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AndroidGradlePluginVersion":
+   This detector looks for usage of the Android Gradle Plugin where the
+   version you are using is not the current stable release. Using older
+   versions is fine, and there are cases where you deliberately want to stick
+   with an older version. However, you may simply not be aware that a more
+   recent version is available, and that is what this lint check helps find.
+
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:32: Warning: A newer version of androidx.activity:activity-compose than 1.11.0 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:33: Warning: A newer version of androidx.core:core-ktx than 1.17.0 is available: 1.19.1 [GradleDependency]
+    implementation("androidx.core:core-ktx:1.17.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:34: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.4 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:35: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.9.4 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:36: Warning: A newer version of androidx.datastore:datastore than 1.1.7 is available: 1.3.0 [GradleDependency]
+    implementation("androidx.datastore:datastore:1.1.7")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:41: Warning: A newer version of androidx.datastore:datastore-core-okio than 1.1.7 is available: 1.3.0 [GradleDependency]
+    testImplementation("androidx.datastore:datastore-core-okio:1.1.7")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:44: Warning: A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.0 [GradleDependency]
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:37: Warning: A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.10.2 is available: 1.11.0 [NewerVersionAvailable]
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:38: Warning: A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.9.0 is available: 1.12.0 [NewerVersionAvailable]
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\build.gradle.kts:40: Warning: A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-test than 1.10.2 is available: 1.11.0 [NewerVersionAvailable]
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewerVersionAvailable":
+   This detector checks with a central repository to see if there are newer
+   versions available for the dependencies used by this project. This is
+   similar to the GradleDependency check, which checks for newer versions
+   available in the Android SDK tools and libraries, but this works with any
+   MavenCentral dependency, and connects to the library every time, which
+   makes it more flexible but also much slower.
+
+C:\Users\USER\Documents\GymLogger\app\src\main\AndroidManifest.xml:9: Warning: The attribute android:allowBackup is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute android:dataExtractionRules specifying an @xml resource which configures cloud backups and device transfers on Android 12 and higher. [DataExtractionRules]
+        android:allowBackup="false" android:supportsRtl="true">
+                             ~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_compact.xml:1: Warning: Possible overdraw: Root element paints background #FFFFFF with a theme that also paints a background (inferred theme is @style/Theme.WorkoutPoC) [Overdraw]
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:background="#FFFFFF">
+                                                                                                                                                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:1: Warning: Possible overdraw: Root element paints background #FFFFFF with a theme that also paints a background (inferred theme is @style/Theme.WorkoutPoC) [Overdraw]
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#FFFFFF">
+                                                                                                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "Overdraw":
+   If you set a background drawable on a root view, then you should use a
+   custom theme where the theme background is null. Otherwise, the theme
+   background will be painted first, only to have your custom background
+   completely cover it; this is called "overdraw".
+
+   NOTE: This detector relies on figuring out which layouts are associated
+   with which activities based on scanning the Java code, and it's currently
+   doing that using an inexact pattern matching algorithm. Therefore, it can
+   incorrectly conclude which activity the layout is associated with and then
+   wrongly complain that a background-theme is hidden.
+
+   If you want your custom background on multiple pages, then you should
+   consider making a custom theme with your custom background and just using
+   that theme instead of a root element background.
+
+   Of course it's possible that your custom drawable is translucent and you
+   want it to be mixed with the background. However, you will get better
+   performance if you pre-mix the background with your drawable and use that
+   resulting image or color as a custom theme background instead.
+
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:33: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button android:id="@+id/overlay_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp" android:text="+10 s"/>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:34: Warning: Buttons in button bars should be borderless; use style="?android:attr/buttonBarButtonStyle" (and ?android:attr/buttonBarStyle on the parent) [ButtonStyle]
+            <Button android:id="@+id/overlay_skip" android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp" android:text="Saltar"/>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ButtonStyle":
+   Button bars typically use a borderless style for the buttons. Set the
+   style="?android:attr/buttonBarButtonStyle" attribute on each of the
+   buttons, and set style="?android:attr/buttonBarStyle" on the parent layout
+
+   https://d.android.com/r/studio-ui/designer/material/dialogs
+
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\MainActivity.kt:68: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        try { overlayPermission.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling
+
+   ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:62: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        root.findViewById<TextView>(R.id.overlay_weight).text = "${weightLabel(state.values.weightTenths)} kg"
+                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:62: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+        root.findViewById<TextView>(R.id.overlay_weight).text = "${weightLabel(state.values.weightTenths)} kg"
+                                                                                                          ~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:63: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        root.findViewById<TextView>(R.id.overlay_reps).text = "${state.values.reps} reps"
+                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:63: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+        root.findViewById<TextView>(R.id.overlay_reps).text = "${state.values.reps} reps"
+                                                                                   ~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:65: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        root.findViewById<TextView>(R.id.overlay_countdown).text = "${seconds(state)} s"
+                                                                   ~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:69: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                    text = "${if (state.values.rir == rir) "●" else ""}${if (rir == 4) "4+" else rir}"
+                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_compact.xml:3: Warning: Hardcoded string "Completar", should use @string resource [HardcodedText]
+    <TextView android:id="@+id/compact_complete" style="@style/NotificationControl" android:layout_width="76dp" android:text="Completar" android:textSize="12sp"/>
+                                                                                                                ~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_compact.xml:4: Warning: Hardcoded string "Editar", should use @string resource [HardcodedText]
+    <TextView android:id="@+id/compact_edit" style="@style/NotificationControl" android:layout_width="48dp" android:text="Editar" android:textSize="12sp"/>
+                                                                                                            ~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:5: Warning: Hardcoded string "Reducir peso", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/weight_minus" style="@style/NotificationControl" android:text="−" android:contentDescription="Reducir peso"/>
+                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:5: Warning: Hardcoded string "−", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/weight_minus" style="@style/NotificationControl" android:text="−" android:contentDescription="Reducir peso"/>
+                                                                                        ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:7: Warning: Hardcoded string "+", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/weight_plus" style="@style/NotificationControl" android:text="+" android:contentDescription="Aumentar peso"/>
+                                                                                       ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:7: Warning: Hardcoded string "Aumentar peso", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/weight_plus" style="@style/NotificationControl" android:text="+" android:contentDescription="Aumentar peso"/>
+                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:10: Warning: Hardcoded string "Reducir repeticiones", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/reps_minus" style="@style/NotificationControl" android:text="−" android:contentDescription="Reducir repeticiones"/>
+                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:10: Warning: Hardcoded string "−", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/reps_minus" style="@style/NotificationControl" android:text="−" android:contentDescription="Reducir repeticiones"/>
+                                                                                      ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:12: Warning: Hardcoded string "+", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/reps_plus" style="@style/NotificationControl" android:text="+" android:contentDescription="Aumentar repeticiones"/>
+                                                                                     ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:12: Warning: Hardcoded string "Aumentar repeticiones", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/reps_plus" style="@style/NotificationControl" android:text="+" android:contentDescription="Aumentar repeticiones"/>
+                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:14: Warning: Hardcoded string "RIR · repeticiones en reserva", should use @string resource [HardcodedText]
+        <TextView android:layout_width="match_parent" android:layout_height="16dp" android:text="RIR · repeticiones en reserva" android:textSize="11sp" android:textColor="#17201A"/>
+                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:16: Warning: Hardcoded string "0", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/rir0" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="0"/>
+                                                                                                                                     ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:17: Warning: Hardcoded string "1", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/rir1" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="1"/>
+                                                                                                                                     ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:18: Warning: Hardcoded string "2", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/rir2" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="2"/>
+                                                                                                                                     ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:19: Warning: Hardcoded string "3", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/rir3" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="3"/>
+                                                                                                                                     ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:20: Warning: Hardcoded string "4+", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/rir4" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="4+"/>
+                                                                                                                                     ~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:22: Warning: Hardcoded string "Completar serie", should use @string resource [HardcodedText]
+        <TextView android:id="@+id/complete" style="@style/NotificationControl" android:layout_width="match_parent" android:text="Completar serie"/>
+                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:27: Warning: Hardcoded string "+10 s", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/add_rest" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="+10 s"/>
+                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\notification_expanded.xml:28: Warning: Hardcoded string "Saltar descanso", should use @string resource [HardcodedText]
+            <TextView android:id="@+id/skip_rest" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="Saltar descanso" android:textSize="14sp"/>
+                                                                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:3: Warning: Hardcoded string "Arrastrar panel", should use @string resource [HardcodedText]
+        <TextView android:id="@+id/drag_handle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:gravity="center_vertical" android:text="⠿ ENTRENAMIENTO" android:textColor="#B4EE80" android:textSize="12sp" android:contentDescription="Arrastrar panel"/>
+                                                                                                                                                                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:3: Warning: Hardcoded string "⠿ ENTRENAMIENTO", should use @string resource [HardcodedText]
+        <TextView android:id="@+id/drag_handle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:gravity="center_vertical" android:text="⠿ ENTRENAMIENTO" android:textColor="#B4EE80" android:textSize="12sp" android:contentDescription="Arrastrar panel"/>
+                                                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:4: Warning: Hardcoded string "Contraer a burbuja", should use @string resource [HardcodedText]
+        <Button android:id="@+id/collapse" style="@style/OverlayControl" android:text="−" android:contentDescription="Contraer a burbuja"/>
+                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:4: Warning: Hardcoded string "−", should use @string resource [HardcodedText]
+        <Button android:id="@+id/collapse" style="@style/OverlayControl" android:text="−" android:contentDescription="Contraer a burbuja"/>
+                                                                         ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:5: Warning: Hardcoded string "Cerrar solo el panel", should use @string resource [HardcodedText]
+        <Button android:id="@+id/close" style="@style/OverlayControl" android:text="×" android:contentDescription="Cerrar solo el panel"/>
+                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:5: Warning: Hardcoded string "×", should use @string resource [HardcodedText]
+        <Button android:id="@+id/close" style="@style/OverlayControl" android:text="×" android:contentDescription="Cerrar solo el panel"/>
+                                                                      ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:11: Warning: Hardcoded string "Reducir peso", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_weight_minus" style="@style/OverlayControl" android:text="−" android:contentDescription="Reducir peso"/>
+                                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:11: Warning: Hardcoded string "−", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_weight_minus" style="@style/OverlayControl" android:text="−" android:contentDescription="Reducir peso"/>
+                                                                                         ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:13: Warning: Hardcoded string "+", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_weight_plus" style="@style/OverlayControl" android:text="+" android:contentDescription="Aumentar peso"/>
+                                                                                        ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:13: Warning: Hardcoded string "Aumentar peso", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_weight_plus" style="@style/OverlayControl" android:text="+" android:contentDescription="Aumentar peso"/>
+                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:16: Warning: Hardcoded string "Reducir repeticiones", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_reps_minus" style="@style/OverlayControl" android:text="−" android:contentDescription="Reducir repeticiones"/>
+                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:16: Warning: Hardcoded string "−", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_reps_minus" style="@style/OverlayControl" android:text="−" android:contentDescription="Reducir repeticiones"/>
+                                                                                       ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:18: Warning: Hardcoded string "+", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_reps_plus" style="@style/OverlayControl" android:text="+" android:contentDescription="Aumentar repeticiones"/>
+                                                                                      ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:18: Warning: Hardcoded string "Aumentar repeticiones", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_reps_plus" style="@style/OverlayControl" android:text="+" android:contentDescription="Aumentar repeticiones"/>
+                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:20: Warning: Hardcoded string "RIR · repeticiones en reserva", should use @string resource [HardcodedText]
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="RIR · repeticiones en reserva" android:textColor="#CBD7C3" android:textSize="12sp"/>
+                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:22: Warning: Hardcoded string "0", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_rir0" style="@style/OverlayControl" android:text="0"/>
+                                                                                 ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:23: Warning: Hardcoded string "1", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_rir1" style="@style/OverlayControl" android:text="1"/>
+                                                                                 ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:24: Warning: Hardcoded string "2", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_rir2" style="@style/OverlayControl" android:text="2"/>
+                                                                                 ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:25: Warning: Hardcoded string "3", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_rir3" style="@style/OverlayControl" android:text="3"/>
+                                                                                 ~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:26: Warning: Hardcoded string "4+", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_rir4" style="@style/OverlayControl" android:text="4+"/>
+                                                                                 ~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:28: Warning: Hardcoded string "Completar serie", should use @string resource [HardcodedText]
+        <Button android:id="@+id/overlay_complete" android:layout_width="match_parent" android:layout_height="56dp" android:text="Completar serie" android:textColor="#18221C" android:backgroundTint="#B4EE80"/>
+                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:33: Warning: Hardcoded string "+10 s", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp" android:text="+10 s"/>
+                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~
+C:\Users\USER\Documents\GymLogger\app\src\main\res\layout\overlay_panel.xml:34: Warning: Hardcoded string "Saltar", should use @string resource [HardcodedText]
+            <Button android:id="@+id/overlay_skip" android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp" android:text="Saltar"/>
+                                                                                                                                     ~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "HardcodedText":
+   Hardcoding text attributes directly in layout files is bad for several
+   reasons:
+
+   * When creating configuration variations (for example for landscape or
+   portrait) you have to repeat the actual text (and keep it up to date when
+   making changes)
+
+   * The application cannot be translated to other languages by just adding
+   new translations for existing string resources.
+
+   There are quickfixes to automatically extract this hardcoded string into a
+   resource lookup.
+
+C:\Users\USER\Documents\GymLogger\app\src\main\java\com\example\workoutpoc\overlay\WorkoutOverlayController.kt:29: Warning: Use "Gravity.START" instead of "Gravity.LEFT" to ensure correct behavior in right-to-left locales [RtlHardcoded]
+        gravity = Gravity.TOP or Gravity.LEFT
+                                         ~~~~
+
+   Explanation for issues of type "RtlHardcoded":
+   Using Gravity#LEFT and Gravity#RIGHT can lead to problems when a layout is
+   rendered in locales where text flows from right to left. Use Gravity#START
+   and Gravity#END instead. Similarly, in XML gravity and layout_gravity
+   attributes, use start rather than left.
+
+   For XML attributes such as paddingLeft and layout_marginLeft, use
+   paddingStart and layout_marginStart. NOTE: If your minSdkVersion is less
+   than 17, you should add both the older left/right attributes as well as the
+   new start/end attributes. On older platforms, where RTL is not supported
+   and the start/end attributes are unknown and therefore ignored, you need
+   the older left/right attributes. There is a separate lint check which
+   catches that type of error.
+
+   (Note: For Gravity#LEFT and Gravity#START, you can use these constants even
+   when targeting older platforms, because the start bitmask is a superset of
+   the left bitmask. Therefore, you can use gravity="start" rather than
+   gravity="left|start".)
+
+0 errors, 67 warnings
