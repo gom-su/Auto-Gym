@@ -85,4 +85,3 @@ Unit tests cover values and limits, set recording, monotonic rest timing, exerci
 - Special overlay access can be revoked outside the app. The controller removes the window and logs recoverable errors. If the session file is corrupt, the app shows an error without silently overwriting records. Recovering this self-contained demo may require clearing its app data in Settings.
 - Editable routines, session history, synchronization, alarms, sensors, and store publication are outside the scope of this demo.
 
-The initial project folder did not contain a `.coding_practices` directory.
