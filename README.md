@@ -78,7 +78,6 @@ Unit tests cover values and limits, set recording, monotonic rest timing, exerci
 
 ## Experiment limitations
 
-- No Samsung Galaxy S23 FE is connected. One UI 8.5 appearance, notification grouping and expansion, large fonts, orientation, and Samsung battery policies require validation on that hardware.
 - The expanded notification provides weight, reps, RIR, and completion controls within 232 dp; the compact view uses 48 dp for completion and editing. Android decorates and constrains RemoteViews ([documentation](https://developer.android.com/develop/ui/views/notifications/custom-notification)). If a manufacturer clips controls, the bottom sheet and overlay offer the same operations. Not every font or display configuration is guaranteed to fit all controls.
 - There is no exact alarm or wake lock. If the CPU is suspended, the transition may run after the device wakes. It is calculated from the actual deadline and does not drift because ticks were missed. A native countdown may reach zero before the process runs again.
 - Android or the user may terminate the process or service. Indefinite background execution is not guaranteed. Returning to the app restores the session and reconciles rest state; tap a mode button to reactivate the service. Force-stop removes the UI surfaces but does not delete the session file.
