@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "program": {
+    "id": "fictional-program",
+    "name": "Programa ficticio variable",
+    "blocks": [
+      {
+        "id": "block-base",
+        "name": "Bloque base",
+        "weeks": [
+          {
+            "id": "week-one",
+            "name": "Semana 1",
+            "version": 1,
+            "days": [
+              {
+                "id": "day-one-a",
+                "name": "Día A",
+                "exercises": [
+                  {
+                    "id": "prescription-one-squat",
+                    "exerciseId": "squat",
+                    "name": "Sentadilla ficticia",
+                    "sets": [
+                      { "id": "set-one-squat-1", "reps": 8, "rir": 3, "load": { "value": 20, "unit": "KG", "basis": "TOTAL" }, "restSeconds": 90 },
+                      { "id": "set-one-squat-2", "reps": 6, "rir": 2, "load": { "value": 22.5, "unit": "KG", "basis": "TOTAL" }, "restSeconds": 120 }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "day-one-b",
+                "name": "Día B",
+                "exercises": [
+                  {
+                    "id": "prescription-one-row",
+                    "exerciseId": "dumbbell-row",
+                    "name": "Remo ficticio",
+                    "sets": [
+                      { "id": "set-one-row-1", "reps": 10, "rir": 0, "load": { "value": 10, "unit": "LB", "basis": "PER_HAND" }, "restSeconds": 0 }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "week-two",
+            "name": "Semana 2",
+            "version": 1,
+            "days": [
+              {
+                "id": "day-two-c",
+                "name": "Día C",
+                "exercises": [
+                  {
+                    "id": "prescription-two-squat",
+                    "exerciseId": "squat",
+                    "name": "Sentadilla ficticia",
+                    "sets": [
+                      { "id": "set-two-squat-1", "reps": 5, "rir": 4, "load": { "value": 0, "unit": "KG", "basis": "PER_SIDE" }, "restSeconds": 60 }
+                    ]
+                  },
+                  {
+                    "id": "prescription-two-press",
+                    "exerciseId": "machine-press",
+                    "name": "Press ficticio",
+                    "sets": [
+                      { "id": "set-two-press-1", "reps": 12, "load": { "value": 3, "unit": "MACHINE_SETTING", "basis": "MACHINE_SETTING" } },
+                      { "id": "set-two-press-2", "reps": 11, "rir": 2 },
+                      { "id": "set-two-press-3" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "block-next",
+        "name": "Bloque siguiente",
+        "weeks": [
+          {
+            "id": "week-three",
+            "name": "Semana 3",
+            "version": 2,
+            "days": [
+              {
+                "id": "day-three-a",
+                "name": "Día A",
+                "exercises": [
+                  {
+                    "id": "prescription-three-pull",
+                    "exerciseId": "pull-up",
+                    "name": "Dominada ficticia",
+                    "sets": [
+                      { "id": "set-three-pull-1", "load": { "value": 1, "unit": "BODYWEIGHT", "basis": "BODYWEIGHT" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

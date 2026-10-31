@@ -1,6 +1,6 @@
 # Data model and integrity
 
-Status: proposed design from product definition 1.0; not an implemented database schema.
+Status: proposed overall design from product definition 1.0; not an implemented relational database schema. ENT-01 implements the planning aggregate described in [decision 0001](../architecture/decisions/0001-variable-program-library.md).
 The complete requirements remain in [product definition section 6](PRODUCT_DEFINITION.md#6-modelo-de-datos-y-reglas-de-integridad).
 
 | Domain | Proposed entities |
@@ -30,4 +30,4 @@ Session: planned → in progress → completed/partial/not performed. Deliberate
 
 ## Implementation boundary
 
-The prototype uses DataStore for a single fixed demo session. Room, schema migrations, the entities above, and portable JSON contracts remain future work. Do not interpret the illustrative JSON in the product definition as an accepted schema.
+The prototype uses DataStore for a single fixed demo session. ENT-01 adds an independent versioned DataStore program library and a strict [ProgramPackage v1 import contract](../PROGRAM_IMPORT.md). The planning aggregate has ordered blocks/weeks/days/exercises/sets with stable identity and variable counts; it is separate from executed workout state. Room, relational schema migrations, the remaining entities above and full proposal/context/results contracts remain future work. Do not interpret the illustrative JSON in the product definition as an accepted schema.

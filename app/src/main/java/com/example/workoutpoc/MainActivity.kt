@@ -15,6 +15,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.activity.compose.BackHandler
+import com.example.workoutpoc.planning.*
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -29,6 +32,10 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val model: WorkoutViewModel by viewModels()
+    private val programModel: ProgramViewModel by viewModels()
+    private val programFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(programModel::previewFile)
+    }
     private var editorVisible: Boolean by mutableStateOf(false)
     private var notificationEnabled: Boolean by mutableStateOf(false)
     private var overlayGranted: Boolean by mutableStateOf(false)
@@ -57,6 +64,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
+            var showPrograms by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showPrograms) { showPrograms = false }
+            if (showPrograms) {
+                val library by programModel.library.collectAsStateWithLifecycle()
+                val ui by programModel.ui.collectAsStateWithLifecycle()
+                ProgramScreen(library, ui, { showPrograms = false },
+                    { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore)
+                return@setContent
+            }
             val state by model.state.collectAsStateWithLifecycle()
             val ready by model.ready.collectAsStateWithLifecycle()
             val error by model.error.collectAsStateWithLifecycle()
@@ -70,7 +87,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }, {
                     startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
-                }, model::retry, { clockSnapshot(this) }, ::dispatch)
+                }, model::retry, { clockSnapshot(this) }, ::dispatch, { showPrograms = true })
         }
     }
     override fun onNewIntent(intent: Intent) {

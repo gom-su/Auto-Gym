@@ -1,6 +1,8 @@
 # Auto-Gym
 
-Auto-Gym is a personal Android training application built with Kotlin. The current implementation is an offline workout notification and floating-panel proof of concept; variable programs, full history, portable plan exchange, analytics, and agent-assisted planning are planned work.
+Auto-Gym is a personal Android training application built with Kotlin. The current implementation includes an offline workout notification/floating-panel proof of concept and a variable-program library. Full history, complete portable plan exchange, analytics, and agent-assisted planning are planned work.
+
+ENT-01 adds a **Programas** library: import a variable program from JSON or pasted text, review its blocks/weeks/days/sets, explicitly save it and browse it offline. See the [contract, fictitious fixture and acceptance steps](docs/PROGRAM_IMPORT.md). The workout notification/overlay still records the fixed demo; imported programs do not activate a week. Physical-device acceptance is tracked separately.
 
 Track work in the [GitHub Project](https://github.com/users/gom-su/projects/1). See the [roadmap](ROADMAP.md), [product definition](docs/product/PRODUCT_DEFINITION.md), [backlog](docs/product/BACKLOG.md), and [current implementation gaps](docs/product/IMPLEMENTATION_GAPS.md). The repository is licensed under [MPL-2.0](LICENSE).
 

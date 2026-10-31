@@ -22,7 +22,7 @@ fun WorkoutScreen(
     overlayGranted: Boolean, message: String?, editorVisible: Boolean,
     onDismissEditor: () -> Unit, onNotificationMode: () -> Unit, onOverlayMode: () -> Unit,
     onNotificationSettings: () -> Unit, retry: () -> Unit,
-    now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit
+    now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit, onPrograms: () -> Unit
 ) {
     val colors = darkColorScheme(primary = Color(0xFFB4EE80), onPrimary = Color(0xFF17220F),
         background = Color(0xFF101612), surface = Color(0xFF18221C), surfaceContainer = Color(0xFF243028))
@@ -33,6 +33,7 @@ fun WorkoutScreen(
                 Text("WORKOUT / POC", style = MaterialTheme.typography.labelLarge, color = colors.primary)
                 Text("Tu siguiente serie.", style = MaterialTheme.typography.headlineLarge)
                 Text("3 ejercicios · 7 series · descansos de 10 s", style = MaterialTheme.typography.bodyMedium)
+                OutlinedButton(onClick = onPrograms) { Text("Programas") }
                 if (error != null) {
                     Text(error, color = colors.error)
                     TextButton(onClick = retry) { Text("Reintentar") }
