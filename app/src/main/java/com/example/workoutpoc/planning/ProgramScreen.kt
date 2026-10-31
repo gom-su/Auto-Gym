@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ProgramScreen(
     library: ProgramLibrary, ui: ProgramUiState, onBack: () -> Unit, onFile: () -> Unit,
-    onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit
+    onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit, onExchange: () -> Unit
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -26,6 +26,7 @@ fun ProgramScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
                 item { TextButton(onClick = onBack) { Text("Volver al entrenamiento") } }
                 item { Text("Programas", style = MaterialTheme.typography.headlineLarge) }
+                item { OutlinedButton(onClick = onExchange) { Text("Intercambio JSON") } }
                 if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 ui.message?.let { item { Text(it) } }
                 if (!ui.ready) item {

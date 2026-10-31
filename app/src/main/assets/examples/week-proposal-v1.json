@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "importId": "fictional-proposal",
+  "createdAt": "2026-10-30T12:00:00Z",
+  "type": "WeekProposal",
+  "proposal": {
+    "id": "proposal-one",
+    "version": 1,
+    "programId": "fictional-program",
+    "blockId": "block-base",
+    "source": "Agente ficticio",
+    "week": {
+      "id": "week-one",
+      "name": "Semana 1",
+      "version": 1,
+      "days": [
+        {
+          "id": "day-one-a",
+          "name": "DÃ­a A",
+          "exercises": [
+            {
+              "id": "prescription-one-squat",
+              "exerciseId": "squat",
+              "name": "Sentadilla ficticia",
+              "sets": [
+                {
+                  "id": "set-one-squat-1",
+                  "reps": 8,
+                  "rir": 3,
+                  "load": {
+                    "value": 20,
+                    "unit": "KG",
+                    "basis": "TOTAL"
+                  },
+                  "restSeconds": 90
+                },
+                {
+                  "id": "set-one-squat-2",
+                  "reps": 6,
+                  "rir": 2,
+                  "load": {
+                    "value": 22.5,
+                    "unit": "KG",
+                    "basis": "TOTAL"
+                  },
+                  "restSeconds": 120
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "day-one-b",
+          "name": "DÃ­a B",
+          "exercises": [
+            {
+              "id": "prescription-one-row",
+              "exerciseId": "dumbbell-row",
+              "name": "Remo ficticio",
+              "sets": [
+                {
+                  "id": "set-one-row-1",
+                  "reps": 10,
+                  "rir": 0,
+                  "load": {
+                    "value": 10,
+                    "unit": "LB",
+                    "basis": "PER_HAND"
+                  },
+                  "restSeconds": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "differences": [
+      "Cambio ficticio de volumen"
+    ],
+    "reasons": [
+      "Razón ficticia para revisión"
+    ]
+  }
+}

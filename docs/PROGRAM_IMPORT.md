@@ -1,6 +1,6 @@
 # Variable program import (ENT-01)
 
-Implemented scope: independent variable programs, blocks, weeks, days, exercises and sets; file/pasted-JSON preview; explicit save; offline browsing and restoration. Imports do not activate a week or change the fixed demo workout. Export, Markdown migration, full proposal approval, program updates and variable-plan recording belong to later requirements.
+Implemented scope: independent variable programs, blocks, weeks, days, exercises and sets; file/pasted-JSON preview; explicit save; offline browsing and restoration. Imports do not activate a week or change the fixed demo workout. ENT-02 now exports the complete program library inside a [TrainingContext](JSON_EXCHANGE.md). Markdown migration, full proposal approval, program updates and variable-plan recording belong to later requirements.
 
 ## Try it
 

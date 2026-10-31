@@ -5,7 +5,7 @@ Assessment date: 2026-10-30. This maps the existing source and verification repo
 | Requirement | Existing evidence | Remaining work |
 | --- | --- | --- |
 | ENT-01 variable plans | Variable library with JSON preview/save, ordered blocks/weeks/days/exercises/sets, stable IDs, independent atomic persistence | Target-phone manual acceptance; see [import contract](../PROGRAM_IMPORT.md). Recording still uses fixed demo |
-| ENT-02 JSON exchange | Internal workout snapshot; strict ProgramPackage v1 library import | Full proposal/context/results contracts, export and round-trip compatibility |
+| ENT-02 JSON exchange | Typed context/proposal/results v1; review/save, copy/file export, independent atomic archive, strict compatibility and round-trip checks; see [contract](../JSON_EXCHANGE.md) | Physical target-phone acceptance; public evidence/release. Proposal activation and real history remain separate requirements |
 | ENT-03 Markdown migration | None in prototype | Parser, ambiguity review, synthetic public fixtures and private local validation |
 | ENT-04 one-tap overlay | WindowManager controls and emulator UI test | Connect to real variable plans; validate target phone, permissions, accessibility and interruptions |
 | ENT-05 actual versus planned | Weight, reps, RIR editing and undo | Full independent prescription/execution, notes, add/omit/edit sets and audit |

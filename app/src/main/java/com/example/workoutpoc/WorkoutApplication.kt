@@ -20,6 +20,11 @@ class WorkoutApplication : Application() {
         ProgramRepository(DataStoreFactory.create(ProgramLibrarySerializer,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("programs-v1.json") })
     }
+    val exchanges: com.example.workoutpoc.exchange.ExchangeRepository by lazy {
+        com.example.workoutpoc.exchange.ExchangeRepository(DataStoreFactory.create(
+            com.example.workoutpoc.exchange.ExchangeArchiveSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("exchanges-v1.json") })
+    }
     /** Shared publisher deduplicates receiver and service observations of the same snapshot. */
     val notifications: WorkoutNotificationManager by lazy { WorkoutNotificationManager(this) }
     val repository: WorkoutRepository by lazy {

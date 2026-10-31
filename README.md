@@ -94,3 +94,7 @@ Unit tests cover values and limits, set recording, monotonic rest timing, exerci
 - Android can hide overlays on sensitive screens. The controls must respect that protection. The panel does not take input focus or open a keyboard.
 - Special overlay access can be revoked outside the app. The controller removes the window and logs recoverable errors. If the session file is corrupt, the app shows an error without silently overwriting records. Recovering this self-contained demo may require clearing its app data in Settings.
 - Editable routines, session history, synchronization, alarms, sensors, and store publication are outside the scope of this demo.
+
+### JSON interchange (ENT-02)
+
+Open **Programas > Intercambio JSON** to review, save, copy and import/export versioned context, week proposals and results. Exchanges are archived without approving proposals or modifying programs or the active session. Includes synthetic examples, schema versions, explicit units, measurement privacy and conflict rejection. See the [contract and verification](docs/JSON_EXCHANGE.md).

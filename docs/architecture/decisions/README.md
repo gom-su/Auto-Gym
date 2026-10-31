@@ -7,3 +7,5 @@ The suggested module layout, exact schemas, and detailed progression policies ar
 For each future accepted technical decision, add a numbered Markdown file with context, decision, status, consequences, linked issue, and implementation evidence. Supersede decisions explicitly and preserve their history.
 
 - [0001 — ENT-01 variable program library](0001-variable-program-library.md): implemented ordered aggregate, strict import and independent DataStore storage; relational history remains future work.
+
+- [0002 — JSON interchange](0002-json-interchange.md): strict typed packages, independent archive, privacy and idempotency.

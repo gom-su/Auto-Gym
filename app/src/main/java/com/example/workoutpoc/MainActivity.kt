@@ -1,5 +1,6 @@
 package com.example.workoutpoc
 
+import com.example.workoutpoc.exchange.*
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -36,6 +37,13 @@ class MainActivity : ComponentActivity() {
     private val programFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(programModel::previewFile)
     }
+    private val exchangeModel: ExchangeViewModel by viewModels()
+    private val exchangeFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(exchangeModel::previewFile)
+    }
+    private val exchangeDestination = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        exchangeModel.write(uri)
+    }
     private var editorVisible: Boolean by mutableStateOf(false)
     private var notificationEnabled: Boolean by mutableStateOf(false)
     private var overlayGranted: Boolean by mutableStateOf(false)
@@ -65,13 +73,26 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             var showPrograms by rememberSaveable { mutableStateOf(false) }
+            var showExchange by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showExchange) { showExchange = false }
+            if (showExchange) {
+                val archive by exchangeModel.archive.collectAsStateWithLifecycle()
+                val exchangeUi by exchangeModel.ui.collectAsStateWithLifecycle()
+                ExchangeScreen(archive, exchangeUi, { showExchange = false },
+                    { exchangeFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    exchangeModel::previewText, exchangeModel::save, exchangeModel::cancel,
+                    exchangeModel::restore, exchangeModel::select, exchangeModel::generate,
+                    { include -> if (exchangeModel.stageExport(include)) exchangeDestination.launch("auto-gym-interchange-v1.json") },
+                    exchangeModel::copy)
+                return@setContent
+            }
             BackHandler(showPrograms) { showPrograms = false }
             if (showPrograms) {
                 val library by programModel.library.collectAsStateWithLifecycle()
                 val ui by programModel.ui.collectAsStateWithLifecycle()
                 ProgramScreen(library, ui, { showPrograms = false },
                     { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
-                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore)
+                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore, { showExchange = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()
