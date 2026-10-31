@@ -21,6 +21,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    sourceSets.getByName("test").resources.srcDir("src/main/assets")
 }
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2025.09.01")

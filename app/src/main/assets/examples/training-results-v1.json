@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "importId": "fictional-results",
+  "createdAt": "2026-10-30T12:00:00Z",
+  "type": "TrainingResults",
+  "results": {
+    "sessions": [
+      {
+        "id": "fictional-session",
+        "sessionPlanId": "day-one-a",
+        "status": "PARTIAL",
+        "startedAt": "2026-10-30T11:00:00Z",
+        "endedAt": "2026-10-30T11:30:00Z",
+        "notes": "Resultado ficticio, sin recomendación médica.",
+        "sets": [
+          {
+            "id": "fictional-result-set",
+            "prescriptionId": "set-one-squat-1",
+            "exerciseId": "squat",
+            "status": "COMPLETED",
+            "reps": 8,
+            "rir": 0,
+            "load": {
+              "value": 20.5,
+              "unit": "KG",
+              "basis": "PER_SIDE"
+            },
+            "completedAt": "2026-10-30T11:05:00Z",
+            "notes": null
+          },
+          {
+            "id": "fictional-omitted-set",
+            "prescriptionId": "set-one-squat-2",
+            "exerciseId": "squat",
+            "status": "OMITTED",
+            "reps": null,
+            "rir": null,
+            "load": null,
+            "completedAt": null,
+            "notes": "Omitida deliberadamente"
+          }
+        ],
+        "cardio": [
+          {
+            "id": "fictional-cardio",
+            "status": "PARTIAL",
+            "durationSeconds": 300,
+            "distance": 0.5,
+            "distanceUnit": "KM",
+            "notes": "Dato ficticio"
+          }
+        ]
+      }
+    ],
+    "demo": null
+  }
+}

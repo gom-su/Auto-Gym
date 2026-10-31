@@ -63,13 +63,15 @@ class WorkoutDeviceTest {
 
     private fun shade() {
         device.openNotification()
-        if (!device.wait(Until.hasObject(By.res(pkg, "weight_plus")), 1_000)) {
+        if (!device.wait(Until.hasObject(By.res(pkg, "weight_plus")), 1_000) &&
+            !device.hasObject(By.res(pkg, "countdown"))) {
             toggleWorkoutNotification()
         }
     }
 
     private fun toggleWorkoutNotification() {
-        var node: UiObject2? = device.findObject(By.text("Workout Notification PoC"))
+        var node: UiObject2? = device.findObject(By.res(pkg, "compact_title"))
+            ?: device.findObject(By.text("Workout Notification PoC"))
         while (node != null) {
             val expand = node.findObject(By.res("android", "expand_button"))
             if (expand != null) { expand.click(); device.waitForIdle(); return }
@@ -145,7 +147,7 @@ class WorkoutDeviceTest {
         moved.click()
         control("overlay_complete")
         awaitState("Overlay complete") { it.phase == Phase.Resting && it.records.size == 2 }
-        device.openNotification()
+        shade()
         assertNotNull(device.wait(Until.findObject(By.res(pkg, "countdown")), 4_000))
         screenshot("06-overlay-updates-notification")
         device.pressBack()
@@ -164,6 +166,10 @@ class WorkoutDeviceTest {
         device.pressHome()
         launch()
         assertEquals(2, app.repository.state.value.records.size)
+        val beforeLibrary = app.repository.state.value
+        button("Programas")
+        button("Volver al entrenamiento")
+        assertEquals("Library navigation must preserve the active session", beforeLibrary, app.repository.state.value)
         button("Iniciar demo — Burbuja flotante")
         repeat(5) { offset ->
             control("overlay_complete")

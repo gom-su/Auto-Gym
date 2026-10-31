@@ -1,0 +1,45 @@
+{
+  "requirement": "ENT-02",
+  "verificationDate": "2026-10-30",
+  "fixtures": "Fictitious training examples only; no personal measurements or user exports included.",
+  "unitTests": {
+    "total": 28,
+    "exchange": 7,
+    "failures": 0
+  },
+  "build": {
+    "standardDebugApk": true
+  },
+  "lint": {
+    "errors": 0,
+    "existingWarnings": 67
+  },
+  "emulator": {
+    "androidApi": 36,
+    "exchangeDeviceTests": 2,
+    "exchangeDeviceFailures": 0,
+    "actualDocumentPickerExport": true,
+    "clipboardPrivacyOptIn": true,
+    "localContextAndResultsGeneration": true,
+    "freshTestInstallationImport": true,
+    "allSupportedFieldsEqual": true,
+    "forceStopRestore": true,
+    "programAndWorkoutRegressionTests": 2,
+    "regressionFailures": 0
+  },
+  "physicalTargetAcceptance": "WAIVED for ENT-02 delivery by explicit user authorization on 2026-10-30; not performed.",
+  "boundaries": [
+    "Imports archive typed data; they never activate or approve proposals.",
+    "Only the current legacy demo snapshot is generated locally; full history/recording are separate requirements.",
+    "Emulator-only acceptance authorized for this delivery; physical-device behavior remains unverified."
+  ],
+  "sourceSha256NormalizedLf": {
+    "app/src/main/java/com/example/workoutpoc/exchange/ExchangeModels.kt": "343f413efca954473808a433dff71d49ae7d9c5ea148eb0cd00a686d1fee22a2",
+    "app/src/main/java/com/example/workoutpoc/exchange/ExchangeRepository.kt": "3c6e7d44f2ebb7417a4f7c0cae2732ab12ad34247761a00e7c551c1f0adcc539",
+    "app/src/main/java/com/example/workoutpoc/exchange/ExchangeScreen.kt": "e0ad8463c2e413037ae7ae7ce384841a374df808700f7d9611e9b8ecf40eeed2",
+    "app/src/main/java/com/example/workoutpoc/exchange/ExchangeViewModel.kt": "d234a2efbfebe219aff3a10b0c61afcbfe1630bc94edd16ad78c2ce5710b7fd1",
+    "app/src/main/java/com/example/workoutpoc/MainActivity.kt": "55db8ab36da17769704cb6858776c9c87997c302fb492cecaccc5fffadf06d50",
+    "app/src/main/java/com/example/workoutpoc/WorkoutApplication.kt": "f02bb67739f59f9cbf7f24c8163a9a38b5e463152845ce637d6def551e3682e8",
+    "app/src/main/java/com/example/workoutpoc/planning/ProgramScreen.kt": "573f2436712446ceb2715dec4e66c5ceddb57149eb17334c7affd83e78edad2c"
+  }
+}

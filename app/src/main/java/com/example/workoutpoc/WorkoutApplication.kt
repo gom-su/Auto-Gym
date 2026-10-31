@@ -6,6 +6,8 @@ import android.util.Log
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import com.example.workoutpoc.data.*
+import com.example.workoutpoc.planning.ProgramRepository
+import com.example.workoutpoc.planning.ProgramLibrarySerializer
 import com.example.workoutpoc.timer.clockSnapshot
 import com.example.workoutpoc.notification.WorkoutNotificationManager
 import kotlinx.coroutines.*
@@ -14,6 +16,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class WorkoutApplication : Application() {
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val error: MutableStateFlow<String?> = MutableStateFlow(null)
+    val programs: ProgramRepository by lazy {
+        ProgramRepository(DataStoreFactory.create(ProgramLibrarySerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("programs-v1.json") })
+    }
+    val exchanges: com.example.workoutpoc.exchange.ExchangeRepository by lazy {
+        com.example.workoutpoc.exchange.ExchangeRepository(DataStoreFactory.create(
+            com.example.workoutpoc.exchange.ExchangeArchiveSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("exchanges-v1.json") })
+    }
     /** Shared publisher deduplicates receiver and service observations of the same snapshot. */
     val notifications: WorkoutNotificationManager by lazy { WorkoutNotificationManager(this) }
     val repository: WorkoutRepository by lazy {
