@@ -27,11 +27,11 @@
     "programAndWorkoutRegressionTests": 2,
     "regressionFailures": 0
   },
-  "physicalTargetAcceptance": "PENDING — no physical Android device connected during verification.",
+  "physicalTargetAcceptance": "WAIVED for ENT-02 delivery by explicit user authorization on 2026-10-30; not performed.",
   "boundaries": [
     "Imports archive typed data; they never activate or approve proposals.",
     "Only the current legacy demo snapshot is generated locally; full history/recording are separate requirements.",
-    "Physical-device acceptance is required to close the issue."
+    "Emulator-only acceptance authorized for this delivery; physical-device behavior remains unverified."
   ],
   "sourceSha256NormalizedLf": {
     "app/src/main/java/com/example/workoutpoc/exchange/ExchangeModels.kt": "343f413efca954473808a433dff71d49ae7d9c5ea148eb0cd00a686d1fee22a2",

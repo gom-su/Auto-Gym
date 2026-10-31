@@ -53,7 +53,7 @@ Physical Android target acceptance and publication status must be recorded separ
 - `python scripts/verify_exchange_restore.py --serial emulator-5554 --package com.example.workoutpoc.exchangeqa`: PASS; the archived proposal remains equal after force-stop/relaunch and is restored into the UI. Its screenshot was visually inspected. The verifier can also target a connected physical test device; it never clears data.
 - ProgramDeviceTest and WorkoutDeviceTest pass together with the export/import device test in a three-test regression run. Notification/overlay recording remains intact.
 
-Raw local evidence is retained under `.local/ent-02-verification/` and `.local/ent-02-restoration/`. The checked-in summary contains synthetic test metadata only. Emulator results establish the portable JSON behavior, not Samsung/One UI physical acceptance. The full issue stays open pending the original physical-device gate. Publication and review are tracked in the linked implementation PR.
+Raw local evidence is retained under `.local/ent-02-verification/` and `.local/ent-02-restoration/`. The checked-in summary contains synthetic test metadata only. Emulator results establish the portable JSON behavior, not Samsung/One UI physical acceptance. Delivery acceptance is emulator-only by explicit user authorization on 2026-10-30. Physical Samsung/One UI testing was not performed and is waived for this ENT-02 delivery; the recorded emulator results are not physical-device evidence. Publication and review are tracked in PR #25.
 
 ### Repeat clean-install acceptance
 

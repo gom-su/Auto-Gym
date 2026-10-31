@@ -5,7 +5,7 @@ Assessment date: 2026-10-30. This maps the existing source and verification repo
 | Requirement | Existing evidence | Remaining work |
 | --- | --- | --- |
 | ENT-01 variable plans | Variable library with JSON preview/save, ordered blocks/weeks/days/exercises/sets, stable IDs, independent atomic persistence | Target-phone manual acceptance; see [import contract](../PROGRAM_IMPORT.md). Recording still uses fixed demo |
-| ENT-02 JSON exchange | Typed context/proposal/results v1; review/save, copy/file export, independent atomic archive, strict compatibility and round-trip checks; see [contract](../JSON_EXCHANGE.md) | Physical target-phone acceptance; public evidence/release. Proposal activation and real history remain separate requirements |
+| ENT-02 JSON exchange | Typed context/proposal/results v1; review/save, copy/file export, independent atomic archive, strict compatibility and round-trip checks; see [contract](../JSON_EXCHANGE.md) | ENT-02 delivery accepted with emulator evidence; physical testing waived by user on 2026-10-30. Proposal activation and real history remain separate requirements |
 | ENT-03 Markdown migration | None in prototype | Parser, ambiguity review, synthetic public fixtures and private local validation |
 | ENT-04 one-tap overlay | WindowManager controls and emulator UI test | Connect to real variable plans; validate target phone, permissions, accessibility and interruptions |
 | ENT-05 actual versus planned | Weight, reps, RIR editing and undo | Full independent prescription/execution, notes, add/omit/edit sets and audit |
@@ -19,4 +19,4 @@ Assessment date: 2026-10-30. This maps the existing source and verification repo
 
 Evidence: [prototype README](../../README.md), [verification report](../VERIFICATION.md), [latency investigation](../NOTIFICATION_LATENCY.md), and source under `app/src/`.
 
-All 24 product requirements remain open. Existing prototype evidence is reusable but does not satisfy each full product acceptance criterion. Emulator verification is distinct from target physical-device verification. Recommendation outcome tracking concerns workout decisions, not training, fine-tuning, benchmarking, or evaluating AI models.
+ENT-02 is accepted for this delivery with an explicit emulator-only validation exception; the other 23 product requirements remain open. Existing prototype evidence is reusable but does not satisfy each full product acceptance criterion. Emulator verification is distinct from target physical-device verification. Recommendation outcome tracking concerns workout decisions, not training, fine-tuning, benchmarking, or evaluating AI models.
