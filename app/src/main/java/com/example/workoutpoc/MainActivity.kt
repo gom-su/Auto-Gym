@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
     private val bodyModel: com.example.workoutpoc.body.BodyViewModel by viewModels()
     private val adherenceModel: AdherenceViewModel by viewModels()
     private val questionsModel: com.example.workoutpoc.questions.QuestionsViewModel by viewModels()
+    private val stagnationModel: com.example.workoutpoc.catalog.StagnationViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -90,6 +91,13 @@ class MainActivity : ComponentActivity() {
             var showBody by rememberSaveable { mutableStateOf(false) }
             var showAdherence by rememberSaveable { mutableStateOf(false) }
             var showQuestions by rememberSaveable { mutableStateOf(false) }
+            var showStagnation by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showStagnation) { showStagnation = false }
+            if (showStagnation) {
+                val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, { showStagnation = false }, stagnationModel::refresh, stagnationModel::setSettings)
+                return@setContent
+            }
             BackHandler(showQuestions) { showQuestions = false }
             if (showQuestions) {
                 val questionsUi by questionsModel.ui.collectAsStateWithLifecycle()
@@ -175,7 +183,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
                     annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true },
-                    { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true })
+                    { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true },
+                    { stagnationModel.refresh(); showStagnation = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

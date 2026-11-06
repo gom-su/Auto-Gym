@@ -18,7 +18,7 @@ fun ProgramScreen(
     onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> },
     onCatalog: () -> Unit = {}, onProposals: () -> Unit = {},
     annotations: WeekAnnotations = WeekAnnotations(), onDeload: (String, String, Boolean) -> Unit = { _, _, _ -> },
-    onBody: () -> Unit = {}, onAdherence: () -> Unit = {}, onQuestions: () -> Unit = {}
+    onBody: () -> Unit = {}, onAdherence: () -> Unit = {}, onQuestions: () -> Unit = {}, onStagnation: () -> Unit = {}
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -38,6 +38,7 @@ fun ProgramScreen(
                 item { OutlinedButton(onClick = onBody) { Text("Peso y composición corporal") } }
                 item { OutlinedButton(onClick = onAdherence) { Text("Adherencia y objetivos") } }
                 item { OutlinedButton(onClick = onQuestions) { Text("Preguntas de planificación") } }
+                item { OutlinedButton(onClick = onStagnation) { Text("Señales de estancamiento") } }
                 if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 ui.message?.let { item { Text(it) } }
                 if (!ui.ready) item {
