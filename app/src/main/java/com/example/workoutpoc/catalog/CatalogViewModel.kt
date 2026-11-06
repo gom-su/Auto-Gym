@@ -16,13 +16,14 @@ data class CatalogUiState(val ready: Boolean = false, val busy: Boolean = false,
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application.workoutApp
     val catalog = app.catalog.catalog
+    val annotations = app.weekAnnotations.annotations
     private val mutableUi = MutableStateFlow(CatalogUiState())
     val ui = mutableUi.asStateFlow()
     init { refresh() }
 
     /** Restores the catalog and registers exercises referenced by programs and recorded sessions. */
     fun refresh() = operation {
-        app.catalog.restore(); app.programs.restore(); app.repository.restore()
+        app.catalog.restore(); app.programs.restore(); app.repository.restore(); app.weekAnnotations.restore()
         val current = app.repository.state.value
         val sessions = app.repository.archived.value.sessions + listOfNotNull(current.takeIf { it.records.isNotEmpty() })
         val added = app.catalog.sync(exerciseReferences(app.programs.library.value.programs, sessions))

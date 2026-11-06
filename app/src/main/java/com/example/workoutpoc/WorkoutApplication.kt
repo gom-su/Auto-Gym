@@ -36,6 +36,11 @@ class WorkoutApplication : Application() {
                     catalog.catalog.value.exercises.map { it.id } + sessions.flatMap { s -> s.plan.mapNotNull { it.exerciseId } }).toSet()
             })
     }
+    val weekAnnotations: com.example.workoutpoc.planning.WeekAnnotationRepository by lazy {
+        com.example.workoutpoc.planning.WeekAnnotationRepository(DataStoreFactory.create(
+            com.example.workoutpoc.planning.WeekAnnotationsSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("week-annotations-v1.json") })
+    }
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val error: MutableStateFlow<String?> = MutableStateFlow(null)
     val programs: ProgramRepository by lazy {

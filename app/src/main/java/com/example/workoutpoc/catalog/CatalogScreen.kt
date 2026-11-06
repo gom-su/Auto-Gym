@@ -26,7 +26,8 @@ private fun LoadBasis.label() = when (this) {
 }
 
 @Composable
-fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Unit, onRetry: () -> Unit, onSave: (CatalogExercise) -> Unit) {
+fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Unit, onRetry: () -> Unit, onSave: (CatalogExercise) -> Unit,
+                  annotations: com.example.workoutpoc.planning.WeekAnnotations = com.example.workoutpoc.planning.WeekAnnotations()) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = catalog.exercises.find { it.id == selectedId }
     val ambiguous = remember(catalog) { CatalogCodec.ambiguous(catalog) }
@@ -64,11 +65,13 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
                     groups.forEach { group ->
                         item { Text("${unitLabel(group.unit)} · ${basisLabel(group.basis)} · ${plural(group.exposures.size, "exposición", "exposiciones")}",
                             style = MaterialTheme.typography.titleMedium) }
+                        item { PerformanceChart(group, annotations) }
                         items(group.exposures, key = { "${group.unit}-${group.basis}-${it.sessionId}" }) { e ->
                             val format = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
                             Card(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text("${format.format(Date(e.startedAtMillis))} · ${e.label}", style = MaterialTheme.typography.titleSmall)
+                                    Text("${format.format(Date(e.startedAtMillis))} · ${e.label}" +
+                                        if (annotations.isDeload(e.programId, e.weekId)) " · descarga" else "", style = MaterialTheme.typography.titleSmall)
                                     Text(listOfNotNull(
                                         e.topLoadTenths?.let { "máx. ${loadLabel(it, group.unit)} × ${e.bestRepsAtTopLoad}" },
                                         "${plural(e.workSets, "serie", "series")} · ${e.totalReps} reps",

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -15,7 +16,8 @@ fun ProgramScreen(
     library: ProgramLibrary, ui: ProgramUiState, onBack: () -> Unit, onFile: () -> Unit,
     onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit, onExchange: () -> Unit,
     onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> },
-    onCatalog: () -> Unit = {}, onProposals: () -> Unit = {}
+    onCatalog: () -> Unit = {}, onProposals: () -> Unit = {},
+    annotations: WeekAnnotations = WeekAnnotations(), onDeload: (String, String, Boolean) -> Unit = { _, _, _ -> }
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -64,7 +66,8 @@ fun ProgramScreen(
                 if (selected != null) programBrowser(selected, weekId, dayId,
                     { weekId = it }, { dayId = it },
                     // Only saved programs can be trained; a preview must be saved first.
-                    if (ui.preview == null && ui.ready && !ui.busy) onTrainDay else null)
+                    if (ui.preview == null && ui.ready && !ui.busy) onTrainDay else null,
+                    annotations, if (ui.preview == null && ui.ready && !ui.busy) onDeload else null)
             }
         }
     }
@@ -73,7 +76,8 @@ fun ProgramScreen(
 private fun LazyListScope.programBrowser(
     program: TrainingProgram, weekId: String?, dayId: String?,
     onWeek: (String?) -> Unit, onDay: (String?) -> Unit,
-    onTrainDay: ((TrainingProgram, String, String) -> Unit)?
+    onTrainDay: ((TrainingProgram, String, String) -> Unit)?,
+    annotations: WeekAnnotations, onDeload: ((String, String, Boolean) -> Unit)?
 ) {
     val week = program.blocks.flatMap { it.weeks }.find { it.id == weekId }
     val day = week?.days?.find { it.id == dayId }
@@ -86,6 +90,15 @@ private fun LazyListScope.programBrowser(
     } else {
         item { TextButton(onClick = { onWeek(null) }) { Text("Ver semanas") } }
         item { Text("${week.name} · versión ${week.version}", style = MaterialTheme.typography.titleMedium) }
+        if (onDeload != null) item {
+            val deload = annotations.isDeload(program.id, week.id)
+            // The whole row toggles, so the label is a tap target and is announced with the switch state.
+            Row(Modifier.fillMaxWidth().toggleable(deload, role = androidx.compose.ui.semantics.Role.Switch) { onDeload(program.id, week.id, it) },
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(deload, null)
+                Text("Semana de descarga" + if (deload) " (marcada)" else "")
+            }
+        }
         if (day == null) items(week.days, key = { "day-${it.id}" }) { d ->
             OutlinedButton(onClick = { onDay(d.id) }) { Text("${d.name} · ${d.exercises.size} ${if (d.exercises.size == 1) "ejercicio" else "ejercicios"} · ${d.exercises.sumOf { it.sets.size }} series") }
         } else {
