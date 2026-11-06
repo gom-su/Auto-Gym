@@ -98,3 +98,7 @@ Unit tests cover values and limits, set recording, monotonic rest timing, exerci
 ### JSON interchange (ENT-02)
 
 Open **Programas > Intercambio JSON** to review, save, copy and import/export versioned context, week proposals and results. Exchanges are archived without approving proposals or modifying programs or the active session. Includes synthetic examples, schema versions, explicit units, measurement privacy and conflict rejection. See the [contract and verification](docs/JSON_EXCHANGE.md).
+
+### Obsidian migration (ENT-03)
+
+Open **Programas > Migrar desde Obsidian** to import a Workout v3 Markdown week, review separate objectives/results, notes and ambiguity warnings, and explicitly save an offline migration archive. Original text and source lines are retained; seen warnings remain unresolved data. Reimports preserve saved review without duplicates. This delivery archives migration data without activating weeks or creating executable history. See the [contract, synthetic examples and verification](docs/OBSIDIAN_MIGRATION.md).

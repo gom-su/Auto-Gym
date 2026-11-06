@@ -30,4 +30,6 @@ Session: planned → in progress → completed/partial/not performed. Deliberate
 
 ## Implementation boundary
 
+ENT-03 adds an independent [Obsidian migration archive](../OBSIDIAN_MIGRATION.md) with immutable source/interpretation and mutable warning acknowledgements. Ranges, unknown bases and ambiguous result associations remain represented without forcing them into executable prescriptions or session history. Program and exchange v1 contracts are unchanged.
+
 The prototype uses DataStore for a single fixed demo session. ENT-01 adds an independent versioned DataStore program library and a strict [ProgramPackage v1 import contract](../PROGRAM_IMPORT.md). The planning aggregate has ordered blocks/weeks/days/exercises/sets with stable identity and variable counts; it is separate from executed workout state. Room, relational schema migrations, the remaining entities above remain future work. ENT-02 adds [versioned context/proposal/results interchange](../JSON_EXCHANGE.md) and an independent atomic archive; it preserves imported results without activating proposals or replacing executable state. Do not interpret the illustrative JSON in the product definition as an accepted schema.

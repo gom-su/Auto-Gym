@@ -9,3 +9,5 @@ For each future accepted technical decision, add a numbered Markdown file with c
 - [0001 — ENT-01 variable program library](0001-variable-program-library.md): implemented ordered aggregate, strict import and independent DataStore storage; relational history remains future work.
 
 - [0002 — JSON interchange](0002-json-interchange.md): strict typed packages, independent archive, privacy and idempotency.
+
+- [0003 — Obsidian migration archive](0003-obsidian-migration-archive.md): original-preserving Workout v3 parsing, explicit uncertainty and offline review independent of executable programs/history.
