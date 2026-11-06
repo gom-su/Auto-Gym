@@ -56,6 +56,7 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
                     }
                 } else {
                     item { ExerciseEditor(selected, selected.id in ambiguous, !ui.busy && ui.ready, onSave) }
+                    item { PhaseComparisonSection(selected.id, ui.sessions, ui.programs, annotations) }
                     val history = exerciseHistory(selected.id, ui.sessions)
                     val groups = exposures(selected.id, ui.sessions)
                     item { Text("Historial · ${plural(history.size, "serie", "series")}", style = MaterialTheme.typography.titleLarge) }
