@@ -111,6 +111,10 @@ Open **Programas > Adherencia y objetivos** to see every planned day as complete
 
 Open **Programas > Peso y composición corporal** to record dated measurements with their unit and method. Trends are drawn per method and unit; when different methods (e.g. bioimpedance and DEXA) or units exist for a metric, they stay separate and a warning says they are not directly comparable. See [measurements](docs/BODY_MEASUREMENTS.md).
 
+### Stagnation signals (INT-03)
+
+Open **Programas > Señales de estancamiento** for alerts raised when recent comparable exposures of an exercise stop improving on its previous best. Each alert states its period, the data used, its limitations and a checkable explanation; without enough evidence, no alert is raised. See [signals](docs/STAGNATION_SIGNALS.md).
+
 ### Planning questions (AG-01)
 
 Open **Programas > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
