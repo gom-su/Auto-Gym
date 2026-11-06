@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "type": "WeekProposal",
+  "importId": "mcp-e930b8e34d484ab3a2291c3db6b39dc9",
+  "createdAt": "2026-11-06T20:34:50Z",
+  "context": null,
+  "proposal": {
+    "id": "mcp-example",
+    "version": 1,
+    "programId": "fictional-program",
+    "blockId": "block-base",
+    "source": "Agente vía MCP",
+    "week": {
+      "id": "mcp-example-week",
+      "name": "Semana propuesta por MCP",
+      "version": 1,
+      "days": [
+        {
+          "id": "mcp-example-day",
+          "name": "Día MCP",
+          "exercises": [
+            {
+              "id": "mcp-example-squat",
+              "exerciseId": "squat",
+              "name": "Sentadilla ficticia",
+              "sets": [
+                {
+                  "id": "mcp-example-s1",
+                  "reps": 6,
+                  "rir": 2,
+                  "load": {
+                    "value": 0.0,
+                    "unit": "KG",
+                    "basis": "PER_SIDE"
+                  },
+                  "restSeconds": 90
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "differences": [
+      "Sentadilla ficticia: 5 → 6 repeticiones"
+    ],
+    "reasons": [
+      "Sentadilla ficticia: el RIR registrado permite una repetición más."
+    ]
+  },
+  "results": null
+}
