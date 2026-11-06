@@ -28,7 +28,8 @@ fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
     }
     for (down in listOf(true, false)) {
         var previous: List<String>? = null
-        for (step in 0 until 20) {
+        // Long lists (archives grow with every run) may need many drags; the loop stops early at the end anyway.
+        for (step in 0 until 60) {
             if (down) { val y = freeY(listOf(0.72, 0.78, 0.66, 0.84, 0.6, 0.9, 0.54, 0.94)); drag(x, y, x, y - distance, 60) }
             else { val y = freeY(listOf(0.40, 0.34, 0.46, 0.28, 0.52, 0.2, 0.58, 0.14)); drag(x, y, x, y + distance, 60) }
             // A drag that starts on a text field can focus it; a shown keyboard then hides the rest of the screen.
@@ -45,8 +46,24 @@ fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
 
 /** Scrolls to and taps [text], retrying when Compose recycles the node between finding and tapping it. */
 fun UiDevice.clickText(text: String) {
-    repeat(3) {
-        try { scrollToText(text).click(); waitForIdle(); return } catch (_: StaleObjectException) { SystemClock.sleep(200) }
+    // Tap the node's position rather than the node: a focused text field (blinking cursor) keeps refreshing the
+    // accessibility tree, so a node reference can go stale between finding it and clicking it.
+    fun tapIfVisible(): Boolean {
+        // Fast path: find and read the position in one go, many times, so a refresh rarely lands in between.
+        val end = SystemClock.elapsedRealtime() + 3_000
+        while (SystemClock.elapsedRealtime() < end) {
+            try {
+                val node = findObject(By.textStartsWith(text)) ?: return false
+                val bounds = node.visibleBounds
+                click(bounds.centerX(), bounds.centerY()); waitForIdle(); return true
+            } catch (_: StaleObjectException) { SystemClock.sleep(50) }
+        }
+        return false
+    }
+    if (tapIfVisible()) return
+    repeat(4) {
+        try { scrollToText(text) } catch (_: StaleObjectException) { }
+        if (tapIfVisible()) return
     }
     fail("Could not tap: $text")
 }

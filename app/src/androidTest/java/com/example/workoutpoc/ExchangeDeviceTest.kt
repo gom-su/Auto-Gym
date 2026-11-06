@@ -18,11 +18,19 @@ class ExchangeDeviceTest {
     private val inst = InstrumentationRegistry.getInstrumentation()
     private val app = inst.targetContext.applicationContext as WorkoutApplication
     private val device = UiDevice.getInstance(inst)
-    private fun click(text: String) {
-        if (!device.wait(Until.hasObject(By.text(text)), 1000))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text))
-        val node = device.wait(Until.findObject(By.text(text)), 8000)
-        assertNotNull("Missing: $text", node); node!!.click(); device.waitForIdle()
+    // Shared helper: searches both directions and taps by position, robust to Compose node refreshes.
+    private fun click(text: String) = device.clickText(text)
+    /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
+    private fun pickerClick(text: String) {
+        if (!device.wait(Until.hasObject(By.text(text)), 3_000))
+            try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
+        val node = device.wait(Until.findObject(By.text(text)), 8_000)
+        assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
+    }
+    @org.junit.After fun capture() {
+        val file = File(app.getExternalFilesDir(null), "exchange-last-ui.xml")
+        device.dumpWindowHierarchy(file)
+        device.executeShellCommand("cp ${file.absolutePath} /sdcard/Download/exchange-last-ui.xml")
     }
     @Test fun contextPrivacyClipboardAndLocalGeneration() = runBlocking {
         device.wakeUp(); device.executeShellCommand("wm dismiss-keyguard"); device.executeShellCommand("cmd statusbar collapse")
@@ -35,7 +43,7 @@ class ExchangeDeviceTest {
         click("Programas"); click("Intercambio JSON")
         click("TrainingContext · device-privacy-context")
         click("Copiar JSON")
-        assertTrue(device.wait(Until.hasObject(By.text("JSON copiado al portapapeles del sistema.")), 5000))
+        assertNotNull(device.scrollToText("JSON copiado al portapapeles del sistema."))
         val clipboard = app.getSystemService(android.content.ClipboardManager::class.java)
         val redacted = ExchangeCodec.decode(clipboard.primaryClip!!.getItemAt(0).text.toString())
         assertTrue(redacted.context!!.measurements.isEmpty())
@@ -62,14 +70,21 @@ class ExchangeDeviceTest {
         val data = ExchangePackage(1, ExchangeType.WeekProposal, "device-exchange-proposal", "2026-10-30T12:00:00Z",
             proposal = WeekProposal("proposal-device", 1, p.id, p.blocks[0].id, "Fuente ficticia", p.blocks[0].weeks[0], listOf("Cambio ficticio"), listOf("Razón ficticia")))
         val file = File(app.getExternalFilesDir(null), "ent-02-input.json").apply { writeText(ExchangeCodec.encode(data)) }
+        // Remove this test's own earlier synthetic exports so the picker list stays short.
+        device.executeShellCommand("ls /sdcard/Download").lines().map { it.trim() }
+            .filter { it.startsWith("ent-02-export-") && it.endsWith(".json") }
+            .forEach { device.executeShellCommand("rm /sdcard/Download/$it") }
         device.executeShellCommand("cp ${file.absolutePath} /sdcard/Download/ent-02-input.json")
+        // Index the copied file so the system picker lists it (otherwise it may be missing from Downloads).
+        device.executeShellCommand("am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/ent-02-input.json")
+        android.os.SystemClock.sleep(1_000)
         app.repository.restore(); app.programs.restore()
         val before = app.repository.state.value
         val programs = app.programs.library.value
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         click("Programas"); click("Intercambio JSON"); click("Importar archivo de intercambio")
         device.wait(Until.findObject(By.desc("Show roots")), 3000)?.click()
-        click("Downloads"); click("ent-02-input.json")
+        pickerClick("Downloads"); pickerClick("ent-02-input.json")
         assertTrue(device.wait(Until.hasObject(By.text("Revisar intercambio")), 5000))
         click("Guardar intercambio")
         assertTrue(device.wait(Until.hasObject(By.textContains("Intercambio guardado")), 5000) || device.hasObject(By.textContains("ya estaba guardado")))
@@ -87,7 +102,7 @@ class ExchangeDeviceTest {
         val save = device.wait(Until.findObject(By.res("com.google.android.documentsui", "button1")), 3000)
             ?: device.wait(Until.findObject(By.text("SAVE")), 3000)
         assertNotNull(save); save!!.click()
-        assertTrue(device.wait(Until.hasObject(By.text("JSON exportado correctamente.")), 8000))
+        assertNotNull(device.scrollToText("JSON exportado correctamente."))
         val exportedPath = device.executeShellCommand("find /sdcard/Download -name $outputName").trim()
         assertTrue(exportedPath.isNotEmpty())
         val exported = device.executeShellCommand("cat $exportedPath")

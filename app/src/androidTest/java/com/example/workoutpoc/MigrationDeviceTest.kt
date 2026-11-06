@@ -24,14 +24,14 @@ class MigrationDeviceTest {
         try { if (scroll.exists()) scroll.scrollToBeginning(50) }
         catch (_: UiObjectNotFoundException) { }
     }
-    private fun click(text: String) {
-        if (!device.wait(Until.hasObject(By.text(text)), 1_000)) {
-            scrollTop()
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text))
-        }
+    // Shared helper: searches both directions and taps by position, robust to Compose node refreshes.
+    private fun click(text: String) = device.clickText(text)
+    /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
+    private fun pickerClick(text: String) {
+        if (!device.wait(Until.hasObject(By.text(text)), 3_000))
+            try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
         val node = device.wait(Until.findObject(By.text(text)), 8_000)
-        assertNotNull("Missing: $text", node)
-        node!!.click(); device.waitForIdle()
+        assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
     }
     private fun open() {
         device.wakeUp()
@@ -43,8 +43,8 @@ class MigrationDeviceTest {
     private fun pick(name: String) {
         click("Seleccionar archivo Markdown")
         device.wait(Until.findObject(By.desc("Show roots")), 3_000)?.click()
-        click("Downloads")
-        click(name)
+        pickerClick("Downloads")
+        pickerClick(name)
     }
     private fun publish(name: String, bytes: ByteArray) {
         val file = File(app.getExternalFilesDir(null), name).apply { writeBytes(bytes) }
@@ -139,9 +139,10 @@ class MigrationDeviceTest {
         input!!.text = "# Semana antigua\n### Martes\nTexto sin formato Workout v3."
         device.waitForIdle()
         click("Revisar Markdown")
-        assertTrue(device.wait(Until.hasObject(By.textContains("Revisión sin guardar")), 8_000))
+        // The list keeps its scroll position across the preview: search both directions instead of the viewport only.
+        assertNotNull(device.scrollToText("Revisión sin guardar"))
         click("Advertencias (2)")
-        assertTrue(device.wait(Until.hasObject(By.textContains("UNKNOWN_SECTION")), 5_000))
+        assertNotNull(device.scrollToText("UNKNOWN_SECTION", contains = true))
         click("Cancelar importación")
         assertEquals(before, app.migrations.archive.value)
         scrollTop()
