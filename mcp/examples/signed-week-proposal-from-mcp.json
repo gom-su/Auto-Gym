@@ -1,0 +1,9 @@
+{
+  "syncVersion": 1,
+  "keyId": "k-synthetic01",
+  "nonce": "bad3930b6b749b17ddb91b85c761f5b9",
+  "issuedAt": "2026-11-06T20:39:48Z",
+  "payloadType": "WeekProposal",
+  "payload": "{\n  \"schemaVersion\": 1,\n  \"type\": \"WeekProposal\",\n  \"importId\": \"mcp-1e71c540759e4ca79a9f6b17240d2e28\",\n  \"createdAt\": \"2026-11-06T20:39:48Z\",\n  \"context\": null,\n  \"proposal\": {\n    \"id\": \"mcp-signed\",\n    \"version\": 1,\n    \"programId\": \"fictional-program\",\n    \"blockId\": \"block-base\",\n    \"source\": \"Agente vía MCP\",\n    \"week\": {\n      \"id\": \"mcp-signed-week\",\n      \"name\": \"Semana firmada por MCP\",\n      \"version\": 1,\n      \"days\": [\n        {\n          \"id\": \"mcp-signed-day\",\n          \"name\": \"Día MCP\",\n          \"exercises\": [\n            {\n              \"id\": \"mcp-signed-squat\",\n              \"exerciseId\": \"squat\",\n              \"name\": \"Sentadilla ficticia\",\n              \"sets\": [\n                {\n                  \"id\": \"mcp-signed-s1\",\n                  \"reps\": 6,\n                  \"rir\": 2,\n                  \"load\": {\n                    \"value\": 0.0,\n                    \"unit\": \"KG\",\n                    \"basis\": \"PER_SIDE\"\n                  },\n                  \"restSeconds\": 90\n                }\n              ]\n            }\n          ]\n        }\n      ]\n    },\n    \"differences\": [\n      \"Sentadilla ficticia: 6 repeticiones\"\n    ],\n    \"reasons\": [\n      \"Sentadilla ficticia: prueba firmada.\"\n    ]\n  },\n  \"results\": null\n}",
+  "mac": "6062fcbf4cd35e9542476ad57bb51b24064908193db9781edb4dae4b998a6597"
+}
