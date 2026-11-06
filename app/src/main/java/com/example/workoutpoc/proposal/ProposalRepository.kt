@@ -30,7 +30,9 @@ import java.io.OutputStream
 )
 
 @Serializable data class ProposalState(
-    val schemaVersion: Int = 1, val rules: RuleSettings = RuleSettings(), val decisions: List<ProposalDecision> = emptyList()
+    val schemaVersion: Int = 1, val rules: RuleSettings = RuleSettings(), val decisions: List<ProposalDecision> = emptyList(),
+    /** Expected results of approved recommendations, evaluated later against observed data (AG-04). */
+    val expectations: List<Expectation> = emptyList()
 )
 
 object ProposalStateSerializer : Serializer<ProposalState> {
@@ -41,6 +43,11 @@ object ProposalStateSerializer : Serializer<ProposalState> {
         s.rules.validate()
         require(s.decisions.map { it.importId }.distinct().size == s.decisions.size) { "Decisiones duplicadas." }
         require(s.decisions.map { it.proposalId to it.version }.distinct().size == s.decisions.size) { "Decisiones duplicadas por versión." }
+        require(s.expectations.map { it.id }.distinct().size == s.expectations.size) { "Expectativas duplicadas." }
+        s.expectations.forEach { e ->
+            e.validate()
+            require(s.decisions.any { it.importId == e.importId && it.status == DecisionStatus.APPROVED }) { "Expectativa sin aprobación." }
+        }
     }
     override suspend fun readFrom(input: InputStream): ProposalState = try {
         json.decodeFromString<ProposalState>(input.readBytes().decodeToString()).also(::validate)
@@ -109,6 +116,27 @@ class ProposalRepository(
         val evaluation = evaluate(importId)
         otherVersionDecision(evaluation.proposal.id, evaluation.proposal.version)
         record(importId, evaluation, DecisionStatus.REJECTED)
+    }
+
+    /** Records what an approved recommendation is expected to achieve; the window starts at the decision. */
+    suspend fun addExpectation(e: Expectation) = mutex.withLock {
+        val decision = decisionFor(e.importId)
+        if (decision?.status != DecisionStatus.APPROVED) throw ProposalException("Solo se evalúan recomendaciones aprobadas.")
+        val expectation = e.copy(startMillis = decision.decidedAtMillis)
+        try { expectation.validate() } catch (ex: IllegalArgumentException) { throw ProposalException(ex.message ?: "Expectativa no válida.") }
+        mutableState.value = store.updateData { s ->
+            if (s.expectations.any { it.id == expectation.id }) s else s.copy(expectations = s.expectations + expectation)
+        }
+    }
+
+    /** Closes (or reopens with null) an expectation with the user's own judgement. */
+    suspend fun setManualOutcome(id: String, outcome: Outcome?, note: String?) = mutex.withLock {
+        val clean = note?.trim()?.ifBlank { null }
+        if (clean != null && clean.length > 1000) throw ProposalException("La nota supera 1000 caracteres.")
+        mutableState.value = store.updateData { s ->
+            if (s.expectations.none { it.id == id }) throw ProposalException("Expectativa no encontrada.")
+            s.copy(expectations = s.expectations.map { if (it.id == id) it.copy(manualOutcome = outcome, note = clean) else it })
+        }
     }
 
     suspend fun updateRules(rules: RuleSettings) = mutex.withLock {

@@ -13,7 +13,9 @@ import kotlinx.coroutines.launch
 
 data class ProposalUiState(
     val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
-    val proposals: List<ExchangePackage> = emptyList(), val selected: String? = null, val evaluation: ProposalEvaluation? = null
+    val proposals: List<ExchangePackage> = emptyList(), val selected: String? = null, val evaluation: ProposalEvaluation? = null,
+    /** Current evaluation of every expectation, by expectation ID (AG-04). */
+    val results: Map<String, EvaluationResult> = emptyMap()
 )
 
 class ProposalViewModel(application: Application) : AndroidViewModel(application) {
@@ -23,8 +25,23 @@ class ProposalViewModel(application: Application) : AndroidViewModel(application
     val ui = mutableUi.asStateFlow()
     init { refresh() }
 
+    private suspend fun evaluateAll() {
+        app.repository.restore(); app.weekAnnotations.restore()
+        val sessions = app.repository.archived.value.sessions + app.repository.state.value
+        val now = System.currentTimeMillis()
+        mutableUi.value = mutableUi.value.copy(results = app.proposals.state.value.expectations.associate {
+            it.id to evaluate(it, sessions, app.weekAnnotations.annotations.value, now) })
+    }
+
+    fun addExpectation(e: Expectation) = operation {
+        app.proposals.addExpectation(e); evaluateAll()
+        mutableUi.value = mutableUi.value.copy(message = "Resultado esperado guardado. Se evaluará al cerrar la ventana.")
+    }
+
+    fun setManualOutcome(id: String, outcome: Outcome?, note: String?) = operation { app.proposals.setManualOutcome(id, outcome, note); evaluateAll() }
+
     fun refresh() = operation {
-        app.proposals.restore(); app.exchanges.restore()
+        app.proposals.restore(); app.exchanges.restore(); evaluateAll()
         mutableUi.value = mutableUi.value.copy(ready = true,
             proposals = app.exchanges.archive.value.packages.filter { it.type == ExchangeType.WeekProposal })
         mutableUi.value.selected?.let { mutableUi.value = mutableUi.value.copy(evaluation = app.proposals.evaluate(it)) }

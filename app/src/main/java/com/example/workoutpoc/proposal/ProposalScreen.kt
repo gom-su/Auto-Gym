@@ -16,7 +16,8 @@ private fun DecisionStatus?.label() = when (this) { null -> "Pendiente de tu dec
 
 @Composable
 fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit, onRetry: () -> Unit,
-                   onSelect: (String?) -> Unit, onApprove: () -> Unit, onReject: () -> Unit, onSaveRules: (RuleSettings) -> Unit) {
+                   onSelect: (String?) -> Unit, onApprove: () -> Unit, onReject: () -> Unit, onSaveRules: (RuleSettings) -> Unit,
+                   onAddExpectation: (Expectation) -> Unit = {}, onManualOutcome: (String, Outcome?, String?) -> Unit = { _, _, _ -> }) {
     val evaluation = ui.evaluation
     val decision = ui.selected?.let { id -> state.decisions.find { it.importId == id } }
     MaterialTheme(colorScheme = darkColorScheme()) {
@@ -39,6 +40,11 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                         }
                     }
                     item { RuleEditor(state.rules, !ui.busy && ui.ready, onSaveRules) }
+                    if (state.expectations.isNotEmpty()) item {
+                        val counts = Outcome.entries.associateWith { o -> state.expectations.count { (ui.results[it.id]?.outcome ?: Outcome.PENDING) == o } }
+                        Text("Evaluación de recomendaciones: " + Outcome.entries.joinToString(" · ") { "${it.label}: ${counts.getValue(it)}" },
+                            style = MaterialTheme.typography.titleMedium)
+                    }
                     item { Text("Historial de decisiones", style = MaterialTheme.typography.titleLarge) }
                     if (state.decisions.isEmpty()) item { Text("Aún no hay decisiones.") }
                     items(state.decisions.sortedByDescending { it.decidedAtMillis }, key = { "decision-${it.importId}" }) { d -> DecisionCard(d) }
@@ -59,6 +65,10 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                         item { OutlinedButton(onClick = onReject, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) { Text("Rechazar propuesta") } }
                         item { Text("Aprobar añade la semana al programa guardado sin activar ninguna sesión ni modificar semanas existentes.",
                             style = MaterialTheme.typography.bodySmall) }
+                    }
+                    if (decision?.status == DecisionStatus.APPROVED) item {
+                        ExpectationSection(decision.importId, p, state.expectations.filter { it.importId == decision.importId }, ui.results,
+                            !ui.busy, onAddExpectation, onManualOutcome)
                     }
                     decision?.let { d ->
                         // The record as it was at decision time: what changed, why, the rule results and the version.

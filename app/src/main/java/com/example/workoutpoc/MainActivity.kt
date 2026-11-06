@@ -106,7 +106,8 @@ class MainActivity : ComponentActivity() {
                 val proposalState by proposalModel.state.collectAsStateWithLifecycle()
                 val proposalUi by proposalModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { showProposals = false; programModel.restore() },
-                    proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules)
+                    proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
+                    proposalModel::addExpectation, proposalModel::setManualOutcome)
                 return@setContent
             }
             BackHandler(showCatalog) { showCatalog = false }
