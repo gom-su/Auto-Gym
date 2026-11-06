@@ -20,7 +20,9 @@ data class PlannedSet(
     val weightTenths: Int, val reps: Int, val rir: Int?,
     val prescriptionId: String? = null, val exerciseId: String? = null,
     val unit: WeightUnit = WeightUnit.KG, val basis: String? = null, val loadPrescribed: Boolean = true,
-    val restSeconds: Int = 10, val weightStepTenths: Int = 25, val maxWeightTenths: Int = 3000, val maxReps: Int = 30
+    val restSeconds: Int = 10, val weightStepTenths: Int = 25, val maxWeightTenths: Int = 3000, val maxReps: Int = 30,
+    /** Added during the session; it has no prescription of its own and is never reported as prescribed. */
+    val extra: Boolean = false
 )
 
 /** Integer tenths of the set's unit avoid floating point drift; rir=4 means 4+, null means not recorded. */
@@ -28,8 +30,18 @@ data class PlannedSet(
 data class SetValues(val weightTenths: Int = 300, val reps: Int = 8, val rir: Int? = 2)
 
 @Serializable
+enum class SetStatus { COMPLETED, SKIPPED }
+
+/**
+ * What was actually done for one plan position. The prescription stays in the session plan; edits change only
+ * these recorded values and are marked with editedAtMillis. A SKIPPED set's values are not performance data.
+ */
+@Serializable
 data class SetRecord(val index: Int, val exercise: String, val number: Int,
-                     val values: SetValues, val completedAtMillis: Long, val prescriptionId: String? = null)
+                     val values: SetValues, val completedAtMillis: Long, val prescriptionId: String? = null,
+                     val status: SetStatus = SetStatus.COMPLETED, val notes: String? = null, val editedAtMillis: Long? = null)
+
+const val MAX_NOTE_LENGTH = 1000
 
 /** Durable monotonic deadline, with wall time fallback only after a reboot. */
 @Serializable
@@ -63,7 +75,9 @@ data class WorkoutState(
 enum class WorkoutEvent {
     StartWorkout, IncrementWeight, DecrementWeight, IncrementReps, DecrementReps,
     SelectRir, CompleteSet, AddRestTime, SkipRest, RestFinished, UndoLastSet, ResetDemo,
-    FinishWorkout
+    FinishWorkout,
+    /** Planned sessions only: omit the current set, add an extra set of the last exercise, remove an unrecorded extra. */
+    SkipSet, AddSet, RemoveExtraSet
 }
 
 /** Every command targets an exact snapshot. Old notification/overlay taps become no-ops. */

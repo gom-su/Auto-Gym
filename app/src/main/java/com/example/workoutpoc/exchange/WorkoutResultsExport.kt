@@ -42,6 +42,13 @@ fun WorkoutState.toSessionResult(): SessionResult? {
     val sets = records.map { r ->
         val p = plan[r.index]
         val notes = mutableListOf<String>()
+        r.notes?.let { notes += it }
+        if (p.extra) notes += "Serie añadida durante la sesión, sin prescripción."
+        if (r.editedAtMillis != null) notes += "Editada después de registrarse."
+        if (r.status == SetStatus.SKIPPED) return@map SetResult(
+            id = "$sessionId:${r.index}", prescriptionId = r.prescriptionId, exerciseId = p.exerciseId ?: "unknown-exercise",
+            status = PerformanceStatus.OMITTED, reps = null, rir = null, load = null,
+            completedAt = null, notes = notes.joinToString(" ").ifBlank { null })
         val load: PrescribedLoad? = when (p.unit) {
             WeightUnit.KG, WeightUnit.LB -> {
                 val unit = if (p.unit == WeightUnit.KG) LoadUnit.KG else LoadUnit.LB
@@ -65,9 +72,12 @@ fun WorkoutState.toSessionResult(): SessionResult? {
     }
     return SessionResult(
         id = sessionId, sessionPlanId = src.dayId,
-        status = if (finished && !endedEarly && records.size == plan.size) PerformanceStatus.COMPLETED else PerformanceStatus.PARTIAL,
+        status = if (finished && !endedEarly && records.size == plan.size && records.all { it.status == SetStatus.COMPLETED })
+            PerformanceStatus.COMPLETED else PerformanceStatus.PARTIAL,
         startedAt = iso(startedAtMillis), endedAt = if (finished) iso(endedAtMillis) else null,
-        notes = "Programa ${src.programId} · semana ${src.weekId} v${src.weekVersion} · ${records.size}/${plan.size} series registradas.",
+        notes = "Programa ${src.programId} · semana ${src.weekId} v${src.weekVersion} · " +
+            "${records.count { it.status == SetStatus.COMPLETED }} completadas, ${records.count { it.status == SetStatus.SKIPPED }} omitidas, " +
+            "${plan.count { it.extra }} añadidas de ${plan.size} posiciones.",
         sets = sets, cardio = emptyList()
     )
 }

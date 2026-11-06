@@ -5,7 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
 import com.example.workoutpoc.domain.Phase
 import com.example.workoutpoc.domain.PlannedSet
+import com.example.workoutpoc.domain.SetStatus
 import com.example.workoutpoc.domain.SetValues
+import com.example.workoutpoc.domain.MAX_NOTE_LENGTH
 import com.example.workoutpoc.domain.WorkoutState
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -33,17 +35,24 @@ object WorkoutValidation {
         val plan = s.activePlan()
         require(plan.size <= 1000)
         plan.forEach { p ->
-            require(p.exercise.isNotBlank() && p.exercise.length <= 200 && p.number in 1..p.total)
+            require(p.exercise.isNotBlank() && p.exercise.length <= 200 && p.total >= 1 && p.number >= 1 && (p.extra || p.number <= p.total))
             require(p.weightStepTenths > 0 && p.maxWeightTenths in 0..1_000_000 && p.weightTenths in 0..p.maxWeightTenths)
             require(p.maxReps in 1..1000 && p.reps in 0..p.maxReps && (p.rir == null || p.rir in 0..4))
             require(p.restSeconds in 0..86400)
+            require(!p.extra || (p.prescriptionId == null && !p.loadPrescribed))
         }
         require((s.plan.isEmpty()) == (s.source == null))
         require(s.index in plan.indices)
         values(s.values, plan[s.index], allowZeroReps = true)
         require(s.records.map { it.index } == (0 until s.records.size).toList())
         require(s.records.size <= plan.size)
-        s.records.forEach { values(it.values, plan[it.index], allowZeroReps = false) }
+        s.records.forEach { r ->
+            values(r.values, plan[r.index], allowZeroReps = r.status == SetStatus.SKIPPED)
+            require(r.prescriptionId == plan[r.index].prescriptionId)
+            require(r.notes == null || (r.notes.isNotBlank() && r.notes.length <= MAX_NOTE_LENGTH))
+            // Deviations exist only for planned sessions; the legacy demo shape stays exportable.
+            require(s.source != null || (r.status == SetStatus.COMPLETED && r.notes == null && r.editedAtMillis == null))
+        }
         require((s.phase == Phase.Resting) == (s.rest != null))
     }
     private fun values(v: SetValues, p: PlannedSet, allowZeroReps: Boolean) {
