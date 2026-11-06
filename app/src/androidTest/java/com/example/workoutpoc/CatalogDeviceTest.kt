@@ -58,6 +58,8 @@ class CatalogDeviceTest {
         val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)
         assertNotNull(field); field!!.text = newName
         // A shown soft keyboard covers the lower half of the form; dismiss it before looking for the save button.
+        // The IME can appear shortly after the text is set; give it a moment before checking.
+        SystemClock.sleep(600)
         if (device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")) { device.pressBack(); device.waitForIdle() }
         click("Guardar ejercicio")
         // Poll the persisted catalog, read independently of the app's in-memory state.
@@ -71,8 +73,10 @@ class CatalogDeviceTest {
         assertEquals(newName, squat.name)
         assertTrue(squat.aliases.isNotEmpty())
         // The history list on the same screen still shows every set, labelled with the name it was recorded under.
-        scrollTo("Historial · $historyBefore series")
-        assertNotNull(scrollTo("Registrada como"))
+        scrollTo("Historial · $historyBefore serie")
+        // Grouped by unit and basis (ANA-01); the set keeps the name it was recorded under.
+        scrollTo("kg · total")
+        assertTrue(scrollTo("20 kg × 8 @ RIR 3").text.contains("registrada como"))
         device.pressHome()
     }
 }

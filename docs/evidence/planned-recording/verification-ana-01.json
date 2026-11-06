@@ -1,0 +1,28 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ANA-01",
+  "unitTests": {
+    "tests": 84,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "combinedRun": {
+    "tests": 7,
+    "passed": 7,
+    "failed": 0
+  },
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}
