@@ -8,11 +8,14 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 
+enum class LoadResult { LOADED, SESSION_IN_PROGRESS }
+
 /** Serializes restore, timer ticks and UI commands under the same lock. */
 class WorkoutRepository(
     private val storage: WorkoutStorage,
     private val clock: () -> ClockSnapshot,
-    private val idFactory: () -> String = { UUID.randomUUID().toString() }
+    private val idFactory: () -> String = { UUID.randomUUID().toString() },
+    private val history: SessionHistory = MemorySessionHistory()
 ) {
     private val reducer = WorkoutReducer(DemoWorkout.sets)
     private val mutex = Mutex()
@@ -21,12 +24,15 @@ class WorkoutRepository(
     val state: StateFlow<WorkoutState> = mutableState.asStateFlow()
     private val mutableReady = MutableStateFlow(false)
     val ready: StateFlow<Boolean> = mutableReady.asStateFlow()
+    private val mutableHistory = MutableStateFlow(WorkoutHistory())
+    val archived: StateFlow<WorkoutHistory> = mutableHistory.asStateFlow()
 
     suspend fun restore(): Unit = mutex.withLock { loadLocked() }
 
     private suspend fun loadLocked() {
         if (loaded) return
         val saved: WorkoutState = storage.read()
+        mutableHistory.value = history.read()
         val restored: WorkoutState = reducer.reduce(saved, saved.command(WorkoutEvent.RestFinished), clock(), idFactory())
         if (restored != saved) storage.write(restored)
         mutableState.value = restored
@@ -39,9 +45,33 @@ class WorkoutRepository(
         val previous: WorkoutState = mutableState.value
         val next: WorkoutState = reducer.reduce(previous, command, clock(), idFactory())
         if (next != previous) {
+            // Resetting discards the snapshot: archive confirmed sets first so none are lost.
+            if (command.event == WorkoutEvent.ResetDemo) archiveLocked(previous)
             storage.write(next)
             mutableState.value = next
         }
+    }
+
+    /** Loads a planned day as the next session. Never replaces a session in progress. */
+    suspend fun load(plan: List<PlannedSet>, source: SessionSource): LoadResult = mutex.withLock {
+        loadLocked()
+        val previous = mutableState.value
+        if (previous.phase == Phase.ActiveSet || previous.phase == Phase.Resting) return@withLock LoadResult.SESSION_IN_PROGRESS
+        val next = reducer.load(previous, plan, source, idFactory())
+        WorkoutValidation.validate(next)
+        archiveLocked(previous)
+        storage.write(next)
+        mutableState.value = next
+        LoadResult.LOADED
+    }
+
+    private suspend fun archiveLocked(session: WorkoutState) {
+        if (session.records.isEmpty()) return
+        // A session reset mid-way is archived as ended early, exactly as recorded so far.
+        if (history.archive(session.copy(phase = Phase.Completed, rest = null,
+                endedEarly = session.endedEarly || session.phase != Phase.Completed,
+                endedAtMillis = session.endedAtMillis ?: clock().wallMillis)))
+            mutableHistory.value = history.read()
     }
 
     suspend fun reconcileRest() {

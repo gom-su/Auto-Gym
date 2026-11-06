@@ -6,12 +6,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
 
 @Composable
 fun WorkoutControls(state: WorkoutState, dispatch: (WorkoutCommand) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ValueStepper("Peso", "${weightLabel(state.values.weightTenths)} kg",
+        ValueStepper("Peso", loadLabel(state.values.weightTenths, state.activePlan()[state.index].unit),
             { dispatch(state.command(WorkoutEvent.DecrementWeight)) },
             { dispatch(state.command(WorkoutEvent.IncrementWeight)) })
         ValueStepper("Repeticiones", "${state.values.reps}",

@@ -11,6 +11,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     private val app: WorkoutApplication = application as WorkoutApplication
     val state = app.repository.state
     val ready = app.repository.ready
+    val archived = app.repository.archived
     val error = app.error
     fun dispatch(command: WorkoutCommand) {
         viewModelScope.launch { app.safely { app.repository.dispatch(command) } }

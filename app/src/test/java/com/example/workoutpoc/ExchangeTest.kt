@@ -26,8 +26,8 @@ class ExchangeTest {
             0, 0, PrescribedLoad(0.0, LoadUnit.LB, LoadBasis.PER_HAND), date, null),
             SetResult("missing-set", null, "squat", PerformanceStatus.OMITTED, null, null, null, null, "Omitida")),
         listOf(CardioResult("cardio", PerformanceStatus.PARTIAL, 0, 1.5, "KM", "Ficticio")))),
-        DemoSnapshot(WorkoutState(sessionId = "demo", phase = Phase.Resting, index = 0, revision = 5,
-            records = listOf(SetRecord(0, "Ficticio", 1, SetValues(), 1234)), rest = RestDeadline(9, 10, 1))))
+        DemoSnapshot(DemoStateV1(sessionId = "demo", phase = Phase.Resting, index = 0, revision = 5,
+            records = listOf(DemoSetRecordV1(0, "Ficticio", 1, DemoSetValuesV1(), 1234)), rest = RestDeadline(9, 10, 1))))
     private fun packages(): List<ExchangePackage> {
         val p = program()
         return listOf(

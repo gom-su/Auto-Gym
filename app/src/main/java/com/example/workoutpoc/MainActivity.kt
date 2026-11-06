@@ -110,12 +110,28 @@ class MainActivity : ComponentActivity() {
                 ProgramScreen(library, ui, { showPrograms = false },
                     { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
-                    { showExchange = true }, { showMigration = true })
+                    { showExchange = true }, { showMigration = true }, { program, weekId, dayId ->
+                        lifecycleScope.launch {
+                            workoutApp.safely {
+                                val selection = program.findDay(weekId, dayId)
+                                if (selection == null) programModel.showMessage("El día ya no existe en el programa guardado.")
+                                else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source)) {
+                                    com.example.workoutpoc.data.LoadResult.LOADED -> {
+                                        message = null
+                                        showPrograms = false
+                                    }
+                                    com.example.workoutpoc.data.LoadResult.SESSION_IN_PROGRESS -> programModel.showMessage(
+                                        "Hay una sesión en curso. Termínala o ciérrala antes de cargar otro día; no se ha reemplazado.")
+                                }
+                            }
+                        }
+                    })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()
             val ready by model.ready.collectAsStateWithLifecycle()
             val error by model.error.collectAsStateWithLifecycle()
+            val archived by model.archived.collectAsStateWithLifecycle()
             WorkoutScreen(state, ready, error, notificationEnabled, overlayGranted, message, editorVisible,
                 { editorVisible = false }, { requestMode(WorkoutOverlayService.HIDE) }, {
                     if (Settings.canDrawOverlays(this)) requestMode(WorkoutOverlayService.SHOW)
@@ -126,7 +142,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }, {
                     startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
-                }, model::retry, { clockSnapshot(this) }, ::dispatch, { showPrograms = true })
+                }, model::retry, { clockSnapshot(this) }, ::dispatch, { showPrograms = true }, archived.sessions.size)
         }
     }
     override fun onNewIntent(intent: Intent) {

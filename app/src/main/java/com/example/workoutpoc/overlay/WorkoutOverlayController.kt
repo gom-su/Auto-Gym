@@ -11,7 +11,7 @@ import android.view.*
 import android.widget.Button
 import android.widget.TextView
 import com.example.workoutpoc.R
-import com.example.workoutpoc.data.DemoWorkout
+import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.timer.clockSnapshot
 import kotlin.math.abs
@@ -42,8 +42,10 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
         if (locked || !awake || !Settings.canDrawOverlays(context)) { remove(); return }
         if (view == null) rebuild()
         val root: View = view ?: return
+        val plan: List<PlannedSet> = state.activePlan()
+        val current: PlannedSet = plan[state.index]
         if (collapsed) {
-            (root as TextView).text = if (state.phase == Phase.Resting) "${seconds(state)}s" else "${state.records.size}/7"
+            (root as TextView).text = if (state.phase == Phase.Resting) "${seconds(state)}s" else "${state.records.size}/${plan.size}"
             return
         }
         val active: Boolean = state.phase == Phase.ActiveSet
@@ -51,15 +53,15 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
         root.findViewById<View>(R.id.overlay_set).visibility = if (active) View.VISIBLE else View.GONE
         root.findViewById<View>(R.id.overlay_rest).visibility = if (resting) View.VISIBLE else View.GONE
         root.findViewById<TextView>(R.id.overlay_title).text = when (state.phase) {
-            Phase.ActiveSet -> DemoWorkout.sets[state.index].exercise
+            Phase.ActiveSet -> current.exercise
             Phase.Resting -> "Descanso"
             Phase.Completed -> "Entrenamiento terminado"
             Phase.Idle -> "Inicia desde la aplicación"
         }
         root.findViewById<TextView>(R.id.overlay_subtitle).text = if (resting)
-            "Siguiente: ${DemoWorkout.sets[(state.index + 1).coerceAtMost(6)].exercise}"
-        else "${state.records.size}/7 completadas · serie ${DemoWorkout.sets[state.index].number}/${DemoWorkout.sets[state.index].total}"
-        root.findViewById<TextView>(R.id.overlay_weight).text = "${weightLabel(state.values.weightTenths)} kg"
+            "Siguiente: ${plan[(state.index + 1).coerceAtMost(plan.lastIndex)].exercise}"
+        else "${state.records.size}/${plan.size} completadas · serie ${current.number}/${current.total}"
+        root.findViewById<TextView>(R.id.overlay_weight).text = loadLabel(state.values.weightTenths, current.unit)
         root.findViewById<TextView>(R.id.overlay_reps).text = "${state.values.reps} reps"
         root.findViewById<Button>(R.id.overlay_complete).isEnabled = state.values.reps > 0
         root.findViewById<TextView>(R.id.overlay_countdown).text = "${seconds(state)} s"

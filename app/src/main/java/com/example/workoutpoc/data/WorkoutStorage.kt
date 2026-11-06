@@ -3,8 +3,12 @@ package com.example.workoutpoc.data
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
+import com.example.workoutpoc.domain.Phase
+import com.example.workoutpoc.domain.PlannedSet
+import com.example.workoutpoc.domain.SetValues
 import com.example.workoutpoc.domain.WorkoutState
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.InputStream
@@ -21,24 +25,90 @@ class DataStoreWorkoutStorage(private val store: DataStore<WorkoutState>) : Work
     override suspend fun write(state: WorkoutState) { store.updateData { state } }
 }
 
+fun WorkoutState.activePlan(): List<PlannedSet> = plan.ifEmpty { DemoWorkout.sets }
+
+/** Invariants shared by the live snapshot and archived sessions. Throws IllegalArgumentException. */
+object WorkoutValidation {
+    fun validate(s: WorkoutState) {
+        val plan = s.activePlan()
+        require(plan.size <= 1000)
+        plan.forEach { p ->
+            require(p.exercise.isNotBlank() && p.exercise.length <= 200 && p.number in 1..p.total)
+            require(p.weightStepTenths > 0 && p.maxWeightTenths in 0..1_000_000 && p.weightTenths in 0..p.maxWeightTenths)
+            require(p.maxReps in 1..1000 && p.reps in 0..p.maxReps && (p.rir == null || p.rir in 0..4))
+            require(p.restSeconds in 0..86400)
+        }
+        require((s.plan.isEmpty()) == (s.source == null))
+        require(s.index in plan.indices)
+        values(s.values, plan[s.index], allowZeroReps = true)
+        require(s.records.map { it.index } == (0 until s.records.size).toList())
+        require(s.records.size <= plan.size)
+        s.records.forEach { values(it.values, plan[it.index], allowZeroReps = false) }
+        require((s.phase == Phase.Resting) == (s.rest != null))
+    }
+    private fun values(v: SetValues, p: PlannedSet, allowZeroReps: Boolean) {
+        require(v.weightTenths in 0..p.maxWeightTenths)
+        require(v.reps in (if (allowZeroReps) 0 else 1)..p.maxReps)
+        require(v.rir == null || v.rir in 0..4)
+    }
+}
+
 object WorkoutSerializer : Serializer<WorkoutState> {
-    private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    internal val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     override val defaultValue: WorkoutState = WorkoutState()
     override suspend fun readFrom(input: InputStream): WorkoutState = try {
-        json.decodeFromString<WorkoutState>(input.readBytes().decodeToString()).also { s ->
-            require(s.index in DemoWorkout.sets.indices)
-            require(s.values.weightTenths in 0..3000 && s.values.weightTenths % 25 == 0)
-            require(s.values.reps in 0..30 && s.values.rir in 0..4)
-            require(s.records.map { it.index } == (0 until s.records.size).toList())
-            require(s.records.size <= DemoWorkout.sets.size)
-            require(s.records.all { it.values.reps in 1..30 && it.values.rir in 0..4 &&
-                it.values.weightTenths in 0..3000 && it.values.weightTenths % 25 == 0 })
-            require((s.phase == com.example.workoutpoc.domain.Phase.Resting) == (s.rest != null))
-        }
+        json.decodeFromString<WorkoutState>(input.readBytes().decodeToString()).also(WorkoutValidation::validate)
     } catch (e: SerializationException) { throw CorruptionException("Sesión ilegible", e) }
       catch (e: IllegalArgumentException) { throw CorruptionException("Sesión inválida", e) }
 
     override suspend fun writeTo(t: WorkoutState, output: OutputStream) {
         output.write(json.encodeToString(t).encodeToByteArray())
+    }
+}
+
+/** Finished or replaced sessions, newest last. Identity is the session ID; archiving is idempotent. */
+@Serializable
+data class WorkoutHistory(val schemaVersion: Int = 1, val sessions: List<WorkoutState> = emptyList())
+
+interface SessionHistory {
+    suspend fun read(): WorkoutHistory
+    /** Returns false when the session was already archived. */
+    suspend fun archive(session: WorkoutState): Boolean
+}
+
+class MemorySessionHistory : SessionHistory {
+    private var history = WorkoutHistory()
+    override suspend fun read() = history
+    override suspend fun archive(session: WorkoutState): Boolean {
+        if (history.sessions.any { it.sessionId == session.sessionId }) return false
+        history = history.copy(sessions = history.sessions + session); return true
+    }
+}
+
+class DataStoreSessionHistory(private val store: DataStore<WorkoutHistory>) : SessionHistory {
+    override suspend fun read(): WorkoutHistory = store.data.first()
+    override suspend fun archive(session: WorkoutState): Boolean {
+        WorkoutValidation.validate(session)
+        var added = false
+        store.updateData { current ->
+            if (current.sessions.any { it.sessionId == session.sessionId }) current
+            else current.copy(sessions = current.sessions + session).also { added = true }
+        }
+        return added
+    }
+}
+
+object WorkoutHistorySerializer : Serializer<WorkoutHistory> {
+    override val defaultValue = WorkoutHistory()
+    override suspend fun readFrom(input: InputStream): WorkoutHistory = try {
+        WorkoutSerializer.json.decodeFromString<WorkoutHistory>(input.readBytes().decodeToString()).also { h ->
+            require(h.schemaVersion == 1)
+            require(h.sessions.map { it.sessionId }.distinct().size == h.sessions.size)
+            h.sessions.forEach(WorkoutValidation::validate)
+        }
+    } catch (e: SerializationException) { throw CorruptionException("Historial ilegible. Se conserva sin reemplazar.", e) }
+      catch (e: IllegalArgumentException) { throw CorruptionException("Historial inválido. Se conserva sin reemplazar.", e) }
+    override suspend fun writeTo(t: WorkoutHistory, output: OutputStream) {
+        output.write(WorkoutSerializer.json.encodeToString(t).encodeToByteArray())
     }
 }

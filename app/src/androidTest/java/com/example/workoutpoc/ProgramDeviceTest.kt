@@ -83,7 +83,10 @@ class ProgramDeviceTest {
         click("Semana 2 · 1 día")
         click("Día C · 2 ejercicios · 4 series")
         assertTrue(device.wait(Until.hasObject(By.text("Serie 1 · 5 reps · RIR 4")), 5_000))
-        assertTrue(device.hasObject(By.text("0.0 kg · por lado")))
+        // The day view now leads with a train action; scroll rather than assume the set fits above the fold.
+        if (!device.hasObject(By.text("0.0 kg · por lado")))
+            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text("0.0 kg · por lado"))
+        assertTrue(device.wait(Until.hasObject(By.text("0.0 kg · por lado")), 5_000))
         // Rotation recreates the Activity without discarding navigation or stored associations.
         device.setOrientationLeft()
         UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text("Día C"))

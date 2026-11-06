@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 fun ProgramScreen(
     library: ProgramLibrary, ui: ProgramUiState, onBack: () -> Unit, onFile: () -> Unit,
     onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit, onExchange: () -> Unit,
-    onMigration: () -> Unit
+    onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> }
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -51,7 +51,9 @@ fun ProgramScreen(
                     }
                 } else item { TextButton(onClick = { selectedId = null }) { Text("Ver todos los programas") } }
                 if (selected != null) programBrowser(selected, weekId, dayId,
-                    { weekId = it }, { dayId = it })
+                    { weekId = it }, { dayId = it },
+                    // Only saved programs can be trained; a preview must be saved first.
+                    if (ui.preview == null && ui.ready && !ui.busy) onTrainDay else null)
             }
         }
     }
@@ -59,7 +61,8 @@ fun ProgramScreen(
 
 private fun LazyListScope.programBrowser(
     program: TrainingProgram, weekId: String?, dayId: String?,
-    onWeek: (String?) -> Unit, onDay: (String?) -> Unit
+    onWeek: (String?) -> Unit, onDay: (String?) -> Unit,
+    onTrainDay: ((TrainingProgram, String, String) -> Unit)?
 ) {
     val week = program.blocks.flatMap { it.weeks }.find { it.id == weekId }
     val day = week?.days?.find { it.id == dayId }
@@ -77,6 +80,13 @@ private fun LazyListScope.programBrowser(
         } else {
             item { TextButton(onClick = { onDay(null) }) { Text("Ver días") } }
             item { Text(day.name, style = MaterialTheme.typography.titleMedium) }
+            if (onTrainDay != null) item {
+                Button(onClick = { onTrainDay(program, week.id, day.id) }, modifier = Modifier.fillMaxWidth()) { Text("Entrenar este día") }
+            }
+            if (onTrainDay != null) item {
+                Text("Carga el día como próxima sesión. Una sesión en curso no se reemplaza; una terminada se archiva antes.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
             day.exercises.forEach { exercise ->
                 item { Text(exercise.name, style = MaterialTheme.typography.titleMedium) }
                 items(exercise.sets.size, key = { "set-${exercise.sets[it].id}" }) { index ->

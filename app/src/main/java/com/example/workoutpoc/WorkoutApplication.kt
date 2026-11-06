@@ -36,7 +36,11 @@ class WorkoutApplication : Application() {
         val store = DataStoreFactory.create(WorkoutSerializer, scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) {
             dataStoreFile("workout.json")
         }
-        WorkoutRepository(DataStoreWorkoutStorage(store), { clockSnapshot(this) })
+        val historyStore = DataStoreFactory.create(WorkoutHistorySerializer, scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) {
+            dataStoreFile("history-v1.json")
+        }
+        WorkoutRepository(DataStoreWorkoutStorage(store), { clockSnapshot(this) },
+            history = DataStoreSessionHistory(historyStore))
     }
     override fun onCreate() {
         super.onCreate()

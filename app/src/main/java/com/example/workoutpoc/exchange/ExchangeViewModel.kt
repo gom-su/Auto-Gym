@@ -4,7 +4,6 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutpoc.domain.Phase
 import com.example.workoutpoc.planning.ProgramValidationException
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.*
@@ -57,7 +56,9 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
     fun generate(type: ExchangeType) = operation {
         app.programs.restore(); app.repository.restore()
         val state = app.repository.state.value
-        val results = TrainingResults(emptyList(), if (state.phase == Phase.Idle) null else DemoSnapshot(state))
+        // Archived and current planned sessions are typed v1 results; the demo keeps its frozen legacy snapshot.
+        val sessions = (app.repository.archived.value.sessions + state).distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() }
+        val results = TrainingResults(sessions, state.toDemoV1()?.let { DemoSnapshot(it) })
         val data = ExchangePackage(1, type, UUID.randomUUID().toString(), Instant.now().toString(),
             context = if (type == ExchangeType.TrainingContext) TrainingContext(app.programs.library.value.programs,
                 null, results, emptyList(), emptyList()) else null,
