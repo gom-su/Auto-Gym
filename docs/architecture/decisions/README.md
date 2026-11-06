@@ -10,6 +10,8 @@ For each future accepted technical decision, add a numbered Markdown file with c
 
 - [0002 — JSON interchange](0002-json-interchange.md): strict typed packages, independent archive, privacy and idempotency.
 
+- [0008 — Authenticated sync](0008-authenticated-sync.md): pairing keys, HMAC-signed envelopes, proposals only, replay and conflict safety; network transport designed, not enabled.
+
 - [0007 — MCP transport](0007-mcp-transport.md): stdio server reads one exported context, writes proposals to an outbox, cannot approve.
 
 - [0006 — Proposal review](0006-proposal-review.md): pure-Kotlin rule engine, explicit decisions, approval via idempotent week append.

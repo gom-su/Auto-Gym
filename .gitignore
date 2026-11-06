@@ -62,3 +62,7 @@ docs/evidence/emulator/
 docs/evidence/01-idle.png
 docs/evidence/shade-debug.png
 docs/evidence/shade.xml
+
+# Python bytecode
+__pycache__/
+*.pyc

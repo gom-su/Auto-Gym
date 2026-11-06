@@ -13,7 +13,9 @@ import androidx.compose.ui.unit.dp
 fun ExchangeScreen(archive: ExchangeArchive, ui: ExchangeUiState, onBack: () -> Unit,
     onFile: () -> Unit, onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit,
     onRetry: () -> Unit, onSelect: (ExchangePackage) -> Unit, onGenerate: (ExchangeType) -> Unit,
-    onExport: (Boolean) -> Unit, onCopy: (Boolean) -> Unit) {
+    onExport: (Boolean) -> Unit, onCopy: (Boolean) -> Unit,
+    sync: com.example.workoutpoc.sync.SyncState = com.example.workoutpoc.sync.SyncState(),
+    onPair: () -> Unit = {}, onRevoke: (String) -> Unit = {}, onCopyKey: (String) -> Unit = {}) {
     var text by remember { mutableStateOf("") }
     var includeMeasurements by rememberSaveable(ui.preview?.importId) { mutableStateOf(false) }
     val previewChunks = remember(ui.preview) { ui.preview?.let { ExchangeCodec.json.encodeToString(it).chunked(4000) }.orEmpty() }
@@ -36,6 +38,21 @@ fun ExchangeScreen(archive: ExchangeArchive, ui: ExchangeUiState, onBack: () -> 
                     item { Button(onClick = { onGenerate(ExchangeType.TrainingContext) }, enabled = ui.ready && !ui.busy) { Text("Preparar contexto local") } }
                     item { Button(onClick = { onGenerate(ExchangeType.TrainingResults) }, enabled = ui.ready && !ui.busy) { Text("Preparar resultados locales") } }
                     item { Text("Los resultados locales incluyen la sesión demo disponible; no hay historial adicional registrado. La fase, los objetivos y las reglas del contexto salen solo de tus respuestas en Preguntas de planificación.") }
+                    item { Text("Envíos firmados (MCP)", style = MaterialTheme.typography.titleLarge) }
+                    item { Text("Empareja un servidor remoto con una clave. Sus propuestas firmadas se verifican (firma, clave vigente, tipo permitido, antigüedad y repetición) antes de previsualizarlas, y siguen pendientes de tu aprobación. Cualquier otro envío firmado se rechaza.",
+                        style = MaterialTheme.typography.bodySmall) }
+                    item { OutlinedButton(onClick = onPair, enabled = ui.ready && !ui.busy) { Text("Generar clave de emparejamiento") } }
+                    items(sync.keys, key = { "key-${it.keyId}" }) { k ->
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("${k.keyId} · ${if (k.revoked) "revocada" else "activa"}", style = MaterialTheme.typography.titleSmall)
+                                if (!k.revoked) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = { onCopyKey(com.example.workoutpoc.sync.SignedSync.shareable(k)) }, enabled = !ui.busy) { Text("Copiar clave ${k.keyId}") }
+                                    TextButton(onClick = { onRevoke(k.keyId) }, enabled = !ui.busy) { Text("Revocar ${k.keyId}") }
+                                }
+                            }
+                        }
+                    }
                     item { Text("Intercambios guardados", style = MaterialTheme.typography.titleLarge) }
                     items(archive.packages, key = { it.importId }) { entry ->
                         OutlinedButton(onClick = { onSelect(entry) }, enabled = !ui.busy) { Text("${entry.type} · ${entry.importId}") }
@@ -43,6 +60,8 @@ fun ExchangeScreen(archive: ExchangeArchive, ui: ExchangeUiState, onBack: () -> 
                 } else {
                     item { Text("Revisar intercambio", style = MaterialTheme.typography.titleLarge) }
                     item { Text("${data.type} · ${data.importId}") }
+                    ui.signedBy?.let { k -> item { Text("Firma verificada con la clave $k. Al guardar se vuelve a verificar y la propuesta queda pendiente de aprobación.",
+                        color = MaterialTheme.colorScheme.primary) } }
                     item { Button(onClick = onSave, enabled = ui.ready && !ui.busy) { Text("Guardar intercambio") } }
                     item { OutlinedButton(onClick = onCancel, enabled = !ui.busy) { Text("Cerrar revisión") } }
                     if (data.context?.measurements?.isNotEmpty() == true) item {

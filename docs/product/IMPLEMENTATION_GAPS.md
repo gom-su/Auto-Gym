@@ -25,6 +25,7 @@ Assessment date: 2026-10-30. This maps the existing source and verification repo
 | INT-03 stagnation signals | Per exercise and unit group: no improvement over the pre-window best across N comparable non-deload exposures spanning a minimum period; each alert lists period, data used, limitations and explanation; insufficient evidence reported, never alerted; see [signals](../STAGNATION_SIGNALS.md) | Target-phone validation; emulator-only evidence |
 | INT-01 MCP server | Stdio MCP server: reads only the user-exported context file, writes validated v1 proposals to an outbox, has no approval tool; app decodes and validates its output; see [MCP server](../MCP_SERVER.md) | Remote deployment needs authenticated sync (INT-02); file transfer is manual |
 | INT-01–03 | No integrations | MCP, authenticated synchronization and advanced trend analysis |
+| INT-02 authenticated sync | Pairing keys; HMAC-SHA256 signed envelopes from the MCP server; app accepts only verified week proposals (key, signature, type, age, nonce), still pending approval; replay and conflict never overwrite data; relay transport designed in [decision 0008](../architecture/decisions/0008-authenticated-sync.md); see [signed sync](../SIGNED_SYNC.md) | Network relay not enabled (no network permission by decision 0005); emulator-only evidence |
 
 Evidence: [prototype README](../../README.md), [verification report](../VERIFICATION.md), [latency investigation](../NOTIFICATION_LATENCY.md), and source under `app/src/`.
 

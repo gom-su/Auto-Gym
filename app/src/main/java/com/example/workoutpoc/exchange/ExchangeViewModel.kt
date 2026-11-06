@@ -12,7 +12,9 @@ import java.time.Instant
 import java.util.UUID
 
 data class ExchangeUiState(val ready: Boolean = false, val busy: Boolean = false,
-    val preview: ExchangePackage? = null, val message: String? = null)
+    val preview: ExchangePackage? = null, val message: String? = null,
+    /** Key ID of a verified signed envelope being previewed (INT-02), with its original text. */
+    val signedBy: String? = null, val envelope: String? = null)
 class ExchangeViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application.workoutApp
     private val repository = app.exchanges
@@ -22,9 +24,39 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
     private var pendingExport: String? = null
     init { restore() }
     fun restore() = operation { repository.restore(); mutableUi.value = mutableUi.value.copy(ready = true) }
-    fun previewText(text: String) = operation {
-        val data = withContext(Dispatchers.Default) { ExchangeCodec.decode(text) }
-        mutableUi.value = mutableUi.value.copy(preview = data)
+    val syncState = app.sync.state
+    fun previewText(text: String) = operation { prepare(text) }
+
+    /** Plain packages are the user's own import; signed envelopes must verify against a paired key first (INT-02). */
+    private suspend fun prepare(text: String) {
+        if (com.example.workoutpoc.sync.SignedSync.isEnvelope(text)) {
+            app.sync.restore()
+            when (val v = app.sync.check(text)) {
+                is com.example.workoutpoc.sync.Verification.Accepted ->
+                    mutableUi.value = mutableUi.value.copy(preview = v.pkg, signedBy = v.envelope.keyId, envelope = text)
+                is com.example.workoutpoc.sync.Verification.Rejected -> throw ProgramValidationException("Envío firmado rechazado: ${v.reason} No se guardó nada.")
+            }
+        } else {
+            val data = withContext(Dispatchers.Default) { ExchangeCodec.decode(text) }
+            mutableUi.value = mutableUi.value.copy(preview = data, signedBy = null, envelope = null)
+        }
+    }
+
+    fun pair() = operation {
+        app.sync.restore()
+        val key = app.sync.pair()
+        mutableUi.value = mutableUi.value.copy(message = "Clave ${key.keyId} creada. Cópiala en la configuración del servidor (--sign-key).")
+    }
+    fun revoke(keyId: String) = operation {
+        app.sync.revoke(keyId)
+        mutableUi.value = mutableUi.value.copy(message = "Clave $keyId revocada: sus envíos se rechazarán.")
+    }
+    fun copyKey(text: String) {
+        val clipboard = app.getSystemService(android.content.ClipboardManager::class.java)
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Clave Auto-Gym", text).apply {
+            description.extras = android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+        })
+        mutableUi.value = mutableUi.value.copy(message = "Clave copiada al portapapeles (marcada como sensible).")
     }
     fun previewFile(uri: Uri) = operation {
         val text = withContext(Dispatchers.IO) {
@@ -42,11 +74,20 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
                 catch (_: Exception) { throw ProgramValidationException("El archivo debe estar codificado en UTF-8.") }
             } ?: throw ProgramValidationException("No se pudo abrir el archivo.")
         }
-        mutableUi.value = mutableUi.value.copy(preview = withContext(Dispatchers.Default) { ExchangeCodec.decode(text) })
+        prepare(text)
     }
-    fun select(data: ExchangePackage) { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = data, message = null) }
-    fun cancel() { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = null, message = null) }
+    fun select(data: ExchangePackage) { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = data, message = null, signedBy = null, envelope = null) }
+    fun cancel() { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = null, message = null, signedBy = null, envelope = null) }
     fun save() = operation {
+        ui.value.envelope?.let { envelope ->
+            // Re-verify and record the nonce atomically; a replay or revoked key is rejected even after preview.
+            when (val v = app.sync.accept(envelope) { repository.save(it) }) {
+                is com.example.workoutpoc.sync.Verification.Accepted -> mutableUi.value = mutableUi.value.copy(preview = null, signedBy = null, envelope = null,
+                    message = "Envío firmado por ${v.envelope.keyId} guardado. La propuesta queda pendiente de tu aprobación.")
+                is com.example.workoutpoc.sync.Verification.Rejected -> throw ProgramValidationException("Envío firmado rechazado: ${v.reason} No se guardó nada.")
+            }
+            return@operation
+        }
         val data = ui.value.preview ?: return@operation
         val added = repository.save(data)
         mutableUi.value = mutableUi.value.copy(preview = null, message = if (added)

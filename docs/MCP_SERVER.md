@@ -38,7 +38,7 @@
 3. Ask the agent to plan. It reads the context and writes proposals to the outbox.
 4. Copy a proposal file to the phone, import it in **Intercambio JSON**, and review it in **Propuestas de semana**.
 
-A remote MCP deployment cannot read the phone directly. Moving files between the phone and the server is a manual, user-controlled step; authenticated sync is designed separately (INT-02).
+A remote MCP deployment cannot read the phone directly. Moving files between the phone and the server is a manual, user-controlled step. With `--sign-key` (a pairing key generated in the app), every proposal is written as an HMAC-signed envelope, which the app verifies before accepting it. See [signed sync](SIGNED_SYNC.md) (INT-02).
 
 ## Verification (2026-11-06)
 

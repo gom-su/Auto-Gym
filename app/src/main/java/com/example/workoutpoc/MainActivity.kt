@@ -155,7 +155,8 @@ class MainActivity : ComponentActivity() {
                     exchangeModel::previewText, exchangeModel::save, exchangeModel::cancel,
                     exchangeModel::restore, exchangeModel::select, exchangeModel::generate,
                     { include -> if (exchangeModel.stageExport(include)) exchangeDestination.launch("auto-gym-interchange-v1.json") },
-                    exchangeModel::copy)
+                    exchangeModel::copy, exchangeModel.syncState.collectAsStateWithLifecycle().value,
+                    exchangeModel::pair, exchangeModel::revoke, exchangeModel::copyKey)
                 return@setContent
             }
             BackHandler(showPrograms) { showPrograms = false }

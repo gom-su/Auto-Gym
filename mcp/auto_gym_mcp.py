@@ -6,13 +6,21 @@ The phone app remains the source of truth. This server only transports:
   * it writes new v1 WeekProposal packages, one file per proposal, into an outbox directory. The user imports
     them in the app, where they stay pending until explicitly approved. There is no approval tool.
 
+With --sign-key (a pairing key generated in the app: Intercambio JSON > Envíos firmados), each proposal is wrapped in
+an HMAC-SHA256 signed envelope (INT-02). The app accepts it only if the key is paired and not revoked, the signature,
+type, age and nonce verify; it is then still pending until the user approves it.
+
 Transport: MCP over stdio, newline-delimited JSON-RPC 2.0. Standard library only.
 
 Usage:
-  python mcp/auto_gym_mcp.py --context path/to/auto-gym-context.json --outbox path/to/outbox
+  python mcp/auto_gym_mcp.py --context path/to/auto-gym-context.json --outbox path/to/outbox [--sign-key agk1.<id>.<secret>]
 """
 import argparse
+import base64
 import datetime
+import hashlib
+import hmac
+import secrets
 import json
 import os
 import re
@@ -106,10 +114,30 @@ def validate_week(week):
         seen.add(d["id"])
 
 
+def parse_key(text):
+    """'agk1.<keyId>.<base64url secret>' as shown by the app."""
+    parts = (text or "").strip().split(".")
+    _check(len(parts) == 3 and parts[0] == "agk1" and ID.match(parts[1]) is not None, "Clave de emparejamiento no válida.")
+    secret = base64.urlsafe_b64decode(parts[2] + "=" * (-len(parts[2]) % 4))
+    _check(len(secret) >= 32, "Clave de emparejamiento demasiado corta.")
+    return parts[1], secret
+
+
+def sign(key_id, secret, payload_type, payload, issued_at=None, nonce=None):
+    """Signed envelope over every field; the payload is the exact v1 JSON text the app will decode."""
+    issued_at = issued_at or datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    nonce = nonce or secrets.token_hex(16)
+    message = "\n".join(["auto-gym-sync-v1", key_id, nonce, issued_at, payload_type, payload]).encode("utf-8")
+    mac = hmac.new(secret, message, hashlib.sha256).hexdigest()
+    return {"syncVersion": 1, "keyId": key_id, "nonce": nonce, "issuedAt": issued_at, "payloadType": payload_type,
+            "payload": payload, "mac": mac}
+
+
 class Server:
-    def __init__(self, context_path, outbox):
+    def __init__(self, context_path, outbox, sign_key=None):
         self.context_path = os.path.abspath(context_path)
         self.outbox = os.path.abspath(outbox)
+        self.sign_key = parse_key(sign_key) if sign_key else None
         os.makedirs(self.outbox, exist_ok=True)
 
     # --- tools -------------------------------------------------------------------------------------------------
@@ -168,12 +196,15 @@ class Server:
                    "results": None}
         text = json.dumps(package, ensure_ascii=False, indent=2)
         _check(len(text.encode("utf-8")) <= MAX_BYTES, "La propuesta supera 1 MiB.")
+        if self.sign_key:
+            text = json.dumps(sign(self.sign_key[0], self.sign_key[1], "WeekProposal", text), ensure_ascii=False, indent=2)
+            _check(len(text.encode("utf-8")) <= MAX_BYTES, "El envío firmado supera 1 MiB.")
         path = os.path.join(self.outbox, import_id + ".json")
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(text)
         os.replace(tmp, path)  # atomic: the app never sees a partial file
-        return {"file": path, "importId": import_id, "status": "pendiente",
+        return {"file": path, "importId": import_id, "status": "pendiente", "signedWith": self.sign_key[0] if self.sign_key else None,
                 "next": "Importa el archivo en Auto-Gym > Programas > Intercambio JSON y revísalo en Propuestas de semana. Solo la persona usuaria puede aprobarlo."}
 
     # --- JSON-RPC ----------------------------------------------------------------------------------------------
@@ -222,11 +253,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--context", required=True, help="TrainingContext v1 file exported from the app (the only readable file)")
     parser.add_argument("--outbox", required=True, help="Directory where proposal packages are written")
+    parser.add_argument("--sign-key", default=os.environ.get("AUTO_GYM_SIGN_KEY"),
+                        help="Pairing key from the app (agk1.<id>.<secret>); or set AUTO_GYM_SIGN_KEY")
     args = parser.parse_args(argv)
     load_context(args.context)  # fail fast on an unauthorized or invalid file
+    if args.sign_key:
+        parse_key(args.sign_key)
     if hasattr(sys.stdin, "reconfigure"):
         sys.stdin.reconfigure(encoding="utf-8"); sys.stdout.reconfigure(encoding="utf-8")
-    Server(args.context, args.outbox).serve()
+    Server(args.context, args.outbox, args.sign_key).serve()
 
 
 if __name__ == "__main__":

@@ -115,6 +115,10 @@ Open **Programas > Peso y composición corporal** to record dated measurements w
 
 `mcp/auto_gym_mcp.py` lets an MCP agent read a context file you exported from the app and write week proposals to an outbox. It cannot approve anything: proposals are imported in the app and stay pending until you decide. See [MCP server](docs/MCP_SERVER.md).
 
+### Signed deliveries (INT-02)
+
+Pair the MCP server with a key generated in **Intercambio JSON > Envíos firmados**; its proposals arrive as signed envelopes that the app verifies (key, signature, type, age, replay) before they can even be previewed, and they still wait for your approval. The network relay is designed but not enabled. See [signed sync](docs/SIGNED_SYNC.md).
+
 ### Stagnation signals (INT-03)
 
 Open **Programas > Señales de estancamiento** for alerts raised when recent comparable exposures of an exercise stop improving on its previous best. Each alert states its period, the data used, its limitations and a checkable explanation; without enough evidence, no alert is raised. See [signals](docs/STAGNATION_SIGNALS.md).
