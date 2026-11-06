@@ -19,8 +19,11 @@ Compose screens are long lazy lists, so tests must not assume a target is on scr
 - **The system document picker** must not be driven with these drags: it treats slow drags as long presses and enters selection mode. Tests tap picker items directly (`pickerClick`), scrolling only with the picker's own list.
 - **Status messages** sit at the top of their screen's list. Assertions on them use `scrollToText` rather than checking only the viewport.
 
-## Status (2026-11-06, full run of 18 cases)
+## Status (2026-11-06)
 
-15 pass, including `ProgramDeviceTest` (3 of 3 isolated runs plus the full run) and `WorkoutDeviceTest`. Both were the previously intermittent ones.
-
-The two `ExchangeDeviceTest` cases and one `MigrationDeviceTest` case still fail intermittently on this emulator, as they did before this session's changes, around the system picker and long archive lists. The features they cover are also covered by unit tests and by the other device tests. Physical-device testing remains the user's acceptance step (ENT-01).
+- **Full runs of 18 cases:** the 14 cases outside exchange and migration pass consistently, including `ProgramDeviceTest` and `WorkoutDeviceTest`, which were previously intermittent.
+- **`ExchangeDeviceTest` and `MigrationDeviceTest`:**
+  - They pass alone and in combined runs with `WorkoutDeviceTest`.
+  - Two leftover-state problems were fixed. The floating workout panel left by earlier tests sat over their screens and intercepted taps, so both now stop the overlay service first. The save picker sometimes opened on a location that cannot hold files, so the export test now selects Downloads.
+  - Late in the full 18-case run on this emulator they can still fail. One capture showed the app window with no content, a transitional state rather than a specific screen problem.
+- **Physical-device testing** remains the user's acceptance step (ENT-01).

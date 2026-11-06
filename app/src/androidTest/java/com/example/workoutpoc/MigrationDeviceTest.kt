@@ -26,6 +26,18 @@ class MigrationDeviceTest {
     }
     // Shared helper: searches both directions and taps by position, robust to Compose node refreshes.
     private fun click(text: String) = device.clickText(text)
+    /** Taps a node found by content description at its position, retrying if Compose refreshed it meanwhile. */
+    private fun tapDesc(description: String) {
+        val end = android.os.SystemClock.elapsedRealtime() + 6_000
+        while (android.os.SystemClock.elapsedRealtime() < end) {
+            try {
+                val node = device.wait(Until.findObject(By.desc(description)), 1_000) ?: continue
+                val b = node.visibleBounds
+                device.click(b.centerX(), b.centerY()); device.waitForIdle(); return
+            } catch (_: StaleObjectException) { android.os.SystemClock.sleep(100) }
+        }
+        fail("Missing: $description")
+    }
     /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
     private fun pickerClick(text: String) {
         if (!device.wait(Until.hasObject(By.text(text)), 3_000))
@@ -34,6 +46,8 @@ class MigrationDeviceTest {
         assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
     }
     private fun open() {
+        // Earlier tests may leave the floating workout panel up; it sits over this screen and intercepts taps and drags.
+        app.stopService(Intent(app, com.example.workoutpoc.overlay.WorkoutOverlayService::class.java))
         device.wakeUp()
         device.executeShellCommand("wm dismiss-keyguard")
         device.executeShellCommand("cmd statusbar collapse")
@@ -85,8 +99,7 @@ class MigrationDeviceTest {
         val first = expected.issues.first()
         val checkDescription = "Advertencia de la línea ${first.line}: ${first.message}"
         UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().description(checkDescription))
-        val check = device.wait(Until.findObject(By.desc(checkDescription)), 5_000)
-        assertNotNull(check); check!!.click(); device.waitForIdle()
+        tapDesc(checkDescription)
         val saveText = "Guardar con pendientes (${expected.issues.size - 1})"
         click("Texto original con líneas")
         device.setOrientationLeft(); device.waitForIdle()
@@ -112,8 +125,7 @@ class MigrationDeviceTest {
         click("Importación ${before.documents.size + 1} · ${expected.title} · $pending pendientes")
         click("Advertencias (${expected.issues.size})")
         UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().description(checkDescription))
-        val savedCheckbox = device.wait(Until.findObject(By.desc(checkDescription)), 5_000)
-        assertNotNull(savedCheckbox); savedCheckbox!!.click()
+        tapDesc(checkDescription)
         assertTrue(device.wait(Until.hasObject(By.text("Pendiente de revisión")), 5_000))
         runBlocking { app.migrations.restore() }
         assertFalse(app.migrations.archive.value.documents.single { it.id == expected.id }.issues.first().acknowledged)
@@ -134,10 +146,7 @@ class MigrationDeviceTest {
         pick("ent-03-large.md")
         assertTrue(device.wait(Until.hasObject(By.text("El archivo supera 1 MiB.")), 8_000))
         scrollTop()
-        val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)
-        assertNotNull(input)
-        input!!.text = "# Semana antigua\n### Martes\nTexto sin formato Workout v3."
-        device.waitForIdle()
+        device.setFieldText("# Semana antigua\n### Martes\nTexto sin formato Workout v3.")
         click("Revisar Markdown")
         // The list keeps its scroll position across the preview: search both directions instead of the viewport only.
         assertNotNull(device.scrollToText("Revisión sin guardar"))

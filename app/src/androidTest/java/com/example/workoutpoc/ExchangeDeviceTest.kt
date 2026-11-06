@@ -20,6 +20,11 @@ class ExchangeDeviceTest {
     private val device = UiDevice.getInstance(inst)
     // Shared helper: searches both directions and taps by position, robust to Compose node refreshes.
     private fun click(text: String) = device.clickText(text)
+    /** Earlier tests may leave the floating workout panel up; it sits over this screen and intercepts taps and drags. */
+    @org.junit.Before fun closeOverlay() {
+        app.stopService(Intent(app, com.example.workoutpoc.overlay.WorkoutOverlayService::class.java))
+        device.waitForIdle()
+    }
     /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
     private fun pickerClick(text: String) {
         if (!device.wait(Until.hasObject(By.text(text)), 3_000))
@@ -96,6 +101,9 @@ class ExchangeDeviceTest {
         val name = device.wait(Until.findObject(By.res("com.google.android.documentsui", "title")), 3000)
             ?: device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3000)
         assertNotNull(name)
+        // The save picker may open on a location that cannot hold files (e.g. Recent): choose Downloads explicitly.
+        device.wait(Until.findObject(By.desc("Show roots")), 3_000)?.click()
+        if (device.wait(Until.hasObject(By.text("Downloads")), 3_000)) pickerClick("Downloads")
         val outputName = "ent-02-export-${System.currentTimeMillis()}.json"
         val input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3000)
         assertNotNull(input); input!!.text = outputName
