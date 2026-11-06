@@ -135,7 +135,10 @@ class WorkoutDeviceTest {
         control("rir1")
         awaitState("Notification synchronizes overlay") { it.values.rir == 1 }
         device.pressBack()
-        assertTrue(device.findObject(By.res(pkg, "overlay_rir1")).text.contains("●"))
+        // Wait for the shade to close; the overlay is only queryable again once it is back on top.
+        val rir1 = device.wait(Until.findObject(By.res(pkg, "overlay_rir1")), 4_000)
+        assertNotNull("Overlay not visible after closing the shade", rir1)
+        assertTrue(rir1!!.text.contains("●"))
         screenshot("04-overlay-over-clock")
         control("collapse")
         val bubble = device.wait(Until.findObject(By.descContains("Burbuja de entrenamiento")), 3_000)!!

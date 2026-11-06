@@ -14,7 +14,8 @@ import androidx.compose.ui.unit.dp
 fun ProgramScreen(
     library: ProgramLibrary, ui: ProgramUiState, onBack: () -> Unit, onFile: () -> Unit,
     onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit, onExchange: () -> Unit,
-    onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> }
+    onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> },
+    onCatalog: () -> Unit = {}
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -29,6 +30,7 @@ fun ProgramScreen(
                 item { Text("Programas", style = MaterialTheme.typography.headlineLarge) }
                 item { OutlinedButton(onClick = onExchange) { Text("Intercambio JSON") } }
                 item { OutlinedButton(onClick = onMigration) { Text("Migrar desde Obsidian") } }
+                item { OutlinedButton(onClick = onCatalog) { Text("Catálogo de ejercicios") } }
                 if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 ui.message?.let { item { Text(it) } }
                 if (!ui.ready) item {

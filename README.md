@@ -103,6 +103,10 @@ Open **Programas > Intercambio JSON** to review, save, copy and import/export ve
 
 Open **Programas**, choose a saved program day and tap **Entrenar este día**, then start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions support warm-up sets, pausing and resuming (rest resumes exactly), cardio entries and partial sessions (ENT-06). They also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). Everything is stored offline and every confirmed set survives a forced close (ENT-07, [decision 0005](docs/architecture/decisions/0005-offline-persistence.md)). See [planned recording](docs/PLANNED_RECORDING.md).
 
+### Exercise catalog (ENT-08)
+
+Open **Programas > Catálogo de ejercicios** to rename exercises, describe their movement, variant, equipment, usual load basis and machine setup, and see each exercise's history. Identity is the stable exercise ID, so renaming never breaks history and non-equivalent variants stay distinct. See [catalog](docs/EXERCISE_CATALOG.md).
+
 ### Obsidian migration (ENT-03)
 
 Open **Programas > Migrar desde Obsidian** to import a Workout v3 Markdown week, review separate objectives/results, notes and ambiguity warnings, and explicitly save an offline migration archive. Original text and source lines are retained; seen warnings remain unresolved data. Reimports preserve saved review without duplicates. This delivery archives migration data without activating weeks or creating executable history. See the [contract, synthetic examples and verification](docs/OBSIDIAN_MIGRATION.md).

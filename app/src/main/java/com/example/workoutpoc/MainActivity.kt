@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
     private val model: WorkoutViewModel by viewModels()
     private val programModel: ProgramViewModel by viewModels()
     private val migrationModel: MigrationViewModel by viewModels()
+    private val catalogModel: com.example.workoutpoc.catalog.CatalogViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -80,6 +81,15 @@ class MainActivity : ComponentActivity() {
             var showPrograms by rememberSaveable { mutableStateOf(false) }
             var showExchange by rememberSaveable { mutableStateOf(false) }
             var showMigration by rememberSaveable { mutableStateOf(false) }
+            var showCatalog by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showCatalog) { showCatalog = false }
+            if (showCatalog) {
+                val catalog by catalogModel.catalog.collectAsStateWithLifecycle()
+                val catalogUi by catalogModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.catalog.CatalogScreen(catalog, catalogUi, { showCatalog = false },
+                    catalogModel::refresh, catalogModel::save)
+                return@setContent
+            }
             BackHandler(showMigration) { showMigration = false }
             if (showMigration) {
                 val archive by migrationModel.archive.collectAsStateWithLifecycle()
@@ -125,7 +135,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    })
+                    }, { catalogModel.refresh(); showCatalog = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

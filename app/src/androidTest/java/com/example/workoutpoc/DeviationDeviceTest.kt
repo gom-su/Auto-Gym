@@ -48,13 +48,7 @@ class DeviationDeviceTest {
         device.pressHome()
     }
 
-    private fun click(text: String) {
-        if (!device.wait(Until.hasObject(By.textStartsWith(text)), 1_500))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().textStartsWith(text))
-        val node = device.wait(Until.findObject(By.textStartsWith(text)), 6_000)
-        assertNotNull("Missing: $text", node)
-        node!!.click(); device.waitForIdle()
-    }
+    private fun click(text: String) { device.scrollToText(text).click(); device.waitForIdle() }
 
     private fun awaitState(message: String, condition: (WorkoutState) -> Boolean) {
         val end = SystemClock.elapsedRealtime() + 6_000

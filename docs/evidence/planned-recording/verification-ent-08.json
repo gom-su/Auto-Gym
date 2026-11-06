@@ -1,0 +1,36 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ENT-08",
+  "unitTests": {
+    "tests": 72,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "combinedRuns": [
+    {
+      "tests": 6,
+      "passed": 5,
+      "failed": 1,
+      "failedCase": "ProgramDeviceTest intermittent 'Cancelar importaci\u00f3n'"
+    },
+    {
+      "tests": 6,
+      "passed": 6,
+      "failed": 0
+    }
+  ],
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}
