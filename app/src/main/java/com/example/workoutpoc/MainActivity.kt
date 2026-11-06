@@ -1,6 +1,7 @@
 package com.example.workoutpoc
 
 import com.example.workoutpoc.exchange.*
+import com.example.workoutpoc.migration.*
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -34,6 +35,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val model: WorkoutViewModel by viewModels()
     private val programModel: ProgramViewModel by viewModels()
+    private val migrationModel: MigrationViewModel by viewModels()
+    private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(migrationModel::previewFile)
+    }
     private val programFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(programModel::previewFile)
     }
@@ -74,6 +79,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             var showPrograms by rememberSaveable { mutableStateOf(false) }
             var showExchange by rememberSaveable { mutableStateOf(false) }
+            var showMigration by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showMigration) { showMigration = false }
+            if (showMigration) {
+                val archive by migrationModel.archive.collectAsStateWithLifecycle()
+                val migrationUi by migrationModel.ui.collectAsStateWithLifecycle()
+                MigrationScreen(archive, migrationUi, { showMigration = false },
+                    // Providers disagree on Markdown MIME types (including null). Validate bytes, not the picker label.
+                    { migrationFile.launch(arrayOf("*/*")) },
+                    migrationModel::previewText, migrationModel::save, migrationModel::cancel,
+                    migrationModel::select, migrationModel::restore, migrationModel::acknowledge)
+                return@setContent
+            }
             BackHandler(showExchange) { showExchange = false }
             if (showExchange) {
                 val archive by exchangeModel.archive.collectAsStateWithLifecycle()
@@ -92,7 +109,8 @@ class MainActivity : ComponentActivity() {
                 val ui by programModel.ui.collectAsStateWithLifecycle()
                 ProgramScreen(library, ui, { showPrograms = false },
                     { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
-                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore, { showExchange = true })
+                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
+                    { showExchange = true }, { showMigration = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

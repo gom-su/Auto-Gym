@@ -1,0 +1,27 @@
+{
+  "acceptanceDate": "2026-10-30",
+  "timezone": "America/Bogota",
+  "requirement": "ENT-03",
+  "scope": "Workout v3 archival migration and offline review; no executable plan/history conversion",
+  "unitTests": { "tests": 39, "failures": 0, "errors": 0, "skipped": 0 },
+  "privateSourceValidation": "PASS; source and output remain local",
+  "build": "PASS",
+  "lint": { "errors": 0, "warnings": 67, "migrationWarnings": 0 },
+  "device": { "type": "emulator", "api": 36, "avd": "Workout_API_36" },
+  "combinedDeviceRun": {
+    "tests": 6,
+    "passed": 5,
+    "failed": 1,
+    "migration": "2 PASS",
+    "program": "1 PASS",
+    "exchange": "2 PASS",
+    "workout": "FAIL at notification repetition adjustment"
+  },
+  "isolatedWorkoutRepeat": { "tests": 1, "passed": 1, "failed": 0 },
+  "finalMigrationRunAfterDisplayLabelPolish": { "tests": 2, "passed": 2, "failed": 0 },
+  "forceStopRestoration": "PASS; entire synthetic migration archive unchanged",
+  "physicalDeviceTested": false,
+  "physicalDeviceRequiredForThisDelivery": false,
+  "debugApkSha256": "85322f3eaf0881a6c5952bff84cd98becca62ffa308b1eaf3882c97be75f38f8",
+  "publicEvidenceContainsRealWorkouts": false
+}

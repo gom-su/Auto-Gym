@@ -14,6 +14,11 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class WorkoutApplication : Application() {
+    val migrations: com.example.workoutpoc.migration.MigrationRepository by lazy {
+        com.example.workoutpoc.migration.MigrationRepository(DataStoreFactory.create(
+            com.example.workoutpoc.migration.MigrationArchiveSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("migrations-v1.json") })
+    }
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val error: MutableStateFlow<String?> = MutableStateFlow(null)
     val programs: ProgramRepository by lazy {
