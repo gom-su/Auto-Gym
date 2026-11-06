@@ -24,7 +24,9 @@ import java.io.OutputStream
 @Serializable data class ProposalDecision(
     val importId: String, val proposalId: String, val version: Int, val status: DecisionStatus, val decidedAtMillis: Long,
     val programId: String, val blockId: String, val weekId: String,
-    val warnings: List<String>, val differences: List<String>, val statedDifferences: List<String>, val reasons: List<String>
+    val warnings: List<String>, val differences: List<String>, val statedDifferences: List<String>, val reasons: List<String>,
+    /** Each relevant change with its evidence and the agent's reason at decision time (AG-03, AG-07). */
+    val explanations: List<ExplainedChange> = emptyList()
 )
 
 @Serializable data class ProposalState(
@@ -58,7 +60,8 @@ class ProposalRepository(
     private val programs: ProgramRepository,
     private val exchanges: ExchangeRepository,
     private val knownExerciseIds: suspend () -> Set<String>,
-    private val now: () -> Long = System::currentTimeMillis
+    private val now: () -> Long = System::currentTimeMillis,
+    private val sessions: suspend () -> List<com.example.workoutpoc.domain.WorkoutState> = { emptyList() }
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(ProposalState())
@@ -70,7 +73,13 @@ class ProposalRepository(
         programs.restore(); exchanges.restore()
         val pkg = exchanges.archive.value.packages.find { it.importId == importId && it.type == ExchangeType.WeekProposal }
             ?: throw ProposalException("La propuesta no está guardada.")
-        return ProposalRules.evaluate(pkg.proposal!!, programs.library.value, knownExerciseIds(), mutableState.value.rules)
+        val rules = mutableState.value.rules
+        val base = ProposalRules.evaluate(pkg.proposal!!, programs.library.value, knownExerciseIds(), rules)
+        val explanations = ProposalExplain.explain(base.proposal, base.base, sessions())
+        val unexplained = if (rules.unexplainedChange == Severity.OFF) emptyList() else explanations.filter { it.reason == null }.map {
+            ValidationIssue("UNEXPLAINED_CHANGE", rules.unexplainedChange, "${it.kind.label} sin motivo específico del agente: ${it.summary}")
+        }
+        return base.copy(issues = base.issues + unexplained, explanations = explanations)
     }
 
     fun decisionFor(importId: String): ProposalDecision? = mutableState.value.decisions.find { it.importId == importId }
@@ -115,7 +124,7 @@ class ProposalRepository(
     private suspend fun record(importId: String, e: ProposalEvaluation, status: DecisionStatus): ProposalDecision {
         val p = e.proposal
         val decision = ProposalDecision(importId, p.id, p.version, status, now(), p.programId, p.blockId, p.week.id,
-            e.warnings.map { it.message }, e.differences, p.differences, p.reasons)
+            e.warnings.map { it.message }, e.differences, p.differences, p.reasons, e.explanations)
         mutableState.value = store.updateData { it.copy(decisions = it.decisions + decision) }
         return decision
     }

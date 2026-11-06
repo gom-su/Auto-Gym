@@ -1,0 +1,27 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirements": [
+    "AG-03",
+    "AG-07"
+  ],
+  "unitTests": {
+    "tests": 96,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "proposalDeviceTest": "PASS (572 s)",
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

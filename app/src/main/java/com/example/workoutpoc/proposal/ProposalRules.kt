@@ -14,7 +14,9 @@ import kotlin.math.roundToInt
     val maxSetIncreasePercent: Int = 50, val setIncrease: Severity = Severity.WARNING,
     val unitChange: Severity = Severity.BLOCKING,
     val rirZero: Severity = Severity.WARNING,
-    val newExercise: Severity = Severity.WARNING
+    val newExercise: Severity = Severity.WARNING,
+    /** A computed change for which the agent gave no reason mentioning the exercise (AG-07). */
+    val unexplainedChange: Severity = Severity.WARNING
 ) {
     fun validate() {
         require(schemaVersion == 1) { "Versión de reglas no compatible." }
@@ -28,7 +30,8 @@ data class ValidationIssue(val code: String, val severity: Severity, val message
 data class ProposalEvaluation(
     val proposal: WeekProposal, val base: WeekPlan?, val issues: List<ValidationIssue>, val differences: List<String>,
     /** The proposed week is already in the program exactly as proposed (an approval whose decision was not yet recorded). */
-    val alreadyApplied: Boolean
+    val alreadyApplied: Boolean,
+    val explanations: List<ExplainedChange> = emptyList()
 ) {
     val blocking get() = issues.filter { it.severity == Severity.BLOCKING }
     val warnings get() = issues.filter { it.severity == Severity.WARNING }

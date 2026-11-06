@@ -39,6 +39,9 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                         }
                     }
                     item { RuleEditor(state.rules, !ui.busy && ui.ready, onSaveRules) }
+                    item { Text("Historial de decisiones", style = MaterialTheme.typography.titleLarge) }
+                    if (state.decisions.isEmpty()) item { Text("Aún no hay decisiones.") }
+                    items(state.decisions.sortedByDescending { it.decidedAtMillis }, key = { "decision-${it.importId}" }) { d -> DecisionCard(d) }
                 } else if (evaluation != null) {
                     val p = evaluation.proposal
                     item { Text("${p.week.name} · ${p.id} v${p.version}", style = MaterialTheme.typography.titleLarge) }
@@ -74,8 +77,9 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                         items(evaluation.warnings) { Text("• ${it.message}") }
                     }
                     if (evaluation.issues.isEmpty()) item { Text("Sin bloqueos ni advertencias con las reglas actuales.") }
-                    item { Text("Cambios calculados" + (evaluation.base?.let { " frente a ${it.name}" } ?: ""), style = MaterialTheme.typography.titleMedium) }
-                    items(evaluation.differences) { Text("• $it") }
+                    item { Text("Cambios explicados" + (evaluation.base?.let { " frente a ${it.name}" } ?: ""), style = MaterialTheme.typography.titleMedium) }
+                    if (evaluation.explanations.isEmpty()) items(evaluation.differences) { Text("• $it") }
+                    items(evaluation.explanations) { c -> ExplainedChangeCard(c) }
                     item { Text("Cambios declarados por el agente", style = MaterialTheme.typography.titleMedium) }
                     items(p.differences.ifEmpty { listOf("(ninguno)") }) { Text("• $it") }
                     item { Text("Razones del agente", style = MaterialTheme.typography.titleMedium) }
@@ -83,6 +87,35 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                     item { Text("Semana propuesta: ${p.week.days.size} días · ${p.week.days.sumOf { d -> d.exercises.sumOf { it.sets.size } }} series") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ExplainedChangeCard(c: ExplainedChange) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("${c.kind.label} · ${c.summary}", style = MaterialTheme.typography.titleSmall)
+            Text("Evidencia: ${c.evidence}", style = MaterialTheme.typography.bodySmall)
+            Text(c.reason?.let { "Motivo del agente: $it" } ?: "Sin motivo específico del agente para este cambio.",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (c.reason == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+/** Retrospective record of one decision: what changed, why, the evidence and the version (AG-03). */
+@Composable
+private fun DecisionCard(d: ProposalDecision) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(d.decidedAtMillis))} · ${d.status.label()} · ${d.proposalId} v${d.version}",
+                style = MaterialTheme.typography.titleSmall)
+            Text("Programa ${d.programId} · bloque ${d.blockId} · semana ${d.weekId}", style = MaterialTheme.typography.bodySmall)
+            (if (d.explanations.isNotEmpty()) d.explanations.map { "${it.kind.label}: ${it.summary} Motivo: ${it.reason ?: "no indicado"}. Evidencia: ${it.evidence}" }
+             else d.differences).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            if (d.reasons.isNotEmpty()) Text("Razones del agente: ${d.reasons.joinToString(" · ")}", style = MaterialTheme.typography.bodySmall)
+            if (d.warnings.isNotEmpty()) Text("Advertencias aceptadas: ${d.warnings.size}", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -100,6 +133,7 @@ private fun RuleEditor(rules: RuleSettings, enabled: Boolean, onSave: (RuleSetti
         SeverityRow("Cambio de unidad o base de carga", edited.unitChange) { edited = edited.copy(unitChange = it) }
         SeverityRow("Series a RIR 0", edited.rirZero) { edited = edited.copy(rirZero = it) }
         SeverityRow("Ejercicio desconocido", edited.newExercise) { edited = edited.copy(newExercise = it) }
+        SeverityRow("Cambio sin motivo del agente", edited.unexplainedChange) { edited = edited.copy(unexplainedChange = it) }
         Button(onClick = { onSave(edited) }, enabled = enabled && edited != rules) { Text("Guardar reglas") }
     }
 }

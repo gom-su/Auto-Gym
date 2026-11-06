@@ -78,6 +78,11 @@ class ProposalDeviceTest {
         val saved = runBlocking { File(app.filesDir, "datastore/programs-v1.json").inputStream().use { ProgramLibrarySerializer.readFrom(it) } }
         assertNotNull(saved.programs.single { it.id == "proposal-device-program" }.findDay(weekId, "$weekId-day"))
         device.scrollToText("Estado: Aprobada")
+        // AG-07: explained changes; AG-03: the decision is reviewable afterwards in the history.
+        assertNotNull(device.scrollToText("Aumento · Press ficticio: carga máxima 3 → 4"))
+        device.clickText("Ver todas las propuestas")
+        device.scrollToText("Historial de decisiones")
+        assertNotNull(device.scrollToText("· Aprobada · proposal-device-$suffix v1", contains = true))
         device.pressHome()
     }
 }

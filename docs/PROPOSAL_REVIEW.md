@@ -40,6 +40,22 @@ Computed changes cover:
 - minimum RIR;
 - maximum load per unit and basis.
 
+## Explained changes (AG-07)
+
+The review lists every relevant change against the base week as a card:
+
+| Kind | When |
+| --- | --- |
+| **Aumento** / **Reducción** | Same exercise ID with more or fewer sets, a higher or lower maximum load (same unit and basis), more or fewer prescribed reps, or a lower or higher minimum RIR (closer to failure counts as an increase in effort). Percentages are shown where there is a base. |
+| **Sustitución** | A removed exercise is replaced at the same day and position by a new one. |
+| **Nuevo ejercicio** / **Ejercicio retirado** | The remaining additions and removals. |
+
+Each card carries:
+- **Evidence:** the exercise's most recent recorded exposure on the device (date, top load × reps, sets, minimum RIR), or "Sin historial registrado". For a substitution, it is the replaced exercise's history.
+- **Agent's reason:** the proposal reasons that mention the exercise by name or ID. When none does, the card says **"Sin motivo específico del agente"** and nothing is inferred.
+
+A configurable rule, **Cambio sin motivo del agente** (warning by default), flags each unexplained change.
+
 ## Decisions and traceability
 
 `proposals-v1.json` stores one decision per import ID and per proposal ID and version. Each decision records:
@@ -48,7 +64,7 @@ Computed changes cover:
 - the agent's stated changes and reasons;
 - the warnings accepted.
 
-A decided proposal shows this record as it was at decision time, followed by its validation under the current rules.
+Decisions also store the explained changes (AG-03). **Historial de decisiones** on the proposals list shows every decision newest first: date, status, proposal and version, program/block/week, each change with its reason and evidence, the agent's reasons, and the number of accepted warnings. A decided proposal shows this record as it was at decision time, followed by its validation under the current rules.
 
 - **Idempotency:** decisions are final; approving twice returns the same decision. If the app stops after the week was appended but before the decision was saved, the next approval detects the identical week and only records the decision, so nothing is duplicated.
 - **Durability:** corrupt or future files are reported and never reset. Interchange v1 contracts are unchanged.
@@ -65,5 +81,14 @@ A decided proposal shows this record as it was at decision time, followed by its
 - `ProposalDeviceTest` runs through the real UI: paste a proposal → save the exchange (program unchanged) → **Propuestas de semana** → pending with the load warning → **Aprobar y añadir semana** → decision saved and the week present in the program file read from disk.
 - In two full runs of the 7 device cases (proposal, catalog, deviations, session lifecycle, planned session, program, workout), the first passed all 7. The second passed 6; `ProgramDeviceTest` hit a stale-node error in its own helper, an intermittent failure seen before this change.
 - Device tests were made independent of each other: the proposal test uses its own synthetic program, and the scroll helper re-finds the tallest container.
+
+### AG-07 / AG-03 (2026-11-06)
+
+- Unit tests: 96 run, 0 failures, 1 skipped. `ProposalExplainTest` adds 2 cases:
+  - classification of increases, reductions, a substitution and a removal, with no invented reasons and "no history" evidence;
+  - reasons attached only to the changes they mention, with evidence from a recorded session.
+- `ProposalReviewTest` expectations now include the unexplained-change warning, and decisions keep their explanations.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
+- `ProposalDeviceTest` now also checks the explained "Aumento · Press ficticio: carga máxima 3 → 4" card and the approved decision in **Historial de decisiones**. It passed, but took 9.5 minutes, mostly scrolling a decision history that grew across repeated emulator runs.
 
 Physical-device testing was not performed.
