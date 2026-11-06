@@ -38,7 +38,6 @@ Interchange v1 `TrainingContext.measurements` has no method field. Local measure
 - `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
 - `BodyMeasurementDeviceTest`: with a synthetic DEXA body-fat reading present, a bioimpedance reading entered through the real form is saved with metric, value, unit and method, read from disk. The screen shows the mixed-method warning and separate "Bioimpedancia" and "DEXA" series.
 - Device-test helper: drags now start clear of text fields, because a slow drag on a field is a long press that opens the selection toolbar. Tests that start from the main screen wait for it before the first tap.
-
 - Combined run of 9 device cases: 8 passed, including `WorkoutDeviceTest`. `ProgramDeviceTest` hit its intermittent assertion failure, seen in earlier runs before this change.
 
 Physical-device testing was not performed.
