@@ -39,6 +39,28 @@ In v1 results:
 - Notes and the edit marker go in the set notes.
 - A session is `COMPLETED` only when every position was completed and the session wasn't ended early.
 
+## Real sessions: warm-ups, pauses and cardio (ENT-06)
+
+These features apply to planned sessions only; the demo rejects them.
+
+- **Añadir aproximación de …** inserts a warm-up set before the next set to perform. During rest, it goes before the next set.
+  - The warm-up is unprescribed and is prefilled from that set's prescription for the user to lower.
+  - It is marked `warmup`, can be removed while unrecorded, and its load never carries into work sets.
+  - It exports with a note, since v1 has no warm-up flag.
+- **Pausar / Reanudar sesión:**
+  - While paused, nothing advances: overlay and notification taps are inert, the notification shows "Sesión en pausa" without controls, and the rest timer does not run out.
+  - On resume, the pause length is measured on the monotonic clock (wall clock after a reboot). The pending rest deadline is shifted by exactly that length, and `pausedMillis` accumulates.
+  - Finishing or closing while paused closes the pause first.
+  - The screen shows active time with pauses excluded.
+- **Cardio** (any started phase, including after the end): modality, optional duration, optional distance with M/KM/MI, and notes.
+  - At least one of duration, distance or notes is required.
+  - Nothing is estimated or defaulted.
+  - Entries are bound to their snapshot (stale adds are rejected) and can be removed.
+  - They export as v1 `CardioResult` with the modality in the notes.
+- **Partial sessions:** **Terminar entrenamiento** ends early. Status is `PARTIAL` unless every position was completed.
+
+An interruption at any point restores from `workout.json` exactly (sets, cardio, pause mark, rest deadline). Restore validates cardio ranges and identities, that a pause exists only during an active set or rest, and that warm-ups are extra sets.
+
 ## Session safety and archive
 
 - A session in progress (active set or rest) is never replaced. **Entrenar este día** refuses with a message until it is finished or closed.
@@ -86,5 +108,23 @@ The v1 JSON contract is unchanged. The legacy `demo` snapshot is now a frozen `D
 - `DeviationDeviceTest` runs through the real Activity: omit, complete, add an extra after the end, record it, then edit a set with a note, and compare the result with `workout.json` read from disk.
   - Two combined runs of `DeviationDeviceTest`, `PlannedSessionDeviceTest`, `ProgramDeviceTest` and `WorkoutDeviceTest` passed all 4 tests both times.
   - A separate exchange/migration run gave the same results as unmodified `main` (two known picker/flaky failures).
+
+### ENT-06 (2026-11-06, same emulator)
+
+- Unit tests: 63 run, 0 failures, 1 skipped (the opt-in private test). `SessionLifecycleTest` adds 7 cases:
+  - a paused session surviving a new process across a 10-minute gap, with exact rest/active time on resume and inert stale taps;
+  - a pause across a reboot;
+  - warm-up insertion and the no-carry rule;
+  - cardio validation and stale safety;
+  - demo isolation;
+  - finishing or closing while paused;
+  - v1 export.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
+- `SessionLifecycleDeviceTest` passes through the real UI: warm-up, set, cardio dialog, pause, resume, pause.
+- `scripts/verify_session_restore.py --serial emulator-5554`: PASS.
+  - It force-stops the process for real and confirms it is dead.
+  - After 2 s it relaunches; the persisted session is identical and the UI shows "Sesión en pausa".
+  - **Reanudar sesión** keeps the set, the cardio and the position, and shifts the rest deadline by exactly the measured pause (22.7 s in that run).
+- Combined run of 7 device cases: 6 passed. `DeviationDeviceTest` missed a scroll target in that run and then passed alone twice. The program, workout, planned-session and both migration cases passed.
 
 Physical-device testing was not performed.

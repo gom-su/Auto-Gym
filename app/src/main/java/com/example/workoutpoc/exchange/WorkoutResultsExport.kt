@@ -43,7 +43,8 @@ fun WorkoutState.toSessionResult(): SessionResult? {
         val p = plan[r.index]
         val notes = mutableListOf<String>()
         r.notes?.let { notes += it }
-        if (p.extra) notes += "Serie añadida durante la sesión, sin prescripción."
+        if (p.warmup) notes += "Serie de aproximación, sin prescripción."
+        else if (p.extra) notes += "Serie añadida durante la sesión, sin prescripción."
         if (r.editedAtMillis != null) notes += "Editada después de registrarse."
         if (r.status == SetStatus.SKIPPED) return@map SetResult(
             id = "$sessionId:${r.index}", prescriptionId = r.prescriptionId, exerciseId = p.exerciseId ?: "unknown-exercise",
@@ -77,7 +78,13 @@ fun WorkoutState.toSessionResult(): SessionResult? {
         startedAt = iso(startedAtMillis), endedAt = if (finished) iso(endedAtMillis) else null,
         notes = "Programa ${src.programId} · semana ${src.weekId} v${src.weekVersion} · " +
             "${records.count { it.status == SetStatus.COMPLETED }} completadas, ${records.count { it.status == SetStatus.SKIPPED }} omitidas, " +
-            "${plan.count { it.extra }} añadidas de ${plan.size} posiciones.",
-        sets = sets, cardio = emptyList()
+            "${plan.count { it.extra && !it.warmup }} añadidas y ${plan.count { it.warmup }} de aproximación de ${plan.size} posiciones." +
+            (if (pausedMillis > 0) " Pausas: ${pausedMillis / 1000} s." else ""),
+        sets = sets,
+        cardio = cardio.map { c ->
+            CardioResult(id = c.id, status = PerformanceStatus.COMPLETED, durationSeconds = c.durationSeconds,
+                distance = c.distanceTenths?.let { it / 10.0 }, distanceUnit = c.distanceUnit?.name,
+                notes = listOfNotNull("Modalidad: ${c.modality}.", c.notes).joinToString(" "))
+        }
     )
 }

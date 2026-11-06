@@ -82,6 +82,11 @@ fun DeviationActions(state: WorkoutState, dispatch: (WorkoutCommand) -> Unit) {
                 modifier = Modifier.fillMaxWidth()) { Text("Quitar serie extra") }
             else OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.SkipSet)) }, modifier = Modifier.fillMaxWidth()) { Text("Omitir serie") }
         }
+        val next = state.records.size
+        if ((state.phase == Phase.ActiveSet || state.phase == Phase.Resting) && next < plan.size && plan.size < MAX_PLAN_SIZE)
+            OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.AddWarmupSet)) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Añadir aproximación de ${plan[next].exercise}")
+            }
         if (state.phase != Phase.Idle && plan.size < MAX_PLAN_SIZE)
             OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.AddSet)) }, modifier = Modifier.fillMaxWidth()) {
                 Text("Añadir serie extra de $last")
