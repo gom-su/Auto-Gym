@@ -67,3 +67,29 @@ fun UiDevice.clickText(text: String) {
     }
     fail("Could not tap: $text")
 }
+
+/**
+ * Sets the text of the [index]-th text field on screen, re-finding it on each attempt (Compose refreshes nodes) and
+ * confirming the value applied; then dismisses the keyboard if it covers the screen.
+ */
+fun UiDevice.setFieldText(value: String, index: Int = 0) {
+    val probe = value.take(20)
+    repeat(6) {
+        try {
+            val fields = wait(Until.findObjects(By.clazz("android.widget.EditText")), 5_000)
+            val field = fields?.getOrNull(index) ?: return@repeat
+            field.text = value
+            val end = SystemClock.elapsedRealtime() + 3_000
+            while (SystemClock.elapsedRealtime() < end) {
+                val current = try { findObjects(By.clazz("android.widget.EditText")).getOrNull(index)?.text } catch (_: StaleObjectException) { null }
+                if (current != null && current.startsWith(probe)) {
+                    SystemClock.sleep(400)
+                    if (hasObject(By.pkg("com.google.android.inputmethod.latin"))) { pressBack(); waitForIdle() }
+                    return
+                }
+                SystemClock.sleep(150)
+            }
+        } catch (_: StaleObjectException) { SystemClock.sleep(200) }
+    }
+    fail("Could not set text field $index")
+}
