@@ -1,0 +1,65 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ENT-07",
+  "unitTests": {
+    "tests": 67,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "crashLoop": {
+    "result": "PASS",
+    "airplaneMode": true,
+    "rounds": [
+      {
+        "mode": "immediate-kill",
+        "recordsAfterRelaunch": 1,
+        "confirmedBeforeKill": 0
+      },
+      {
+        "mode": "kill-after-confirmation",
+        "recordsAfterRelaunch": 2,
+        "confirmedBeforeKill": 2
+      },
+      {
+        "mode": "immediate-kill",
+        "recordsAfterRelaunch": 3,
+        "confirmedBeforeKill": 2
+      },
+      {
+        "mode": "kill-after-confirmation",
+        "recordsAfterRelaunch": 4,
+        "confirmedBeforeKill": 4
+      },
+      {
+        "mode": "immediate-kill",
+        "recordsAfterRelaunch": 5,
+        "confirmedBeforeKill": 4
+      },
+      {
+        "mode": "kill-after-confirmation",
+        "recordsAfterRelaunch": 6,
+        "confirmedBeforeKill": 6
+      },
+      {
+        "mode": "immediate-kill",
+        "recordsAfterRelaunch": 7,
+        "confirmedBeforeKill": 6
+      }
+    ]
+  },
+  "networkPermissions": "none declared",
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}
