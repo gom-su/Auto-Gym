@@ -19,6 +19,11 @@ class WorkoutApplication : Application() {
             com.example.workoutpoc.migration.MigrationArchiveSerializer,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("migrations-v1.json") })
     }
+    val catalog: com.example.workoutpoc.catalog.CatalogRepository by lazy {
+        com.example.workoutpoc.catalog.CatalogRepository(DataStoreFactory.create(
+            com.example.workoutpoc.catalog.ExerciseCatalogSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("exercises-v1.json") })
+    }
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val error: MutableStateFlow<String?> = MutableStateFlow(null)
     val programs: ProgramRepository by lazy {

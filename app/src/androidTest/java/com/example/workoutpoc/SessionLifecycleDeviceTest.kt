@@ -44,11 +44,7 @@ class SessionLifecycleDeviceTest {
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
     }
 
-    private fun scrollTo(text: String): UiObject2 {
-        if (!device.wait(Until.hasObject(By.textStartsWith(text)), 1_500))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().textStartsWith(text))
-        return device.wait(Until.findObject(By.textStartsWith(text)), 6_000) ?: run { fail("Missing: $text"); throw AssertionError() }
-    }
+    private fun scrollTo(text: String): UiObject2 = device.scrollToText(text)
     private fun click(text: String) { scrollTo(text).click(); device.waitForIdle() }
 
     private fun awaitState(message: String, condition: (WorkoutState) -> Boolean) {
@@ -82,7 +78,7 @@ class SessionLifecycleDeviceTest {
 
         click("Pausar sesión")
         awaitState("Paused") { it.paused != null }
-        assertNotNull(device.wait(Until.findObject(By.text("Sesión en pausa")), 4_000))
+        scrollTo("Sesión en pausa")
         val before = app.repository.state.value
         SystemClock.sleep(1_500)
         click("Reanudar sesión")

@@ -54,11 +54,7 @@ class PlannedSessionDeviceTest {
     private fun find(selector: BySelector, what: String): UiObject2 =
         device.wait(Until.findObject(selector), 6_000) ?: run { fail("Missing: $what"); throw AssertionError() }
 
-    private fun scrollTo(text: String): UiObject2 {
-        if (!device.wait(Until.hasObject(By.textStartsWith(text)), 1_000))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().textStartsWith(text))
-        return find(By.textStartsWith(text), text)
-    }
+    private fun scrollTo(text: String): UiObject2 = device.scrollToText(text)
 
     private fun awaitState(message: String, condition: (WorkoutState) -> Boolean) {
         val end = SystemClock.elapsedRealtime() + 6_000

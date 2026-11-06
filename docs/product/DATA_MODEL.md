@@ -30,6 +30,8 @@ Session: planned → in progress → completed/partial/not performed. Deliberate
 
 ## Implementation boundary
 
+ENT-08 adds an independent `exercises-v1.json` catalog keyed by the existing stable `exerciseId`; names are labels with aliases, so history, prescriptions and exports keep referencing the ID. See [catalog](../EXERCISE_CATALOG.md).
+
 ENT-04 snapshots a planned day into the executable session (`WorkoutState.plan` + `SessionSource`) and archives finished sessions to an independent `history-v1.json`; recorded values stay separate from the prescription and keep its ID. See [planned recording](../PLANNED_RECORDING.md).
 
 ENT-03 adds an independent [Obsidian migration archive](../OBSIDIAN_MIGRATION.md) with immutable source/interpretation and mutable warning acknowledgements. Ranges, unknown bases and ambiguous result associations remain represented without forcing them into executable prescriptions or session history. Program and exchange v1 contracts are unchanged.

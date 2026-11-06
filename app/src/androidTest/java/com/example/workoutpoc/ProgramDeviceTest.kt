@@ -69,8 +69,12 @@ class ProgramDeviceTest {
         assertTrue(device.wait(Until.hasObject(By.text("Revisar importación")), 8_000))
         click("Semana 1 · 2 días")
         click("Día A · 1 ejercicio · 2 series")
-        assertTrue(device.wait(Until.hasObject(By.text("Sentadilla ficticia")), 5_000))
-        assertTrue(device.hasObject(By.text("Serie 1 · 8 reps · RIR 3")))
+        // More navigation entries precede the review; scroll instead of assuming the day fits above the fold.
+        for (text in listOf("Sentadilla ficticia", "Serie 1 · 8 reps · RIR 3")) {
+            if (!device.wait(Until.hasObject(By.text(text)), 2_000))
+                UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text))
+            assertTrue(device.wait(Until.hasObject(By.text(text)), 5_000))
+        }
         click("Guardar programa")
         assertTrue(device.wait(Until.hasObject(By.textContains("Programa guardado")), 5_000) ||
             device.hasObject(By.textContains("ya estaba importado")))
@@ -82,6 +86,8 @@ class ProgramDeviceTest {
         click("Programa ficticio variable")
         click("Semana 2 · 1 día")
         click("Día C · 2 ejercicios · 4 series")
+        if (!device.wait(Until.hasObject(By.text("Serie 1 · 5 reps · RIR 4")), 2_000))
+            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text("Serie 1 · 5 reps · RIR 4"))
         assertTrue(device.wait(Until.hasObject(By.text("Serie 1 · 5 reps · RIR 4")), 5_000))
         // The day view now leads with a train action; scroll rather than assume the set fits above the fold.
         if (!device.hasObject(By.text("0.0 kg · por lado")))
