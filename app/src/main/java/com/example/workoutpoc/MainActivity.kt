@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private val proposalModel: com.example.workoutpoc.proposal.ProposalViewModel by viewModels()
     private val bodyModel: com.example.workoutpoc.body.BodyViewModel by viewModels()
     private val adherenceModel: AdherenceViewModel by viewModels()
+    private val questionsModel: com.example.workoutpoc.questions.QuestionsViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -88,6 +89,14 @@ class MainActivity : ComponentActivity() {
             var showProposals by rememberSaveable { mutableStateOf(false) }
             var showBody by rememberSaveable { mutableStateOf(false) }
             var showAdherence by rememberSaveable { mutableStateOf(false) }
+            var showQuestions by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showQuestions) { showQuestions = false }
+            if (showQuestions) {
+                val questionsUi by questionsModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.questions.QuestionsScreen(questionsUi, { showQuestions = false }, questionsModel::refresh,
+                    questionsModel::answer, questionsModel::reopen)
+                return@setContent
+            }
             BackHandler(showAdherence) { showAdherence = false }
             if (showAdherence) {
                 val adherenceUi by adherenceModel.ui.collectAsStateWithLifecycle()
@@ -166,7 +175,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
                     annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true },
-                    { adherenceModel.refresh(); showAdherence = true })
+                    { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

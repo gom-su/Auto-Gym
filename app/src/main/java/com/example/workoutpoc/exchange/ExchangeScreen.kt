@@ -35,7 +35,7 @@ fun ExchangeScreen(archive: ExchangeArchive, ui: ExchangeUiState, onBack: () -> 
                     item { OutlinedButton(onClick = { onText(text) }, enabled = ui.ready && !ui.busy && text.isNotBlank()) { Text("Revisar intercambio") } }
                     item { Button(onClick = { onGenerate(ExchangeType.TrainingContext) }, enabled = ui.ready && !ui.busy) { Text("Preparar contexto local") } }
                     item { Button(onClick = { onGenerate(ExchangeType.TrainingResults) }, enabled = ui.ready && !ui.busy) { Text("Preparar resultados locales") } }
-                    item { Text("Los resultados locales incluyen la sesión demo disponible; no hay historial adicional registrado. Las reglas, objetivos y fase aún no se registran localmente.") }
+                    item { Text("Los resultados locales incluyen la sesión demo disponible; no hay historial adicional registrado. La fase, los objetivos y las reglas del contexto salen solo de tus respuestas en Preguntas de planificación.") }
                     item { Text("Intercambios guardados", style = MaterialTheme.typography.titleLarge) }
                     items(archive.packages, key = { it.importId }) { entry ->
                         OutlinedButton(onClick = { onSelect(entry) }, enabled = !ui.busy) { Text("${entry.type} · ${entry.importId}") }

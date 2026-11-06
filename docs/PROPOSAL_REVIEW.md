@@ -14,6 +14,23 @@ The AI proposes, the deterministic rules validate, and the user decides. Nothing
    - the proposed volume.
 5. **Aprobar y añadir semana** re-validates at decision time, then appends the week to the saved program through the ENT-09 merge (never replacing or reordering saved weeks). The week can then be trained with **Entrenar este día**. **Rechazar propuesta** changes nothing.
 
+## Focused planning questions (AG-01)
+
+**Programas > Preguntas de planificación** lists the gaps that matter for planning:
+- the current goal and phase;
+- injuries or restrictions;
+- availability;
+- for each catalogued exercise whose equipment is unknown, which equipment it uses.
+
+Each question says why it matters. Answer what you know, or tap **No disponible**. A blank answer is rejected, and nothing is filled in by assumption. An equipment answer also completes the catalog entry, so that gap closes at its source. **Cambiar respuesta** reopens a question.
+
+Nothing blocks. Context export works with any number of open questions. The exported v1 `TrainingContext` takes its **phase**, **goals** and **rules** only from the answers:
+- answered questions become the phase, goals or rules;
+- "not available" items are passed as explicit rules ("Dato no disponible (indicado por el usuario): …"), so the agent does not assume them;
+- unanswered questions are simply absent.
+
+Answers are stored in a validated `planning-answers-v1.json`: each answer is either a value or "not available", never both or neither.
+
 ## Rules (AG-05)
 
 Rules run as pure Kotlin over the proposal and the saved library. The **base week** is the last saved week of the target block. Comparisons are per stable exercise ID across the whole week.
@@ -101,6 +118,15 @@ Decisions also store the explained changes (AG-03). **Historial de decisiones** 
 - `ProposalDeviceTest` runs through the real UI: paste a proposal → save the exchange (program unchanged) → **Propuestas de semana** → pending with the load warning → **Aprobar y añadir semana** → decision saved and the week present in the program file read from disk.
 - In two full runs of the 7 device cases (proposal, catalog, deviations, session lifecycle, planned session, program, workout), the first passed all 7. The second passed 6; `ProgramDeviceTest` hit a stale-node error in its own helper, an intermittent failure seen before this change.
 - Device tests were made independent of each other: the proposal test uses its own synthetic program, and the scroll helper re-finds the tallest container.
+
+### AG-01 (2026-11-06)
+
+- Unit tests: 101 run, 0 failures, 1 skipped. `PlanningQuestionsTest` adds 3 cases:
+  - gaps open until answered or marked unavailable, with nothing invented and only answers in the context; blank answers rejected; reopening works;
+  - answers producing a valid v1 `TrainingContext`;
+  - answer validation, and corrupt files never reset.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
+- `QuestionsDeviceTest`: through the real screen, it answers the phase question and marks restrictions "No disponible". It verifies both in the file read from disk, then checks that the context the export uses carries the phase and the explicit unknown.
 
 ### AG-04 (2026-11-06)
 

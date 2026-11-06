@@ -60,12 +60,19 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
         val sessions = (app.repository.archived.value.sessions + state).distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() }
         val results = TrainingResults(sessions, state.toDemoV1()?.let { DemoSnapshot(it) })
         val data = ExchangePackage(1, type, UUID.randomUUID().toString(), Instant.now().toString(),
-            context = if (type == ExchangeType.TrainingContext) TrainingContext(app.programs.library.value.programs,
-                null, results, emptyList(), emptyList()) else null,
+            context = if (type == ExchangeType.TrainingContext) planningContext().let { (phase, goals, rules) ->
+                TrainingContext(app.programs.library.value.programs, phase, results, rules, goals) } else null,
             results = if (type == ExchangeType.TrainingResults) results else null)
         ExchangeCodec.encode(data)
         mutableUi.value = mutableUi.value.copy(preview = data, message = "Revisa el JSON antes de compartir. El contexto local no incluye mediciones corporales. La demo se identifica como tal.")
     }
+    /** Phase, goals and rules come only from the user's answers to the planning questions (AG-01); never invented. */
+    private suspend fun planningContext(): Triple<String?, List<String>, List<String>> {
+        app.catalog.restore(); app.planningAnswers.restore()
+        return com.example.workoutpoc.questions.PlanningQuestions.context(
+            com.example.workoutpoc.questions.PlanningQuestions.questions(app.catalog.catalog.value), app.planningAnswers.answers.value)
+    }
+
     fun stageExport(includeMeasurements: Boolean): Boolean {
         val data = ui.value.preview ?: return false
         return try { pendingExport = exportText(data, includeMeasurements); true }
