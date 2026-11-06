@@ -30,13 +30,14 @@ class ProgramDeviceTest {
         device.unfreezeRotation()
     }
 
-    private fun click(text: String) {
-        if (!device.wait(Until.hasObject(By.text(text)), 1_000))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text))
+    // Shared helpers: search both directions, re-find after the list settles, retry stale nodes.
+    private fun click(text: String) = device.clickText(text)
+    /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
+    private fun pickerClick(text: String) {
+        if (!device.wait(Until.hasObject(By.text(text)), 3_000))
+            try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
         val node = device.wait(Until.findObject(By.text(text)), 8_000)
-        assertNotNull("Missing: $text", node)
-        node!!.click()
-        device.waitForIdle()
+        assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
     }
 
     private fun edit(text: String) {
@@ -47,10 +48,26 @@ class ProgramDeviceTest {
             input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)
         }
         assertNotNull(input)
-        input!!.text = text
+        // Large texts may not apply on the first attempt: confirm the field holds the intended text before moving on.
+        val probe = text.take(20)
+        var applied = false
+        for (attempt in 0 until 4) {
+            try {
+                device.findObject(By.clazz("android.widget.EditText"))?.text = text
+                val end = android.os.SystemClock.elapsedRealtime() + 3_000
+                while (android.os.SystemClock.elapsedRealtime() < end) {
+                    val current = try { device.findObject(By.clazz("android.widget.EditText"))?.text } catch (_: StaleObjectException) { null }
+                    if (current != null && current.startsWith(probe) && current.length >= minOf(text.length, 4000) / 2) { applied = true; break }
+                    android.os.SystemClock.sleep(150)
+                }
+            } catch (_: StaleObjectException) { }
+            if (applied) break
+        }
+        assertTrue("Text was not applied to the JSON field", applied)
         // The soft keyboard can cover the review button below the field; dismiss it once it has appeared.
         android.os.SystemClock.sleep(600)
-        if (device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")) { device.pressBack(); device.waitForIdle() }
+        // Check the keyboard window itself: dumpsys can report a hidden keyboard as shown, and Back would then leave the screen.
+        if (device.hasObject(By.pkg("com.google.android.inputmethod.latin"))) { device.pressBack(); device.waitForIdle() }
     }
 
     @Test fun importReviewBrowseCancelConflictAndRecreation() {
@@ -67,17 +84,13 @@ class ProgramDeviceTest {
         click("Seleccionar archivo JSON")
         val roots = device.wait(Until.findObject(By.desc("Show roots")), 5_000)
         if (roots != null) roots.click()
-        click("Downloads")
-        click("ent-01-device.json")
+        pickerClick("Downloads")
+        pickerClick("ent-01-device.json")
         assertTrue(device.wait(Until.hasObject(By.text("Revisar importación")), 8_000))
         click("Semana 1 · 2 días")
         click("Día A · 1 ejercicio · 2 series")
         // More navigation entries precede the review; scroll instead of assuming the day fits above the fold.
-        for (text in listOf("Sentadilla ficticia", "Serie 1 · 8 reps · RIR 3")) {
-            if (!device.wait(Until.hasObject(By.text(text)), 2_000))
-                UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text))
-            assertTrue(device.wait(Until.hasObject(By.text(text)), 5_000))
-        }
+        for (text in listOf("Sentadilla ficticia", "Serie 1 · 8 reps · RIR 3")) device.scrollToText(text)
         click("Guardar programa")
         assertTrue(device.wait(Until.hasObject(By.textContains("Programa guardado")), 5_000) ||
             device.hasObject(By.textContains("ya estaba importado")))
@@ -89,21 +102,15 @@ class ProgramDeviceTest {
         click("Programa ficticio variable")
         click("Semana 2 · 1 día")
         click("Día C · 2 ejercicios · 4 series")
-        if (!device.wait(Until.hasObject(By.text("Serie 1 · 5 reps · RIR 4")), 2_000))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text("Serie 1 · 5 reps · RIR 4"))
-        assertTrue(device.wait(Until.hasObject(By.text("Serie 1 · 5 reps · RIR 4")), 5_000))
+        device.scrollToText("Serie 1 · 5 reps · RIR 4")
         // The day view now leads with a train action; scroll rather than assume the set fits above the fold.
-        if (!device.hasObject(By.text("0.0 kg · por lado")))
-            UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text("0.0 kg · por lado"))
-        assertTrue(device.wait(Until.hasObject(By.text("0.0 kg · por lado")), 5_000))
+        device.scrollToText("0.0 kg · por lado")
         // Rotation recreates the Activity without discarding navigation or stored associations.
         device.setOrientationLeft()
-        UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text("Día C"))
-        assertTrue(device.wait(Until.hasObject(By.text("Día C")), 5_000))
+        device.scrollToText("Día C")
         device.setOrientationNatural()
         device.unfreezeRotation()
         device.waitForIdle()
-        UiScrollable(UiSelector().scrollable(true)).scrollToBeginning(20)
         click("Ver todos los programas")
         edit("{}")
         click("Revisar JSON")
