@@ -1,0 +1,29 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ANA-02",
+  "unitTests": {
+    "tests": 86,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "combinedRun": {
+    "tests": 8,
+    "passed": 6,
+    "failed": 2,
+    "failedCases": "ProgramDeviceTest stale node; WorkoutDeviceTest notification RIR step (both intermittent before this change)"
+  },
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

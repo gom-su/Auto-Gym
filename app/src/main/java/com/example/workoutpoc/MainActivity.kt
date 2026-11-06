@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
                 val catalog by catalogModel.catalog.collectAsStateWithLifecycle()
                 val catalogUi by catalogModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.catalog.CatalogScreen(catalog, catalogUi, { showCatalog = false },
-                    catalogModel::refresh, catalogModel::save)
+                    catalogModel::refresh, catalogModel::save, catalogModel.annotations.collectAsStateWithLifecycle().value)
                 return@setContent
             }
             BackHandler(showMigration) { showMigration = false }
@@ -127,6 +127,7 @@ class MainActivity : ComponentActivity() {
             if (showPrograms) {
                 val library by programModel.library.collectAsStateWithLifecycle()
                 val ui by programModel.ui.collectAsStateWithLifecycle()
+                val annotations by programModel.annotations.collectAsStateWithLifecycle()
                 ProgramScreen(library, ui, { showPrograms = false },
                     { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
@@ -145,7 +146,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true })
+                    }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
+                    annotations, programModel::setDeload)
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

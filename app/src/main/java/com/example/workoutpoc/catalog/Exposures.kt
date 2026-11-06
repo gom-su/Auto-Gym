@@ -10,7 +10,9 @@ data class ExposureSet(val values: SetValues, val warmup: Boolean, val extra: Bo
  * (warm-ups and omitted sets are shown but never counted), so different exposures stay comparable.
  */
 data class Exposure(
-    val sessionId: String, val startedAtMillis: Long, val label: String, val sets: List<ExposureSet>
+    val sessionId: String, val startedAtMillis: Long, val label: String, val sets: List<ExposureSet>,
+    /** Planned-week identity, used to apply user-declared context such as deload weeks. */
+    val programId: String? = null, val weekId: String? = null
 ) {
     private val work get() = sets.filter { !it.warmup && !it.skipped }
     val workSets get() = work.size
@@ -51,7 +53,7 @@ fun exposures(exerciseId: String, sessions: List<WorkoutState>): List<ExposureGr
         }
         val label = s.source?.let { "${it.programName} · ${it.weekName} · ${it.dayName}" } ?: "Sesión"
         val start = s.startedAtMillis ?: s.records.minOfOrNull { it.completedAtMillis } ?: 0
-        bySessionGroup.forEach { (key, sets) -> byGroup.getOrPut(key) { mutableListOf() } += Exposure(s.sessionId, start, label, sets) }
+        bySessionGroup.forEach { (key, sets) -> byGroup.getOrPut(key) { mutableListOf() } += Exposure(s.sessionId, start, label, sets, s.source?.programId, s.source?.weekId) }
     }
     return byGroup.map { (key, list) -> ExposureGroup(key.unit, key.basis, list.sortedByDescending { it.startedAtMillis }) }
         .sortedByDescending { g -> g.exposures.maxOf { it.startedAtMillis } }

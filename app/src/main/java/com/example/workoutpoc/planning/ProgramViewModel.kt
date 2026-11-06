@@ -23,12 +23,14 @@ data class ProgramUiState(
 class ProgramViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = application.workoutApp.programs
     val library = repository.library
+    val annotations = application.workoutApp.weekAnnotations.annotations
     private val mutableUi = MutableStateFlow(ProgramUiState())
     val ui = mutableUi.asStateFlow()
     init { restore() }
 
     fun restore() = operation {
         repository.restore()
+        getApplication<Application>().workoutApp.weekAnnotations.restore()
         mutableUi.value = mutableUi.value.copy(ready = true, message = null)
     }
     fun previewText(text: String) = operation { prepare(text) }
@@ -53,6 +55,10 @@ class ProgramViewModel(application: Application) : AndroidViewModel(application)
         val program = withContext(Dispatchers.Default) { ProgramCodec.decode(text) }
         repository.restore()
         mutableUi.value = mutableUi.value.copy(preview = program, merge = repository.preview(program), message = null)
+    }
+    /** User-declared deload context for a saved week; never inferred and never changes the prescription. */
+    fun setDeload(programId: String, weekId: String, deload: Boolean) = operation {
+        getApplication<Application>().workoutApp.weekAnnotations.setDeload(programId, weekId, deload)
     }
     fun showMessage(text: String) { mutableUi.value = mutableUi.value.copy(message = text) }
     fun cancelPreview() { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = null, merge = null, message = null) }
