@@ -1,7 +1,7 @@
 package com.example.workoutpoc
 
+import android.os.SystemClock
 import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
@@ -9,23 +9,35 @@ import androidx.test.uiautomator.Until
 import org.junit.Assert.fail
 
 /**
- * Finds a node whose text starts with [text], scrolling the screen's scrollable container up and then down.
- * Compose recomposes the container, so it is re-found on every attempt; UiScrollable only searches forward.
- * The tallest scrollable is used because single-line text fields are horizontally scrollable too.
+ * Finds a node whose text starts with [text], dragging the screen down to the end and then back up.
+ * Drags are slow (no fling), so content does not keep moving after a match; the match is re-found once the list
+ * has settled before it is returned. Node scroll actions are avoided: Compose lazy lists do not expose them
+ * reliably, and single-line text fields are scrollable nodes too.
  */
-fun UiDevice.scrollToText(text: String, timeoutMillis: Long = 6_000): UiObject2 {
+fun UiDevice.scrollToText(text: String): UiObject2 {
     val selector = By.textStartsWith(text)
-    wait(Until.findObject(selector), 1_500)?.let { return it }
-    val end = android.os.SystemClock.elapsedRealtime() + timeoutMillis
-    while (android.os.SystemClock.elapsedRealtime() < end) {
-        for (direction in listOf(Direction.UP, Direction.DOWN)) {
-            val container = findObjects(By.scrollable(true)).maxByOrNull { it.visibleBounds.height() } ?: break
-            try { container.scrollUntil(direction, Until.findObject(selector)) } catch (_: StaleObjectException) { }
-            waitForIdle()
-            findObject(selector)?.let { return it }
+    fun settled(): UiObject2? { waitForIdle(); SystemClock.sleep(250); return try { findObject(selector) } catch (_: StaleObjectException) { null } }
+    wait(Until.findObject(selector), 1_500)?.let { return settled() ?: it }
+    val x = displayWidth / 2
+    val low = (displayHeight * 0.70).toInt(); val high = (displayHeight * 0.40).toInt()
+    for (down in listOf(true, false)) {
+        var previous: List<String>? = null
+        for (step in 0 until 20) {
+            if (down) drag(x, low, x, high, 60) else drag(x, high, x, low, 60)
+            settled()?.let { return it }
+            val visible = try { findObjects(By.textStartsWith("")).mapNotNull { it.text } } catch (_: StaleObjectException) { null }
+            if (visible != null && visible == previous) break
+            previous = visible
         }
-        wait(Until.findObject(selector), 500)?.let { return it }
     }
     fail("Missing: $text")
     throw AssertionError()
+}
+
+/** Scrolls to and taps [text], retrying when Compose recycles the node between finding and tapping it. */
+fun UiDevice.clickText(text: String) {
+    repeat(3) {
+        try { scrollToText(text).click(); waitForIdle(); return } catch (_: StaleObjectException) { SystemClock.sleep(200) }
+    }
+    fail("Could not tap: $text")
 }

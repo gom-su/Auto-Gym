@@ -48,6 +48,9 @@ class ProgramDeviceTest {
         }
         assertNotNull(input)
         input!!.text = text
+        // The soft keyboard can cover the review button below the field; dismiss it once it has appeared.
+        android.os.SystemClock.sleep(600)
+        if (device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")) { device.pressBack(); device.waitForIdle() }
     }
 
     @Test fun importReviewBrowseCancelConflictAndRecreation() {

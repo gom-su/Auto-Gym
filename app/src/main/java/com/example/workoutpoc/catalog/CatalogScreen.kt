@@ -48,7 +48,7 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
                         OutlinedButton(onClick = { selectedId = e.id }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth()) {
                                 Text(listOfNotNull(e.name, e.variant, e.equipment?.label()).joinToString(" · "))
-                                Text("ID ${e.id} · $count series registradas" + if (e.id in ambiguous) " · nombre ambiguo" else "",
+                                Text("ID ${e.id} · ${plural(count, "serie registrada", "series registradas")}" + if (e.id in ambiguous) " · nombre ambiguo" else "",
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -56,17 +56,30 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
                 } else {
                     item { ExerciseEditor(selected, selected.id in ambiguous, !ui.busy && ui.ready, onSave) }
                     val history = exerciseHistory(selected.id, ui.sessions)
-                    item { Text("Historial · ${history.size} series", style = MaterialTheme.typography.titleLarge) }
-                    if (history.isEmpty()) item { Text("Sin series registradas para este ID.") }
-                    items(history, key = { "${it.sessionId}-${it.completedAtMillis}-${it.recordedName}-${it.values}" }) { h ->
-                        val format = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text("${format.format(Date(h.completedAtMillis))} · ${h.dayName ?: "sesión"}", style = MaterialTheme.typography.titleSmall)
-                                Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
-                                    "${loadLabel(h.values.weightTenths, h.unit)} · ${h.values.reps} reps · RIR ${rirLabel(h.values.rir)}" +
-                                        (if (h.warmup) " · aproximación" else if (h.extra) " · extra" else ""))
-                                if (h.recordedName != selected.name) Text("Registrada como \"${h.recordedName}\"", style = MaterialTheme.typography.bodySmall)
+                    val groups = exposures(selected.id, ui.sessions)
+                    item { Text("Historial · ${plural(history.size, "serie", "series")}", style = MaterialTheme.typography.titleLarge) }
+                    if (groups.isEmpty()) item { Text("Sin series registradas para este ID.") }
+                    else item { Text("Comparación por exposición: cada sesión resume solo series de trabajo completadas. Unidades y bases distintas se muestran en grupos separados y nunca se mezclan.",
+                        style = MaterialTheme.typography.bodySmall) }
+                    groups.forEach { group ->
+                        item { Text("${unitLabel(group.unit)} · ${basisLabel(group.basis)} · ${plural(group.exposures.size, "exposición", "exposiciones")}",
+                            style = MaterialTheme.typography.titleMedium) }
+                        items(group.exposures, key = { "${group.unit}-${group.basis}-${it.sessionId}" }) { e ->
+                            val format = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+                            Card(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("${format.format(Date(e.startedAtMillis))} · ${e.label}", style = MaterialTheme.typography.titleSmall)
+                                    Text(listOfNotNull(
+                                        e.topLoadTenths?.let { "máx. ${loadLabel(it, group.unit)} × ${e.bestRepsAtTopLoad}" },
+                                        "${plural(e.workSets, "serie", "series")} · ${e.totalReps} reps",
+                                        e.minRir?.let { "RIR mín. ${rirLabel(it)}" }).joinToString(" · "))
+                                    e.sets.forEach { set ->
+                                        Text((if (set.skipped) "Omitida" else "${loadLabel(set.values.weightTenths, group.unit)} × ${set.values.reps} @ RIR ${rirLabel(set.values.rir)}") +
+                                            (if (set.warmup) " · aproximación" else if (set.extra) " · extra" else "") +
+                                            (if (set.recordedName != selected.name) " · registrada como \"${set.recordedName}\"" else ""),
+                                            style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
                             }
                         }
                     }
@@ -86,6 +99,9 @@ private fun ExerciseEditor(exercise: CatalogExercise, ambiguous: Boolean, enable
     var setup by remember(exercise) { mutableStateOf(exercise.setup.orEmpty()) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("ID estable: ${exercise.id}", style = MaterialTheme.typography.titleMedium)
+        // Save sits at the top so it stays reachable above the keyboard and the long attribute list.
+        Button(onClick = { onSave(exercise.copy(name = name, movement = movement, variant = variant, equipment = equipment,
+            loadBasis = basis, setup = setup)) }, enabled = enabled && name.isNotBlank()) { Text("Guardar ejercicio") }
         if (ambiguous) Text("Otro ejercicio tiene el mismo nombre, variante y equipo. Añade una variante o equipo para distinguirlos.",
             color = MaterialTheme.colorScheme.error)
         OutlinedTextField(name, { if (it.length <= 200) name = it }, label = { Text("Nombre visible") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -97,8 +113,6 @@ private fun ExerciseEditor(exercise: CatalogExercise, ambiguous: Boolean, enable
         Text("Base de carga habitual (informativa)", style = MaterialTheme.typography.labelLarge)
         FlowChips(listOf(null) + LoadBasis.entries, basis, { it?.label() ?: "sin indicar" }) { basis = it }
         OutlinedTextField(setup, { if (it.length <= 1000) setup = it }, label = { Text("Configuración de máquina o montaje") }, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { onSave(exercise.copy(name = name, movement = movement, variant = variant, equipment = equipment,
-            loadBasis = basis, setup = setup)) }, enabled = enabled && name.isNotBlank()) { Text("Guardar ejercicio") }
     }
 }
 
@@ -109,3 +123,5 @@ private fun <T> FlowChips(options: List<T>, selected: T, label: (T) -> String, o
         options.forEach { option -> FilterChip(selected == option, { onSelect(option) }, { Text(label(option)) }) }
     }
 }
+
+private fun plural(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
