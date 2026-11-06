@@ -69,6 +69,10 @@ An interruption at any point restores from `workout.json` exactly (sets, cardio,
 
 History browsing, warmups, cardio and pauses are separate requirements (ENT-06); archiving guarantees that confirmed sets are kept.
 
+## Offline durability (ENT-07)
+
+Recording never touches the network: the app declares no network permission. Every confirmed set is written atomically before the UI shows it, and corrupt files are reported, never reset. The storage decision and why Room is deferred to queryable history (analytics) are in [decision 0005](architecture/decisions/0005-offline-persistence.md).
+
 ## Interchange
 
 The v1 JSON contract is unchanged. The legacy `demo` snapshot is now a frozen `DemoStateV1` type that mirrors the original fields exactly, so it can't drift with the recording model. It is exported only for the built-in demo. Archived and current planned sessions are exported as v1 `SessionResult`s:
@@ -126,5 +130,18 @@ The v1 JSON contract is unchanged. The legacy `demo` snapshot is now a frozen `D
   - After 2 s it relaunches; the persisted session is identical and the UI shows "Sesión en pausa".
   - **Reanudar sesión** keeps the set, the cardio and the position, and shifts the rest deadline by exactly the measured pause (22.7 s in that run).
 - Combined run of 7 device cases: 6 passed. `DeviationDeviceTest` missed a scroll target in that run and then passed alone twice. The program, workout, planned-session and both migration cases passed.
+
+### ENT-07 (2026-11-06, same emulator)
+
+- Unit tests: 67 run, 0 failures, 1 skipped (the opt-in private test). `OfflinePersistenceTest` adds 4 cases:
+  - no network permission and backup disabled;
+  - a corrupt `workout.json` reported and left byte-for-byte unchanged by restore and by a later command;
+  - a future-version `history-v1.json` reported and left untouched;
+  - the on-disk snapshot, read independently, equal to every published set.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
+- `scripts/verify_offline_durability.py --serial emulator-5554`: PASS, in airplane mode.
+  - It ran 7 rounds over the whole demo session through the real Activity, alternating a force-stop right after the tap with a force-stop after the UI confirmed the set.
+  - After every relaunch, all confirmed sets were present (1→7) and no storage error was shown.
+  - The immediate kills also kept the tapped set, because the write precedes the UI update.
 
 Physical-device testing was not performed.
