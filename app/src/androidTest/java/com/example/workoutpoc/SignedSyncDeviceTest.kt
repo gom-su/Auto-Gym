@@ -46,10 +46,8 @@ class SignedSyncDeviceTest {
     }
 
     private fun paste(text: String) {
-        val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000) ?: run { device.scrollToText("JSON de intercambio"); device.findObject(By.clazz("android.widget.EditText")) }
-        field.text = text
-        SystemClock.sleep(600)
-        if (device.hasObject(By.pkg("com.google.android.inputmethod.latin"))) { device.pressBack(); device.waitForIdle() }
+        device.scrollToText("JSON de intercambio")
+        device.setFieldText(text)
         device.clickText("Revisar intercambio")
     }
 

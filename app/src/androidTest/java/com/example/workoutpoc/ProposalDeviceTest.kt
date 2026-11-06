@@ -56,9 +56,7 @@ class ProposalDeviceTest {
     @Test fun export_import_validate_and_explicitly_approve() {
         click("Programas")
         click("Intercambio JSON")
-        val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)
-        assertNotNull(field); field!!.text = proposalJson()
-        if (device.executeShellCommand("dumpsys input_method").contains("mInputShown=true")) { device.pressBack(); device.waitForIdle() }
+        device.setFieldText(proposalJson())
         click("Revisar intercambio")
         click("Guardar intercambio")
         val end = SystemClock.elapsedRealtime() + 6_000

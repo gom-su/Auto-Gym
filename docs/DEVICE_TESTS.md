@@ -15,6 +15,7 @@ Compose screens are long lazy lists, so tests must not assume a target is on scr
   - The keyboard is dismissed if a drag opens it.
   - A match is re-found once the list has settled, and the search stops at the end of the content.
 - **`clickText(text)`** taps the node's *position*, retrying quickly. A focused text field (blinking cursor) keeps refreshing the accessibility tree, so node references go stale between finding and clicking.
+- **`setFieldText(value, index)`** re-finds the text field on every attempt, confirms the value applied, and dismisses the keyboard if it opened. Setting text on a held field reference can hit a stale node.
 - **The system document picker** must not be driven with these drags: it treats slow drags as long presses and enters selection mode. Tests tap picker items directly (`pickerClick`), scrolling only with the picker's own list.
 - **Status messages** sit at the top of their screen's list. Assertions on them use `scrollToText` rather than checking only the viewport.
 

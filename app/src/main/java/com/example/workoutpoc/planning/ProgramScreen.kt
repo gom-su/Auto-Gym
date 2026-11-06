@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -31,14 +33,13 @@ fun ProgramScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
                 item { TextButton(onClick = onBack) { Text("Volver al entrenamiento") } }
                 item { Text("Programas", style = MaterialTheme.typography.headlineLarge) }
-                item { OutlinedButton(onClick = onExchange) { Text("Intercambio JSON") } }
-                item { OutlinedButton(onClick = onMigration) { Text("Migrar desde Obsidian") } }
-                item { OutlinedButton(onClick = onCatalog) { Text("Catálogo de ejercicios") } }
-                item { OutlinedButton(onClick = onProposals) { Text("Propuestas de semana") } }
-                item { OutlinedButton(onClick = onBody) { Text("Peso y composición corporal") } }
-                item { OutlinedButton(onClick = onAdherence) { Text("Adherencia y objetivos") } }
-                item { OutlinedButton(onClick = onQuestions) { Text("Preguntas de planificación") } }
-                item { OutlinedButton(onClick = onStagnation) { Text("Señales de estancamiento") } }
+                // Grouped by purpose so the program library stays close to the top of the screen.
+                item { MenuSection("Planificación con IA", listOf(
+                    "Propuestas de semana" to onProposals, "Preguntas de planificación" to onQuestions, "Intercambio JSON" to onExchange)) }
+                item { MenuSection("Análisis", listOf(
+                    "Catálogo de ejercicios" to onCatalog, "Adherencia y objetivos" to onAdherence,
+                    "Señales de estancamiento" to onStagnation, "Peso y composición corporal" to onBody)) }
+                item { MenuSection("Importar", listOf("Migrar desde Obsidian" to onMigration)) }
                 if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 ui.message?.let { item { Text(it) } }
                 if (!ui.ready) item {
@@ -139,4 +140,17 @@ private fun LoadUnit.label() = when (this) {
 private fun LoadBasis.label() = when (this) {
     LoadBasis.TOTAL -> "total"; LoadBasis.PER_SIDE -> "por lado"; LoadBasis.PER_HAND -> "por mano"
     LoadBasis.BODYWEIGHT -> "peso corporal"; LoadBasis.MACHINE_SETTING -> "configuración de máquina"
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MenuSection(title: String, entries: List<Pair<String, () -> Unit>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() })
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Compact chips (48 dp touch targets) so several destinations share a row.
+            entries.forEach { (label, action) -> AssistChip(onClick = action, label = { Text(label) }) }
+        }
+    }
 }
