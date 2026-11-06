@@ -56,6 +56,26 @@ Each card carries:
 
 A configurable rule, **Cambio sin motivo del agente** (warning by default), flags each unexplained change.
 
+## Later evaluation of recommendations (AG-04)
+
+On an **approved** proposal, **Evaluación posterior** records what the recommendation should achieve:
+- an exercise from the proposed week;
+- a metric: top load, reps or volume;
+- a direction: increase, maintain or reduce;
+- a window of 1–84 days.
+
+The window starts at the decision time; expectations cannot be added to pending or rejected proposals.
+
+Each expectation is evaluated against data recorded on the device. The **baseline** is the latest exposure before the decision; the **observation** is the latest exposure inside the window. Both must be in the same unit and basis group and outside deload weeks.
+
+| Outcome | When |
+| --- | --- |
+| **Pendiente** | The window is still open. Any observation so far is shown as provisional. |
+| **Inconclusa** | The window closed without a comparable baseline or observation, or the value is unchanged when an increase was expected. It is never guessed. |
+| **Favorable** / **Desfavorable** | Increase: the observation is above / below the baseline. Maintain: it stays within 2.5 % below the baseline, or does not. Reduce: it is below the baseline, or is not. |
+
+You can close an expectation manually as favorable, unfavorable or inconclusive (for example after an injury), with a note. A manual outcome is labelled "manual"; **Automático** returns it to the computed result. The proposals list summarizes all expectations by outcome. Expectations are stored with the decisions in `proposals-v1.json` and validated on restore; each must belong to an approved decision.
+
 ## Decisions and traceability
 
 `proposals-v1.json` stores one decision per import ID and per proposal ID and version. Each decision records:
@@ -81,6 +101,14 @@ Decisions also store the explained changes (AG-03). **Historial de decisiones** 
 - `ProposalDeviceTest` runs through the real UI: paste a proposal → save the exchange (program unchanged) → **Propuestas de semana** → pending with the load warning → **Aprobar y añadir semana** → decision saved and the week present in the program file read from disk.
 - In two full runs of the 7 device cases (proposal, catalog, deviations, session lifecycle, planned session, program, workout), the first passed all 7. The second passed 6; `ProgramDeviceTest` hit a stale-node error in its own helper, an intermittent failure seen before this change.
 - Device tests were made independent of each other: the proposal test uses its own synthetic program, and the scroll helper re-finds the tallest container.
+
+### AG-04 (2026-11-06)
+
+- Unit tests: 98 run, 0 failures, 1 skipped. `RecommendationEvaluationTest` adds 2 cases:
+  - **Outcomes:** all four are reached, deload weeks are excluded as observations, the manual override and its note are kept, and other metrics are evaluated.
+  - **Repository rules:** expectations only for approved recommendations, start at the decision, validation, manual outcomes and persistence.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
+- `EvaluationDeviceTest` adds an expected result to an approved proposal through the real screen. The expectation is in the file read from disk and shows "Pendiente (automático)".
 
 ### AG-07 / AG-03 (2026-11-06)
 
