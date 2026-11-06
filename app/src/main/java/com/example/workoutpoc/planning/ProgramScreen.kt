@@ -20,7 +20,8 @@ fun ProgramScreen(
     onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> },
     onCatalog: () -> Unit = {}, onProposals: () -> Unit = {},
     annotations: WeekAnnotations = WeekAnnotations(), onDeload: (String, String, Boolean) -> Unit = { _, _, _ -> },
-    onBody: () -> Unit = {}, onAdherence: () -> Unit = {}, onQuestions: () -> Unit = {}, onStagnation: () -> Unit = {}
+    onBody: () -> Unit = {}, onAdherence: () -> Unit = {}, onQuestions: () -> Unit = {}, onStagnation: () -> Unit = {},
+    onHistory: () -> Unit = {}
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -37,7 +38,7 @@ fun ProgramScreen(
                 item { MenuSection("Planificación con IA", listOf(
                     "Propuestas de semana" to onProposals, "Preguntas de planificación" to onQuestions, "Intercambio JSON" to onExchange)) }
                 item { MenuSection("Análisis", listOf(
-                    "Catálogo de ejercicios" to onCatalog, "Adherencia y objetivos" to onAdherence,
+                    "Historial de sesiones" to onHistory, "Catálogo de ejercicios" to onCatalog, "Adherencia y objetivos" to onAdherence,
                     "Señales de estancamiento" to onStagnation, "Peso y composición corporal" to onBody)) }
                 item { MenuSection("Importar", listOf("Migrar desde Obsidian" to onMigration)) }
                 if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
