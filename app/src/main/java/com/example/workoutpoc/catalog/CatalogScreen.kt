@@ -94,12 +94,13 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
 
 @Composable
 private fun ExerciseEditor(exercise: CatalogExercise, ambiguous: Boolean, enabled: Boolean, onSave: (CatalogExercise) -> Unit) {
-    var name by remember(exercise) { mutableStateOf(exercise.name) }
-    var movement by remember(exercise) { mutableStateOf(exercise.movement.orEmpty()) }
-    var variant by remember(exercise) { mutableStateOf(exercise.variant.orEmpty()) }
-    var equipment by remember(exercise) { mutableStateOf(exercise.equipment) }
-    var basis by remember(exercise) { mutableStateOf(exercise.loadBasis) }
-    var setup by remember(exercise) { mutableStateOf(exercise.setup.orEmpty()) }
+    // Saveable: the editor is a lazy-list item and must survive scrolling to the history and back.
+    var name by rememberSaveable(exercise) { mutableStateOf(exercise.name) }
+    var movement by rememberSaveable(exercise) { mutableStateOf(exercise.movement.orEmpty()) }
+    var variant by rememberSaveable(exercise) { mutableStateOf(exercise.variant.orEmpty()) }
+    var equipment by rememberSaveable(exercise) { mutableStateOf(exercise.equipment) }
+    var basis by rememberSaveable(exercise) { mutableStateOf(exercise.loadBasis) }
+    var setup by rememberSaveable(exercise) { mutableStateOf(exercise.setup.orEmpty()) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("ID estable: ${exercise.id}", style = MaterialTheme.typography.titleMedium)
         // Save sits at the top so it stays reachable above the keyboard and the long attribute list.

@@ -44,6 +44,8 @@ class PerformanceChartDeviceTest {
             repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo)) // archive it
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        // Wait for the first screen: dragging before it is drawn would drag the launcher instead.
+        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
     }
 
     @After fun capture() {
