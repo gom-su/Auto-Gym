@@ -22,7 +22,9 @@ data class PlannedSet(
     val unit: WeightUnit = WeightUnit.KG, val basis: String? = null, val loadPrescribed: Boolean = true,
     val restSeconds: Int = 10, val weightStepTenths: Int = 25, val maxWeightTenths: Int = 3000, val maxReps: Int = 30,
     /** Added during the session; it has no prescription of its own and is never reported as prescribed. */
-    val extra: Boolean = false
+    val extra: Boolean = false,
+    /** A warm-up/approach set (always extra). Its load never carries into work sets. */
+    val warmup: Boolean = false
 )
 
 /** Integer tenths of the set's unit avoid floating point drift; rir=4 means 4+, null means not recorded. */
@@ -47,6 +49,20 @@ const val MAX_NOTE_LENGTH = 1000
 @Serializable
 data class RestDeadline(val elapsedMillis: Long, val wallMillis: Long, val bootCount: Int)
 
+@Serializable
+enum class DistanceUnit { M, KM, MI }
+
+/** Cardio performed in the session. Only what was entered is stored; nothing is derived or completed by default. */
+@Serializable
+data class CardioEntry(
+    val id: String, val modality: String, val durationSeconds: Int?, val distanceTenths: Int?,
+    val distanceUnit: DistanceUnit?, val notes: String?, val recordedAtMillis: Long
+)
+
+/** Start of a pause, on both clocks so a reboot during the pause still resolves its duration. */
+@Serializable
+data class PauseMark(val elapsedMillis: Long, val wallMillis: Long, val bootCount: Int)
+
 /** Where a planned session came from. Names are display snapshots; IDs are the identity. */
 @Serializable
 data class SessionSource(
@@ -69,7 +85,11 @@ data class WorkoutState(
     val plan: List<PlannedSet> = emptyList(),
     val source: SessionSource? = null,
     val startedAtMillis: Long? = null,
-    val endedAtMillis: Long? = null
+    val endedAtMillis: Long? = null,
+    val cardio: List<CardioEntry> = emptyList(),
+    /** Non-null while paused; rest deadlines are shifted by the pause length on resume. */
+    val paused: PauseMark? = null,
+    val pausedMillis: Long = 0
 )
 
 enum class WorkoutEvent {
@@ -77,7 +97,9 @@ enum class WorkoutEvent {
     SelectRir, CompleteSet, AddRestTime, SkipRest, RestFinished, UndoLastSet, ResetDemo,
     FinishWorkout,
     /** Planned sessions only: omit the current set, add an extra set of the last exercise, remove an unrecorded extra. */
-    SkipSet, AddSet, RemoveExtraSet
+    SkipSet, AddSet, RemoveExtraSet,
+    /** Planned sessions only (ENT-06). */
+    PauseSession, ResumeSession, AddWarmupSet
 }
 
 /** Every command targets an exact snapshot. Old notification/overlay taps become no-ops. */
@@ -100,6 +122,17 @@ fun loadLabel(tenths: Int, unit: WeightUnit): String = when (unit) {
 }
 
 fun rirLabel(rir: Int?): String = when (rir) { null -> "—"; 4 -> "4+"; else -> "$rir" }
+
+/** Milliseconds between a mark and now, on the monotonic clock when no reboot happened in between. */
+fun PauseMark.elapsedSince(now: ClockSnapshot): Long =
+    (if (bootCount == now.bootCount) now.elapsedMillis - elapsedMillis else now.wallMillis - wallMillis).coerceAtLeast(0)
+
+/** Active session time: wall time since start, minus completed and ongoing pauses. */
+fun WorkoutState.activeMillis(now: ClockSnapshot): Long? {
+    val start = startedAtMillis ?: return null
+    val end = endedAtMillis ?: now.wallMillis
+    return (end - start - pausedMillis - (paused?.elapsedSince(now) ?: 0)).coerceAtLeast(0)
+}
 
 fun RestDeadline.remainingMillis(now: ClockSnapshot): Long =
     ((if (bootCount == now.bootCount) elapsedMillis - now.elapsedMillis else wallMillis - now.wallMillis)).coerceAtLeast(0)

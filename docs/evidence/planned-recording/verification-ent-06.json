@@ -1,0 +1,37 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ENT-06",
+  "unitTests": {
+    "tests": 63,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "sessionLifecycleDeviceTest": "PASS",
+  "forceStopRestore": {
+    "result": "PASS",
+    "records": 1,
+    "cardio": 1,
+    "pauseMillisAccounted": 22700,
+    "restShiftedExactly": true
+  },
+  "combinedDeviceRun": {
+    "tests": 7,
+    "passed": 6,
+    "failed": 1,
+    "failedCase": "DeviationDeviceTest (scroll target); passed alone twice afterwards"
+  },
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

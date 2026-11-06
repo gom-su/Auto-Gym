@@ -8,6 +8,18 @@ class WorkoutEditException(message: String) : IllegalArgumentException(message)
 
 const val MAX_PLAN_SIZE = 1000
 
+/** Shared by the reducer and storage validation. Throws [WorkoutEditException] with a user-facing message. */
+fun validateCardio(c: CardioEntry) {
+    fun check(ok: Boolean, message: String) { if (!ok) throw WorkoutEditException(message) }
+    check(c.id.matches(Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")), "Identificador de cardio no válido.")
+    check(c.modality.isNotBlank() && c.modality.trim().length <= 200, "Indica la modalidad de cardio (máximo 200 caracteres).")
+    check(c.durationSeconds == null || c.durationSeconds in 0..604_800, "Duración de cardio fuera de rango.")
+    check((c.distanceTenths == null) == (c.distanceUnit == null), "La distancia necesita valor y unidad.")
+    check(c.distanceTenths == null || c.distanceTenths in 0..10_000_000, "Distancia fuera de rango.")
+    check(c.durationSeconds != null || c.distanceTenths != null || !c.notes.isNullOrBlank(), "Registra al menos duración, distancia o una nota.")
+    check(c.notes == null || c.notes.trim().length <= MAX_NOTE_LENGTH, "La nota supera $MAX_NOTE_LENGTH caracteres.")
+}
+
 class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     init { require(defaultPlan.isNotEmpty()) }
 
@@ -15,13 +27,25 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
 
     fun reduce(s: WorkoutState, c: WorkoutCommand, now: ClockSnapshot, newSessionId: String): WorkoutState {
         if (c.sessionId != s.sessionId || c.index != s.index || c.revision != s.revision) return s
+        // A paused session only resumes, finishes or closes; stale taps from the overlay/notification are inert.
+        if (s.paused != null && c.event !in setOf(WorkoutEvent.ResumeSession, WorkoutEvent.FinishWorkout, WorkoutEvent.ResetDemo)) return s
         val plan = planOf(s)
         val changed: WorkoutState = when (c.event) {
             WorkoutEvent.StartWorkout -> if (s.phase == Phase.Idle) start(s, plan, newSessionId, now) else s
             WorkoutEvent.ResetDemo -> WorkoutState(sessionId = newSessionId)
             WorkoutEvent.UndoLastSet -> undo(s)
             WorkoutEvent.FinishWorkout -> if (s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
-                s.copy(phase = Phase.Completed, rest = null, endedEarly = true, endedAtMillis = now.wallMillis) else s
+                s.copy(phase = Phase.Completed, rest = null, endedEarly = true, endedAtMillis = now.wallMillis,
+                    paused = null, pausedMillis = s.pausedMillis + (s.paused?.elapsedSince(now) ?: 0)) else s
+            WorkoutEvent.PauseSession -> if (s.source != null && s.paused == null && (s.phase == Phase.ActiveSet || s.phase == Phase.Resting))
+                s.copy(paused = PauseMark(now.elapsedMillis, now.wallMillis, now.bootCount)) else s
+            WorkoutEvent.ResumeSession -> s.paused?.let { mark ->
+                val pause = mark.elapsedSince(now)
+                s.copy(paused = null, pausedMillis = s.pausedMillis + pause,
+                    rest = s.rest?.let { it.copy(elapsedMillis = it.elapsedMillis + pause, wallMillis = it.wallMillis + pause) })
+            } ?: s
+            WorkoutEvent.AddWarmupSet -> if (s.source != null && plan.size < MAX_PLAN_SIZE &&
+                (s.phase == Phase.ActiveSet || (s.phase == Phase.Resting && s.index < plan.lastIndex))) addWarmup(s, plan) else s
             WorkoutEvent.AddRestTime -> if (s.phase == Phase.Resting && s.rest != null)
                 s.copy(rest = s.rest.copy(elapsedMillis = s.rest.elapsedMillis + 10_000, wallMillis = s.rest.wallMillis + 10_000)) else s
             WorkoutEvent.SkipRest -> if (s.phase == Phase.Resting) advance(s, plan) else s
@@ -81,7 +105,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         val template = plan[last?.index ?: s.index]
         val count = plan.count { it.exercise == template.exercise && it.exerciseId == template.exerciseId }
         val prefill = last?.values ?: SetValues(template.weightTenths, template.reps, template.rir)
-        val extra = template.copy(number = count + 1, prescriptionId = null, extra = true, loadPrescribed = false,
+        val extra = template.copy(number = count + 1, prescriptionId = null, extra = true, warmup = false, loadPrescribed = false,
             weightTenths = prefill.weightTenths, reps = prefill.reps, rir = prefill.rir)
         val position = s.records.size
         val newPlan = plan.take(position) + extra + plan.drop(position)
@@ -92,6 +116,29 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
                 endedEarly = false, endedAtMillis = null)
             Phase.Idle -> s
         }
+    }
+
+    /** Inserts a warm-up set before the next set to perform, prefilled from that set (the user adjusts it). */
+    private fun addWarmup(s: WorkoutState, plan: List<PlannedSet>): WorkoutState {
+        val position = s.records.size
+        val target = plan[position]
+        val count = plan.count { it.warmup && it.exercise == target.exercise && it.exerciseId == target.exerciseId }
+        val warmup = target.copy(number = count + 1, prescriptionId = null, extra = true, warmup = true, loadPrescribed = false)
+        val newPlan = plan.take(position) + warmup + plan.drop(position)
+        return if (s.phase == Phase.ActiveSet) s.copy(plan = newPlan, values = values(newPlan, position)) else s.copy(plan = newPlan)
+    }
+
+    fun addCardio(s: WorkoutState, sessionId: String, revision: Long, entry: CardioEntry): WorkoutState {
+        if (sessionId != s.sessionId || revision != s.revision || s.source == null || s.phase == Phase.Idle) return s
+        validateCardio(entry)
+        if (s.cardio.any { it.id == entry.id } || s.cardio.size >= 100) throw WorkoutEditException("No se pueden añadir más registros de cardio.")
+        return s.copy(cardio = s.cardio + entry.copy(modality = entry.modality.trim(), notes = entry.notes?.trim()?.takeIf { it.isNotEmpty() }),
+            revision = s.revision + 1)
+    }
+
+    fun removeCardio(s: WorkoutState, sessionId: String, revision: Long, id: String): WorkoutState {
+        if (sessionId != s.sessionId || revision != s.revision || s.cardio.none { it.id == id }) return s
+        return s.copy(cardio = s.cardio.filterNot { it.id == id }, revision = s.revision + 1)
     }
 
     private fun removeExtra(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {
@@ -137,7 +184,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             // Carry the last real load only to the same exercise, unit and prescribed load (a repeated deviation);
             // a set that prescribes a different load prefills that prescription instead.
             val n = plan[next]
-            val same = n.exercise == current.exercise && n.exerciseId == current.exerciseId && n.unit == current.unit &&
+            val same = !current.warmup && !n.warmup && n.exercise == current.exercise && n.exerciseId == current.exerciseId && n.unit == current.unit &&
                 n.weightTenths == current.weightTenths && n.loadPrescribed == current.loadPrescribed
             if (same) it.copy(weightTenths = s.values.weightTenths.coerceAtMost(plan[next].maxWeightTenths)) else it
         }

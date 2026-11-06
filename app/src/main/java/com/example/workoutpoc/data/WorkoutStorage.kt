@@ -40,6 +40,7 @@ object WorkoutValidation {
             require(p.maxReps in 1..1000 && p.reps in 0..p.maxReps && (p.rir == null || p.rir in 0..4))
             require(p.restSeconds in 0..86400)
             require(!p.extra || (p.prescriptionId == null && !p.loadPrescribed))
+            require(!p.warmup || p.extra)
         }
         require((s.plan.isEmpty()) == (s.source == null))
         require(s.index in plan.indices)
@@ -54,6 +55,16 @@ object WorkoutValidation {
             require(s.source != null || (r.status == SetStatus.COMPLETED && r.notes == null && r.editedAtMillis == null))
         }
         require((s.phase == Phase.Resting) == (s.rest != null))
+        require(s.paused == null || s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
+        require(s.pausedMillis >= 0)
+        require(s.cardio.size <= 100 && s.cardio.map { it.id }.distinct().size == s.cardio.size)
+        s.cardio.forEach { c ->
+            try { com.example.workoutpoc.domain.validateCardio(c) }
+            catch (e: com.example.workoutpoc.domain.WorkoutEditException) { throw IllegalArgumentException(e.message) }
+            require(c.modality == c.modality.trim() && (c.notes == null || c.notes.isNotBlank()))
+        }
+        // Pauses, cardio and warm-ups exist only for planned sessions; the legacy demo shape stays exportable.
+        require(s.source != null || (s.cardio.isEmpty() && s.paused == null && s.pausedMillis == 0L))
     }
     private fun values(v: SetValues, p: PlannedSet, allowZeroReps: Boolean) {
         require(v.weightTenths in 0..p.maxWeightTenths)

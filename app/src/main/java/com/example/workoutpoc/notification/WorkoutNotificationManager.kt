@@ -52,7 +52,7 @@ class WorkoutNotificationManager(private val context: Context) {
     fun build(s: WorkoutState): Notification {
         val plan: List<PlannedSet> = s.activePlan()
         val unit: WeightUnit = plan[s.index].unit
-        val title: String = when (s.phase) {
+        val title: String = if (s.paused != null) "Sesión en pausa" else when (s.phase) {
             Phase.ActiveSet -> plan[s.index].let { "${it.exercise} · ${it.number}/${it.total}" }
             Phase.Resting -> "Descanso · siguiente: ${plan[(s.index + 1).coerceAtMost(plan.lastIndex)].exercise}"
             Phase.Completed -> "Entrenamiento terminado"
@@ -60,13 +60,14 @@ class WorkoutNotificationManager(private val context: Context) {
         }
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_workout).setContentTitle(title)
-            .setContentText("Abre para ver el entrenamiento")
+            .setContentText(if (s.paused != null) "Abre la aplicación para reanudar" else "Abre para ver el entrenamiento")
             .setContentIntent(openEditor()).setOnlyAlertOnce(true)
             .setOngoing(s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
             .setSilent(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS).setShowWhen(false)
-        if (s.phase == Phase.Completed || s.phase == Phase.Idle) return builder.build()
+        // A paused session exposes no set controls: taps would be ignored and look broken.
+        if (s.phase == Phase.Completed || s.phase == Phase.Idle || s.paused != null) return builder.build()
         val compact = RemoteViews(context.packageName, R.layout.notification_compact)
         compact.setTextViewText(R.id.compact_title, if (s.phase == Phase.ActiveSet)
             "$title\n${loadLabel(s.values.weightTenths, unit)} · ${s.values.reps} reps" else "Descanso · ${plan[s.index].restSeconds} s o tiempo ampliado")

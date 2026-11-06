@@ -101,7 +101,7 @@ Open **Programas > Intercambio JSON** to review, save, copy and import/export ve
 
 ### Planned-day recording (ENT-04)
 
-Open **Programas**, choose a saved program day and tap **Entrenar este día**, then start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). See [planned recording](docs/PLANNED_RECORDING.md).
+Open **Programas**, choose a saved program day and tap **Entrenar este día**, then start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions support warm-up sets, pausing and resuming (rest resumes exactly), cardio entries and partial sessions (ENT-06). They also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). See [planned recording](docs/PLANNED_RECORDING.md).
 
 ### Obsidian migration (ENT-03)
 

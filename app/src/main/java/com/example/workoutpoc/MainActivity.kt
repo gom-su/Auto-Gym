@@ -151,6 +151,22 @@ class MainActivity : ComponentActivity() {
                         catch (e: kotlinx.coroutines.CancellationException) { throw e }
                         catch (e: Exception) { workoutApp.safely { throw e } }
                     }
+                }, { add ->
+                    lifecycleScope.launch {
+                        try {
+                            if (!workoutApp.repository.addCardio(add.sessionId, add.revision, add.entry))
+                                message = "La sesión cambió mientras añadías cardio. Vuelve a intentarlo; no se guardó nada."
+                        } catch (e: WorkoutEditException) { message = e.message }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { workoutApp.safely { throw e } }
+                    }
+                }, { entry ->
+                    lifecycleScope.launch {
+                        workoutApp.safely {
+                            val s = workoutApp.repository.state.value
+                            workoutApp.repository.removeCardio(s.sessionId, s.revision, entry.id)
+                        }
+                    }
                 })
         }
     }

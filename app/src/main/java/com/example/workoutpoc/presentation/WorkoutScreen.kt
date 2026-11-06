@@ -23,7 +23,8 @@ fun WorkoutScreen(
     onDismissEditor: () -> Unit, onNotificationMode: () -> Unit, onOverlayMode: () -> Unit,
     onNotificationSettings: () -> Unit, retry: () -> Unit,
     now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit, onPrograms: () -> Unit,
-    archivedCount: Int = 0, onEditRecord: (RecordEdit) -> Unit = {}
+    archivedCount: Int = 0, onEditRecord: (RecordEdit) -> Unit = {},
+    onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {}
 ) {
     var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
     val plan: List<PlannedSet> = state.activePlan()
@@ -76,19 +77,30 @@ fun WorkoutScreen(
                         Text(current.exercise, style = MaterialTheme.typography.headlineSmall)
                         Text(when {
                             demo -> "Serie ${current.number} de ${current.total} · objetivo ${current.reps} reps · RIR ${current.rir}"
+                            current.warmup -> "Aproximación ${current.number} · sin prescripción; ajusta carga y repeticiones"
                             current.extra -> "Serie extra ${current.number} · añadida, sin prescripción"
                             else -> "Serie ${current.number} de ${current.total} · prescrito: ${prescriptionLabel(current)}"
                         })
-                        WorkoutControls(state, dispatch)
+                        if (state.paused == null) WorkoutControls(state, dispatch)
                     }
-                    Phase.Resting -> RestControls(state, plan, now, dispatch)
+                    Phase.Resting -> state.paused.let { pause ->
+                        if (pause == null) RestControls(state, plan, now, dispatch)
+                        else {
+                            // Frozen at the pause instant; resuming shifts the deadline by the pause length.
+                            val left = state.rest?.let { r -> (if (r.bootCount == pause.bootCount) r.elapsedMillis - pause.elapsedMillis
+                                else r.wallMillis - pause.wallMillis).coerceAtLeast(0) } ?: 0
+                            Text("Descanso restante al reanudar: ${(left + 999) / 1000} s")
+                        }
+                    }
                     Phase.Completed -> {
                         Text("Entrenamiento terminado", style = MaterialTheme.typography.headlineSmall)
                         Text(if (state.endedEarly) "Terminaste antes de completar el plan. ${state.records.size}/${plan.size} series registradas."
                             else "Completaste las ${plan.size} series.")
                     }
                 }
-                DeviationActions(state, dispatch)
+                SessionStatus(state, now, dispatch)
+                if (state.paused == null) DeviationActions(state, dispatch)
+                CardioSection(state, onAddCardio, onRemoveCardio)
                 if (state.records.isNotEmpty()) {
                     Text("Series registradas · ${state.records.size}/${plan.size}", style = MaterialTheme.typography.titleLarge)
                     val dateFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -96,7 +108,7 @@ fun WorkoutScreen(
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 val planned: PlannedSet = plan[record.index]
-                                Text("${record.exercise} · ${if (planned.extra) "serie extra" else "serie"} ${record.number}", style = MaterialTheme.typography.titleMedium)
+                                Text("${record.exercise} · ${when { planned.warmup -> "aproximación"; planned.extra -> "serie extra"; else -> "serie" }} ${record.number}", style = MaterialTheme.typography.titleMedium)
                                 if (record.status == SetStatus.SKIPPED) Text("Omitida")
                                 else Text("${if (demo) "" else "Real: "}${loadLabel(record.values.weightTenths, planned.unit)} · ${record.values.reps} reps · RIR ${rirLabel(record.values.rir)}")
                                 if (!demo) Text(if (planned.extra) "Sin prescripción" else "Prescrito: ${prescriptionLabel(planned)}", style = MaterialTheme.typography.bodySmall)

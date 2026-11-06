@@ -48,17 +48,18 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
             (root as TextView).text = if (state.phase == Phase.Resting) "${seconds(state)}s" else "${state.records.size}/${plan.size}"
             return
         }
-        val active: Boolean = state.phase == Phase.ActiveSet
-        val resting: Boolean = state.phase == Phase.Resting
+        val paused: Boolean = state.paused != null
+        val active: Boolean = state.phase == Phase.ActiveSet && !paused
+        val resting: Boolean = state.phase == Phase.Resting && !paused
         root.findViewById<View>(R.id.overlay_set).visibility = if (active) View.VISIBLE else View.GONE
         root.findViewById<View>(R.id.overlay_rest).visibility = if (resting) View.VISIBLE else View.GONE
-        root.findViewById<TextView>(R.id.overlay_title).text = when (state.phase) {
+        root.findViewById<TextView>(R.id.overlay_title).text = if (paused) "Sesión en pausa" else when (state.phase) {
             Phase.ActiveSet -> current.exercise
             Phase.Resting -> "Descanso"
             Phase.Completed -> "Entrenamiento terminado"
             Phase.Idle -> "Inicia desde la aplicación"
         }
-        root.findViewById<TextView>(R.id.overlay_subtitle).text = if (resting)
+        root.findViewById<TextView>(R.id.overlay_subtitle).text = if (paused) "Reanuda desde la aplicación" else if (resting)
             "Siguiente: ${plan[(state.index + 1).coerceAtMost(plan.lastIndex)].exercise}"
         else "${state.records.size}/${plan.size} completadas · serie ${current.number}/${current.total}"
         root.findViewById<TextView>(R.id.overlay_weight).text = loadLabel(state.values.weightTenths, current.unit)
