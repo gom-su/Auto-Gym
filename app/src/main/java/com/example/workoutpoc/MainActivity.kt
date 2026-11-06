@@ -142,7 +142,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }, {
                     startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
-                }, model::retry, { clockSnapshot(this) }, ::dispatch, { showPrograms = true }, archived.sessions.size)
+                }, model::retry, { clockSnapshot(this) }, ::dispatch, { showPrograms = true }, archived.sessions.size, { edit ->
+                    lifecycleScope.launch {
+                        try {
+                            if (!workoutApp.repository.edit(edit.sessionId, edit.revision, edit.index, edit.status, edit.values, edit.notes))
+                                message = "La sesión cambió mientras editabas. Vuelve a abrir la serie; no se guardó nada."
+                        } catch (e: WorkoutEditException) { message = e.message }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { workoutApp.safely { throw e } }
+                    }
+                })
         }
     }
     override fun onNewIntent(intent: Intent) {

@@ -4,6 +4,10 @@ package com.example.workoutpoc.domain
  * Pure, deterministic transitions. Storage and Android APIs remain outside this class.
  * Each session carries its own plan snapshot; an empty snapshot uses [defaultPlan] (the demo).
  */
+class WorkoutEditException(message: String) : IllegalArgumentException(message)
+
+const val MAX_PLAN_SIZE = 1000
+
 class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     init { require(defaultPlan.isNotEmpty()) }
 
@@ -22,6 +26,10 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
                 s.copy(rest = s.rest.copy(elapsedMillis = s.rest.elapsedMillis + 10_000, wallMillis = s.rest.wallMillis + 10_000)) else s
             WorkoutEvent.SkipRest -> if (s.phase == Phase.Resting) advance(s, plan) else s
             WorkoutEvent.RestFinished -> if (s.phase == Phase.Resting && s.rest?.remainingMillis(now) == 0L) advance(s, plan) else s
+            // Deviations apply to planned sessions; the demo keeps its fixed proof-of-concept plan.
+            WorkoutEvent.SkipSet -> if (s.source != null && s.phase == Phase.ActiveSet) skip(s, plan, now) else s
+            WorkoutEvent.AddSet -> if (s.source != null && s.phase != Phase.Idle && plan.size < MAX_PLAN_SIZE) addSet(s, plan) else s
+            WorkoutEvent.RemoveExtraSet -> if (s.source != null && s.phase == Phase.ActiveSet && plan[s.index].extra) removeExtra(s, plan, now) else s
             else -> if (s.phase == Phase.ActiveSet) active(s, plan, c, now) else s
         }
         return if (changed == s) s else changed.copy(revision = s.revision + 1)
@@ -36,6 +44,62 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         if (s.phase == Phase.ActiveSet || s.phase == Phase.Resting) return s
         return WorkoutState(sessionId = newSessionId, revision = s.revision + 1, values = values(plan, 0),
             plan = plan, source = source)
+    }
+
+    /**
+     * Replaces the recorded values, status and notes of one confirmed set of a planned session.
+     * The prescription is untouched. Stale snapshots are ignored; out-of-range values are rejected.
+     */
+    fun edit(s: WorkoutState, sessionId: String, revision: Long, index: Int, status: SetStatus,
+             values: SetValues, notes: String?, now: ClockSnapshot): WorkoutState {
+        if (sessionId != s.sessionId || revision != s.revision || s.source == null) return s
+        val record = s.records.getOrNull(index) ?: throw WorkoutEditException("La serie no está registrada.")
+        val p = s.plan[index]
+        val cleanNotes = notes?.trim()?.takeIf { it.isNotEmpty() }
+        if (values.weightTenths !in 0..p.maxWeightTenths) throw WorkoutEditException("Carga fuera de rango.")
+        if (values.reps !in (if (status == SetStatus.COMPLETED) 1 else 0)..p.maxReps)
+            throw WorkoutEditException(if (status == SetStatus.COMPLETED) "Una serie completada necesita entre 1 y ${p.maxReps} repeticiones." else "Repeticiones fuera de rango.")
+        if (values.rir != null && values.rir !in 0..4) throw WorkoutEditException("RIR fuera de rango.")
+        if (cleanNotes != null && cleanNotes.length > MAX_NOTE_LENGTH) throw WorkoutEditException("La nota supera $MAX_NOTE_LENGTH caracteres.")
+        val updated = record.copy(status = status, values = values, notes = cleanNotes)
+        if (updated == record) return s
+        return s.copy(records = s.records.toMutableList().also { it[index] = updated.copy(editedAtMillis = now.wallMillis) },
+            revision = s.revision + 1)
+    }
+
+    private fun skip(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {
+        val p = plan[s.index]
+        val record = SetRecord(s.index, p.exercise, p.number, s.values, now.wallMillis, p.prescriptionId, SetStatus.SKIPPED)
+        return if (s.index == plan.lastIndex)
+            s.copy(phase = Phase.Completed, records = s.records + record, rest = null, endedAtMillis = now.wallMillis)
+        else advance(s.copy(records = s.records + record), plan)
+    }
+
+    /** Inserts an unprescribed set of the last exercise as the next position, prefilled from its last real values. */
+    private fun addSet(s: WorkoutState, plan: List<PlannedSet>): WorkoutState {
+        val last = s.records.lastOrNull()
+        val template = plan[last?.index ?: s.index]
+        val count = plan.count { it.exercise == template.exercise && it.exerciseId == template.exerciseId }
+        val prefill = last?.values ?: SetValues(template.weightTenths, template.reps, template.rir)
+        val extra = template.copy(number = count + 1, prescriptionId = null, extra = true, loadPrescribed = false,
+            weightTenths = prefill.weightTenths, reps = prefill.reps, rir = prefill.rir)
+        val position = s.records.size
+        val newPlan = plan.take(position) + extra + plan.drop(position)
+        return when (s.phase) {
+            Phase.ActiveSet -> s.copy(plan = newPlan, values = values(newPlan, position))
+            Phase.Resting -> s.copy(plan = newPlan)
+            Phase.Completed -> s.copy(plan = newPlan, phase = Phase.ActiveSet, index = position, values = values(newPlan, position),
+                endedEarly = false, endedAtMillis = null)
+            Phase.Idle -> s
+        }
+    }
+
+    private fun removeExtra(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {
+        val newPlan = plan.filterIndexed { i, _ -> i != s.index }
+        if (newPlan.isEmpty()) return s
+        return if (s.index == newPlan.size)
+            s.copy(plan = newPlan, phase = Phase.Completed, index = newPlan.lastIndex, rest = null, endedAtMillis = now.wallMillis)
+        else s.copy(plan = newPlan, values = values(newPlan, s.index))
     }
 
     private fun start(s: WorkoutState, plan: List<PlannedSet>, id: String, now: ClockSnapshot): WorkoutState =

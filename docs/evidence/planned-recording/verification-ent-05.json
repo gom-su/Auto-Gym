@@ -1,0 +1,15 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ENT-05",
+  "unitTests": { "tests": 56, "failures": 0, "errors": 0, "skipped": 1, "skippedReason": "opt-in private Obsidian source test" },
+  "build": "PASS",
+  "lint": { "errors": 0, "warnings": 65 },
+  "device": { "type": "emulator", "api": 36, "avd": "Workout_API_36" },
+  "combinedRuns": [
+    { "tests": ["DeviationDeviceTest", "PlannedSessionDeviceTest", "ProgramDeviceTest", "WorkoutDeviceTest"], "passed": 4, "failed": 0 },
+    { "tests": ["DeviationDeviceTest", "PlannedSessionDeviceTest", "ProgramDeviceTest", "WorkoutDeviceTest"], "passed": 4, "failed": 0 }
+  ],
+  "exchangeMigrationRun": { "tests": 4, "passed": 2, "failed": 2, "note": "same cases fail identically on unmodified main" },
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

@@ -20,13 +20,32 @@ A day is flattened, in prescription order, into `PlannedSet` entries that are sn
 
 The prescription is stored separately from what is recorded. Each `SetRecord` keeps its `prescriptionId`, and the screen shows "Real" next to "Prescrito". The last recorded load carries to the next set only when that set prescribes the same exercise, unit and load. A set that prescribes a different load prefills the new prescription.
 
+## Deviations (ENT-05)
+
+Planned sessions support deviations. The demo keeps its fixed proof-of-concept plan and rejects them.
+
+| Action | Effect |
+| --- | --- |
+| **Omitir serie** (active set) | Records the position as `SKIPPED` and moves to the next set without rest. The prescription stays in the plan. |
+| **Añadir serie extra de …** (any started phase) | Inserts an unprescribed set of the last recorded exercise as the next position. It is prefilled from that exercise's last real values. After the end, it reopens the session. |
+| **Quitar serie extra** (unrecorded extra) | Removes it again; the next prescribed set is prefilled from its prescription. |
+| **Editar serie N** (recorded set) | Changes real load, reps, RIR, omitted/completed status and notes (≤ 1,000 characters). The edit is bound to the snapshot it was opened from, so a stale save is rejected. Out-of-range values report an error. |
+
+Recorded values never modify the prescription: the session plan keeps each prescribed set unchanged. Extra sets have no prescription ID and are marked `extra`. Edited records carry `editedAtMillis`. Restore validates that each record's prescription ID matches its position, that a completed set has at least one repetition, that notes are non-blank and within the limit, and that the demo has no deviations.
+
+In v1 results:
+- Omitted sets export as `OMITTED`, with no reps, RIR, load or completion time.
+- Extra sets have a null `prescriptionId` and a note saying so.
+- Notes and the edit marker go in the set notes.
+- A session is `COMPLETED` only when every position was completed and the session wasn't ended early.
+
 ## Session safety and archive
 
 - A session in progress (active set or rest) is never replaced. **Entrenar este día** refuses with a message until it is finished or closed.
 - Before a finished session is replaced by another day, or any session with confirmed sets is closed or reset, it is archived to `history-v1.json`. A session closed before completion is archived as ended early. Archiving happens before the live snapshot is replaced. It is idempotent by session ID, so a crash between the two steps can never duplicate or lose a session.
 - `workout.json` keeps its pre-ENT-04 shape as a subset, so older demo snapshots restore unchanged. Both files are validated against their own plan (indices, ranges, units, RIR) on restore. Corrupt files report errors and are never reset to empty.
 
-History browsing, editing recorded sets, notes, skipped/added sets, warmups and cardio are separate requirements (ENT-05, ENT-06); this delivery only guarantees that confirmed sets are kept.
+History browsing, warmups, cardio and pauses are separate requirements (ENT-06); archiving guarantees that confirmed sets are kept.
 
 ## Interchange
 
@@ -53,5 +72,19 @@ The v1 JSON contract is unchanged. The legacy `demo` snapshot is now a frozen `D
   - That case fails the same way on unmodified `main`: its picker file does not appear. Unmodified `main` failed 2 of 6 cases in a comparable combined run.
   - Failures seen were picker files not appearing, scroll targets not found, and a button below the fold.
   - The device tests were made independent of each other: the new test resets its session and reuses `ProgramDeviceTest`'s fixture identity, and one `ProgramDeviceTest` assertion now scrolls.
+
+### ENT-05 (2026-11-06, same emulator)
+
+- Unit tests: 56 run, 0 failures, 1 skipped (the opt-in private test). `DeviationTest` adds 7 cases:
+  - omission and extra-set insertion and removal;
+  - reopening after the end;
+  - edits, including stale-edit and range rejection;
+  - demo isolation;
+  - storage invariants;
+  - v1 export of omitted and extra sets.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
+- `DeviationDeviceTest` runs through the real Activity: omit, complete, add an extra after the end, record it, then edit a set with a note, and compare the result with `workout.json` read from disk.
+  - Two combined runs of `DeviationDeviceTest`, `PlannedSessionDeviceTest`, `ProgramDeviceTest` and `WorkoutDeviceTest` passed all 4 tests both times.
+  - A separate exchange/migration run gave the same results as unmodified `main` (two known picker/flaky failures).
 
 Physical-device testing was not performed.

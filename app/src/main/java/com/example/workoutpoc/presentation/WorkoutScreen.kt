@@ -23,8 +23,9 @@ fun WorkoutScreen(
     onDismissEditor: () -> Unit, onNotificationMode: () -> Unit, onOverlayMode: () -> Unit,
     onNotificationSettings: () -> Unit, retry: () -> Unit,
     now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit, onPrograms: () -> Unit,
-    archivedCount: Int = 0
+    archivedCount: Int = 0, onEditRecord: (RecordEdit) -> Unit = {}
 ) {
+    var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
     val plan: List<PlannedSet> = state.activePlan()
     val source: SessionSource? = state.source
     val demo: Boolean = source == null
@@ -73,8 +74,11 @@ fun WorkoutScreen(
                         val current: PlannedSet = plan[state.index]
                         Text("SERIE ${state.index + 1} / ${plan.size}", color = colors.primary)
                         Text(current.exercise, style = MaterialTheme.typography.headlineSmall)
-                        Text(if (demo) "Serie ${current.number} de ${current.total} · objetivo ${current.reps} reps · RIR ${current.rir}"
-                            else "Serie ${current.number} de ${current.total} · prescrito: ${prescriptionLabel(current)}")
+                        Text(when {
+                            demo -> "Serie ${current.number} de ${current.total} · objetivo ${current.reps} reps · RIR ${current.rir}"
+                            current.extra -> "Serie extra ${current.number} · añadida, sin prescripción"
+                            else -> "Serie ${current.number} de ${current.total} · prescrito: ${prescriptionLabel(current)}"
+                        })
                         WorkoutControls(state, dispatch)
                     }
                     Phase.Resting -> RestControls(state, plan, now, dispatch)
@@ -84,17 +88,22 @@ fun WorkoutScreen(
                             else "Completaste las ${plan.size} series.")
                     }
                 }
+                DeviationActions(state, dispatch)
                 if (state.records.isNotEmpty()) {
                     Text("Series registradas · ${state.records.size}/${plan.size}", style = MaterialTheme.typography.titleLarge)
                     val dateFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
                     state.records.forEach { record ->
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("${record.exercise} · serie ${record.number}", style = MaterialTheme.typography.titleMedium)
                                 val planned: PlannedSet = plan[record.index]
-                                Text("${if (demo) "" else "Real: "}${loadLabel(record.values.weightTenths, planned.unit)} · ${record.values.reps} reps · RIR ${rirLabel(record.values.rir)}")
-                                if (!demo) Text("Prescrito: ${prescriptionLabel(planned)}", style = MaterialTheme.typography.bodySmall)
-                                Text(dateFormat.format(Date(record.completedAtMillis)), style = MaterialTheme.typography.bodySmall)
+                                Text("${record.exercise} · ${if (planned.extra) "serie extra" else "serie"} ${record.number}", style = MaterialTheme.typography.titleMedium)
+                                if (record.status == SetStatus.SKIPPED) Text("Omitida")
+                                else Text("${if (demo) "" else "Real: "}${loadLabel(record.values.weightTenths, planned.unit)} · ${record.values.reps} reps · RIR ${rirLabel(record.values.rir)}")
+                                if (!demo) Text(if (planned.extra) "Sin prescripción" else "Prescrito: ${prescriptionLabel(planned)}", style = MaterialTheme.typography.bodySmall)
+                                record.notes?.let { Text("Nota: $it") }
+                                Text(dateFormat.format(Date(record.completedAtMillis)) + (if (record.editedAtMillis != null) " · editada" else ""),
+                                    style = MaterialTheme.typography.bodySmall)
+                                if (!demo) TextButton(onClick = { editing = record.index }) { Text("Editar serie ${record.index + 1}") }
                             }
                         }
                     }
@@ -115,6 +124,9 @@ fun WorkoutScreen(
                     if (!demo && state.records.isNotEmpty())
                         Text("Las series registradas se archivan en este dispositivo antes de cerrar.", style = MaterialTheme.typography.bodySmall)
                 }
+            }
+            editing?.let { index ->
+                RecordEditorDialog(state, index, { editing = null }) { edit -> editing = null; onEditRecord(edit) }
             }
             if (editorVisible) ModalBottomSheet(onDismissRequest = onDismissEditor) {
                 Column(Modifier.padding(20.dp).verticalScroll(rememberScrollState()).padding(bottom = 24.dp),

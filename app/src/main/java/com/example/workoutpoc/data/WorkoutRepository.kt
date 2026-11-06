@@ -65,6 +65,19 @@ class WorkoutRepository(
         LoadResult.LOADED
     }
 
+    /** Edits one confirmed set of the current planned session. Returns false for a stale snapshot. */
+    suspend fun edit(sessionId: String, revision: Long, index: Int, status: SetStatus, values: SetValues, notes: String?): Boolean =
+        mutex.withLock {
+            loadLocked()
+            val previous = mutableState.value
+            val next = reducer.edit(previous, sessionId, revision, index, status, values, notes, clock())
+            if (next == previous) return@withLock false
+            WorkoutValidation.validate(next)
+            storage.write(next)
+            mutableState.value = next
+            true
+        }
+
     private suspend fun archiveLocked(session: WorkoutState) {
         if (session.records.isEmpty()) return
         // A session reset mid-way is archived as ended early, exactly as recorded so far.
