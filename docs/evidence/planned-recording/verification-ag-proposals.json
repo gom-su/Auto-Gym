@@ -1,0 +1,40 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirements": [
+    "AG-02",
+    "AG-05",
+    "AG-06"
+  ],
+  "unitTests": {
+    "tests": 82,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "combinedRuns": [
+    {
+      "tests": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    {
+      "tests": 7,
+      "passed": 6,
+      "failed": 1,
+      "failedCase": "ProgramDeviceTest stale node in its own click helper (intermittent before this change)"
+    }
+  ],
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

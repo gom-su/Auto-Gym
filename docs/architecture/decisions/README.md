@@ -10,6 +10,8 @@ For each future accepted technical decision, add a numbered Markdown file with c
 
 - [0002 — JSON interchange](0002-json-interchange.md): strict typed packages, independent archive, privacy and idempotency.
 
+- [0006 — Proposal review](0006-proposal-review.md): pure-Kotlin rule engine, explicit decisions, approval via idempotent week append.
+
 - [0005 — Offline persistence](0005-offline-persistence.md): atomic write-before-publish DataStore snapshots, no network permission; Room deferred to queryable history.
 
 - [0004 — Planned-day sessions](0004-planned-day-sessions.md): sessions carry their own plan snapshot; archive-before-replace history; frozen v1 demo snapshot.
