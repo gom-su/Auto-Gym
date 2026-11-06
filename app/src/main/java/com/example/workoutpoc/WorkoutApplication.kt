@@ -34,7 +34,7 @@ class WorkoutApplication : Application() {
                 val sessions = repository.archived.value.sessions + repository.state.value
                 (programs.library.value.programs.flatMap { p -> p.blocks.flatMap { b -> b.weeks.flatMap { w -> w.days.flatMap { d -> d.exercises.map { it.exerciseId } } } } } +
                     catalog.catalog.value.exercises.map { it.id } + sessions.flatMap { s -> s.plan.mapNotNull { it.exerciseId } }).toSet()
-            })
+            }, sessions = { repository.restore(); repository.archived.value.sessions + repository.state.value })
     }
     val weekAnnotations: com.example.workoutpoc.planning.WeekAnnotationRepository by lazy {
         com.example.workoutpoc.planning.WeekAnnotationRepository(DataStoreFactory.create(

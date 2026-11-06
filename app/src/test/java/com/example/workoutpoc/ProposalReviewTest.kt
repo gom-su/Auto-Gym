@@ -78,7 +78,8 @@ class ProposalReviewTest {
         assertEquals("week-two", eval.base!!.id)
         assertTrue(eval.canApprove)
         val codes = eval.warnings.map { it.code }.toSet()
-        assertEquals(setOf("SET_INCREASE", "LOAD_INCREASE", "RIR_ZERO", "NEW_EXERCISE"), codes)
+        // The agent's generic reason names no exercise, so every computed change is also flagged as unexplained (AG-07).
+        assertEquals(setOf("SET_INCREASE", "LOAD_INCREASE", "RIR_ZERO", "NEW_EXERCISE", "UNEXPLAINED_CHANGE"), codes)
         assertTrue(eval.differences.any { it.contains("Sentadilla ficticia: series 1 → 2") })
         assertTrue(eval.differences.any { it.contains("carga máxima 3 → 4") })
         assertTrue(eval.differences.any { it.startsWith("Se añade Zancada ficticia") })
@@ -93,7 +94,8 @@ class ProposalReviewTest {
         val decision = e.proposals.approve(id)
         assertEquals(DecisionStatus.APPROVED, decision.status)
         assertEquals(listOf("Progresión ficticia"), decision.reasons); assertEquals(listOf("Más volumen de sentadilla"), decision.statedDifferences)
-        assertEquals(4, decision.warnings.size); assertTrue(decision.differences.isNotEmpty())
+        assertEquals(4, decision.warnings.count { !it.contains("sin motivo") }); assertTrue(decision.differences.isNotEmpty())
+        assertTrue(decision.explanations.isNotEmpty())
         val saved = e.programs.library.value.programs.single()
         assertEquals("week-proposed", saved.blocks.single { it.id == "block-base" }.weeks.last().id)
         assertNotNull(saved.findDay("week-proposed", "week-proposed-day")) // trainable via Entrenar este día
@@ -123,7 +125,8 @@ class ProposalReviewTest {
             if (it.exerciseId == "lunge-new") it.copy(exerciseId = "lunge-newer") else it }) }) }
         val next = e.importProposal("import-3", third, version = 3)
         assertEquals("NEW_EXERCISE", e.proposals.evaluate(next).blocking.single().code)
-        e.proposals.updateRules(RuleSettings(newExercise = Severity.OFF, setIncrease = Severity.OFF, loadIncrease = Severity.OFF, rirZero = Severity.OFF))
+        e.proposals.updateRules(RuleSettings(newExercise = Severity.OFF, setIncrease = Severity.OFF, loadIncrease = Severity.OFF, rirZero = Severity.OFF,
+            unexplainedChange = Severity.OFF))
         assertTrue(e.proposals.evaluate(next).issues.isEmpty())
         scope.cancel(); scope.coroutineContext[Job]!!.join()
     }
