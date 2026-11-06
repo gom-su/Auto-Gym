@@ -117,7 +117,7 @@ Open **Programas > Propuestas de semana** to review week proposals imported thro
 
 ### Exercise catalog (ENT-08)
 
-Open **Programas > Catálogo de ejercicios** to rename exercises, describe their movement, variant, equipment, usual load basis and machine setup, and see each exercise's history. Identity is the stable exercise ID, so renaming never breaks history and non-equivalent variants stay distinct. See [catalog](docs/EXERCISE_CATALOG.md). Each exercise's history is shown as comparable exposures across weeks and programs, grouped by unit and load basis so units are never mixed (ANA-01, [details](docs/EXPOSURE_COMPARISON.md)). Charts of load, reps, volume and RIR leave omitted sessions as gaps and show weeks you mark as deload distinctly (ANA-02, [charts](docs/PERFORMANCE_CHARTS.md)).
+Open **Programas > Catálogo de ejercicios** to rename exercises, describe their movement, variant, equipment, usual load basis and machine setup, and see each exercise's history. Identity is the stable exercise ID, so renaming never breaks history and non-equivalent variants stay distinct. See [catalog](docs/EXERCISE_CATALOG.md). Each exercise's history is shown as comparable exposures across weeks and programs, grouped by unit and load basis so units are never mixed (ANA-01, [details](docs/EXPOSURE_COMPARISON.md)). Charts of load, reps, volume and RIR leave omitted sessions as gaps and show weeks you mark as deload distinctly (ANA-02, [charts](docs/PERFORMANCE_CHARTS.md)). Weeks can be compared by program and block (phase); deload weeks are listed but never treated as regressions (ANA-05, [phase comparison](docs/PHASE_COMPARISON.md)).
 
 ### Obsidian migration (ENT-03)
 

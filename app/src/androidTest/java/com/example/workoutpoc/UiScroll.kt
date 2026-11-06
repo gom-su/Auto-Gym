@@ -29,8 +29,8 @@ fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
     for (down in listOf(true, false)) {
         var previous: List<String>? = null
         for (step in 0 until 20) {
-            if (down) { val y = freeY(listOf(0.72, 0.78, 0.66, 0.84, 0.6)); drag(x, y, x, y - distance, 60) }
-            else { val y = freeY(listOf(0.40, 0.34, 0.46, 0.28, 0.52)); drag(x, y, x, y + distance, 60) }
+            if (down) { val y = freeY(listOf(0.72, 0.78, 0.66, 0.84, 0.6, 0.9, 0.54, 0.94)); drag(x, y, x, y - distance, 60) }
+            else { val y = freeY(listOf(0.40, 0.34, 0.46, 0.28, 0.52, 0.2, 0.58, 0.14)); drag(x, y, x, y + distance, 60) }
             // A drag that starts on a text field can focus it; a shown keyboard then hides the rest of the screen.
             if (hasObject(By.pkg("com.google.android.inputmethod.latin"))) { pressBack(); waitForIdle() }
             settled()?.let { return it }

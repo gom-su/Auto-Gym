@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class CatalogUiState(val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
+                          val programs: List<com.example.workoutpoc.planning.TrainingProgram> = emptyList(),
                           val sessions: List<WorkoutState> = emptyList())
 
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
@@ -27,7 +28,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         val current = app.repository.state.value
         val sessions = app.repository.archived.value.sessions + listOfNotNull(current.takeIf { it.records.isNotEmpty() })
         val added = app.catalog.sync(exerciseReferences(app.programs.library.value.programs, sessions))
-        mutableUi.value = mutableUi.value.copy(ready = true, sessions = sessions,
+        mutableUi.value = mutableUi.value.copy(ready = true, sessions = sessions, programs = app.programs.library.value.programs,
             message = if (added > 0) "Se registraron $added ejercicios a partir de programas y sesiones. Revisa su variante y equipo." else null)
     }
 

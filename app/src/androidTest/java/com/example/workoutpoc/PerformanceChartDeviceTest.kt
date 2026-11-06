@@ -65,6 +65,9 @@ class PerformanceChartDeviceTest {
         // Back would leave Programas entirely; the catalog entry is on the same screen.
         device.clickText("Catálogo de ejercicios")
         device.clickText("ID squat")
+        // ANA-05: the week comparison lists the deload week without comparing it.
+        assertNotNull(device.scrollToText("Comparación por semana y fase"))
+        assertNotNull(device.scrollToText("Semana de descarga: no se compara"))
         device.scrollToText("kg · total")
         assertNotNull(device.scrollToText("Carga máxima (kg)"))
         assertNotNull(device.wait(Until.findObject(By.descContains("descarga")), 5_000))
