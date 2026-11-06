@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
     private val programModel: ProgramViewModel by viewModels()
     private val migrationModel: MigrationViewModel by viewModels()
     private val catalogModel: com.example.workoutpoc.catalog.CatalogViewModel by viewModels()
+    private val proposalModel: com.example.workoutpoc.proposal.ProposalViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -82,6 +83,15 @@ class MainActivity : ComponentActivity() {
             var showExchange by rememberSaveable { mutableStateOf(false) }
             var showMigration by rememberSaveable { mutableStateOf(false) }
             var showCatalog by rememberSaveable { mutableStateOf(false) }
+            var showProposals by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showProposals) { showProposals = false }
+            if (showProposals) {
+                val proposalState by proposalModel.state.collectAsStateWithLifecycle()
+                val proposalUi by proposalModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { showProposals = false; programModel.restore() },
+                    proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules)
+                return@setContent
+            }
             BackHandler(showCatalog) { showCatalog = false }
             if (showCatalog) {
                 val catalog by catalogModel.catalog.collectAsStateWithLifecycle()
@@ -135,7 +145,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    }, { catalogModel.refresh(); showCatalog = true })
+                    }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

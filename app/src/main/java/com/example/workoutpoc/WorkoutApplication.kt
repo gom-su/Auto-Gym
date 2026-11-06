@@ -24,6 +24,18 @@ class WorkoutApplication : Application() {
             com.example.workoutpoc.catalog.ExerciseCatalogSerializer,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("exercises-v1.json") })
     }
+    val proposals: com.example.workoutpoc.proposal.ProposalRepository by lazy {
+        com.example.workoutpoc.proposal.ProposalRepository(DataStoreFactory.create(
+            com.example.workoutpoc.proposal.ProposalStateSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("proposals-v1.json") },
+            programs, exchanges, {
+                // Exercise IDs known from saved programs, the catalog and recorded sessions.
+                programs.restore(); catalog.restore(); repository.restore()
+                val sessions = repository.archived.value.sessions + repository.state.value
+                (programs.library.value.programs.flatMap { p -> p.blocks.flatMap { b -> b.weeks.flatMap { w -> w.days.flatMap { d -> d.exercises.map { it.exerciseId } } } } } +
+                    catalog.catalog.value.exercises.map { it.id } + sessions.flatMap { s -> s.plan.mapNotNull { it.exerciseId } }).toSet()
+            })
+    }
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val error: MutableStateFlow<String?> = MutableStateFlow(null)
     val programs: ProgramRepository by lazy {
