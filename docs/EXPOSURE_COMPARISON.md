@@ -30,6 +30,8 @@ The exercise's variant, equipment and setup come from its catalog entry, shown a
   - The shared scroll helper now uses slow, fling-free drags and re-finds the node after the list settles.
   - **Guardar ejercicio** sits at the top of the editor, so it stays reachable above the keyboard.
   - `ProgramDeviceTest` dismisses the keyboard after editing.
-- In a combined run of all 7 device cases (proposal, catalog, deviations, session lifecycle, planned session, program, workout), all 7 passed.
+- Two combined runs of all 7 device cases (proposal, catalog, deviations, session lifecycle, planned session, program, workout):
+  - The first passed all 7.
+  - In the second, the first 5 passed, then `ProgramDeviceTest` stalled in its document-picker/scroll flow and was stopped. The workout case did not run.
 
 Physical-device testing was not performed.
