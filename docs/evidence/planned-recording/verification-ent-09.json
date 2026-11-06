@@ -1,0 +1,43 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ENT-09",
+  "unitTests": {
+    "tests": 77,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skippedReason": "opt-in private Obsidian source test"
+  },
+  "build": "PASS",
+  "lint": {
+    "errors": 0,
+    "warnings": 65
+  },
+  "device": {
+    "type": "emulator",
+    "api": 36,
+    "avd": "Workout_API_36"
+  },
+  "deviceRuns": [
+    {
+      "tests": [
+        "ProgramDeviceTest",
+        "PlannedSessionDeviceTest",
+        "CatalogDeviceTest"
+      ],
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "tests": [
+        "ProgramDeviceTest",
+        "PlannedSessionDeviceTest",
+        "CatalogDeviceTest"
+      ],
+      "passed": 3,
+      "failed": 0
+    }
+  ],
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

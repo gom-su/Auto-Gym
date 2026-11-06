@@ -33,7 +33,23 @@ Load units `KG` and `LB` require basis `TOTAL`, `PER_SIDE` or `PER_HAND`. `MACHI
 
 ## Persistence and compatibility
 
-The independent `programs-v1.json` DataStore snapshot has an internal schema version. Existing `workout.json` files are unchanged. Exact reimport is a no-op; conflicting same-ID content is blocked without replacement, including changed week versions. No approval or activation is inferred. The library is published only after persistence succeeds; a disk/read/corruption error leaves existing storage intact and offers retry. Future schema versions require an explicit migration; they are not reset to empty.
+The independent `programs-v1.json` DataStore snapshot has an internal schema version. Existing `workout.json` files are unchanged. Exact reimport is a no-op; conflicting same-ID content is blocked without replacement, including changed week versions (see the ENT-09 merge rules below). No approval or activation is inferred. The library is published only after persistence succeeds; a disk/read/corruption error leaves existing storage intact and offers retry. Future schema versions require an explicit migration; they are not reset to empty.
+
+## Re-import and merge rules (ENT-09)
+
+Importing a package whose program ID is already saved is planned deterministically. The outcome is shown in the review **before** saving:
+
+| Package vs. saved program | Outcome |
+| --- | --- |
+| Identical | No-op: "ya estaba importado", nothing written. |
+| Saved weeks unchanged, plus weeks or blocks with new IDs | **Añadir semanas nuevas** appends only those weeks, in package order. Saved weeks are never duplicated, replaced or reordered. |
+| Package omits saved weeks | They are kept; the review says so. |
+| Any difference in a saved element | Conflict; **Guardar** is disabled and nothing is written. |
+| New week reusing an ID already saved (e.g. a set ID) | Conflict. |
+
+A difference in a saved element means a program or block name, or a week's name or version. Within the week's days, exercises and sets, it means additions, removals or reordering, or a changed reps, RIR, load or rest value. A saved week appearing in a different block also counts.
+
+Conflicts are listed by path, for example `Semana 'Semana 1' / Día A / Sentadilla ficticia / serie 2: repeticiones 6 → 10`. The list shows the first 20 and counts the rest. To change a saved week, publish it under a new ID. Concurrent imports are serialized: one merge, the rest no-ops.
 
 ## Target-phone acceptance
 

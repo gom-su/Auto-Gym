@@ -97,7 +97,7 @@ Unit tests cover values and limits, set recording, monotonic rest timing, exerci
 
 ### JSON interchange (ENT-02)
 
-Open **Programas > Intercambio JSON** to review, save, copy and import/export versioned context, week proposals and results. Exchanges are archived without approving proposals or modifying programs or the active session. Includes synthetic examples, schema versions, explicit units, measurement privacy and conflict rejection. See the [contract and verification](docs/JSON_EXCHANGE.md).
+Open **Programas > Intercambio JSON** to review, save, copy and import/export versioned context, week proposals and results. Exchanges are archived without approving proposals or modifying programs or the active session. Includes synthetic examples, schema versions, explicit units, measurement privacy and conflict rejection. See the [contract and verification](docs/JSON_EXCHANGE.md). Re-importing a saved program is idempotent: identical packages change nothing, new weeks are appended without duplicates, and conflicts are listed by path before anything is saved (ENT-09, [rules](docs/PROGRAM_IMPORT.md#re-import-and-merge-rules-ent-09)).
 
 ### Planned-day recording (ENT-04)
 
