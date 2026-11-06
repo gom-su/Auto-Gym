@@ -111,6 +111,10 @@ Open **Programas > Adherencia y objetivos** to see every planned day as complete
 
 Open **Programas > Peso y composición corporal** to record dated measurements with their unit and method. Trends are drawn per method and unit; when different methods (e.g. bioimpedance and DEXA) or units exist for a metric, they stay separate and a warning says they are not directly comparable. See [measurements](docs/BODY_MEASUREMENTS.md).
 
+### Planning questions (AG-01)
+
+Open **Programas > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
+
 ### Week proposal review (AG-02, AG-05, AG-06)
 
 Open **Programas > Propuestas de semana** to review week proposals imported through **Intercambio JSON**. Each one shows configurable rule results (blocks and warnings), the changes computed against the base week, and the agent's reasons. It stays pending until you approve or reject it; approval appends the week to the program without replacing anything. See [proposal review](docs/PROPOSAL_REVIEW.md).
