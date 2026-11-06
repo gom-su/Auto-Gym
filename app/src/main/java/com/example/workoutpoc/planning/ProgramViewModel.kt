@@ -15,7 +15,9 @@ import java.io.ByteArrayOutputStream
 
 data class ProgramUiState(
     val ready: Boolean = false, val busy: Boolean = false,
-    val preview: TrainingProgram? = null, val message: String? = null
+    val preview: TrainingProgram? = null, val message: String? = null,
+    /** Outcome of saving the preview against the library, computed before the user decides. */
+    val merge: MergePlan? = null
 )
 
 class ProgramViewModel(application: Application) : AndroidViewModel(application) {
@@ -49,16 +51,20 @@ class ProgramViewModel(application: Application) : AndroidViewModel(application)
     }
     private suspend fun prepare(text: String) {
         val program = withContext(Dispatchers.Default) { ProgramCodec.decode(text) }
-        mutableUi.value = mutableUi.value.copy(preview = program, message = null)
+        repository.restore()
+        mutableUi.value = mutableUi.value.copy(preview = program, merge = repository.preview(program), message = null)
     }
     fun showMessage(text: String) { mutableUi.value = mutableUi.value.copy(message = text) }
-    fun cancelPreview() { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = null, message = null) }
+    fun cancelPreview() { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = null, merge = null, message = null) }
     fun save() = operation {
         val program = ui.value.preview ?: return@operation
         val result = repository.importProgram(program)
-        mutableUi.value = mutableUi.value.copy(preview = null, message = when (result) {
+        val merge = ui.value.merge
+        mutableUi.value = mutableUi.value.copy(preview = null, merge = null, message = when (result) {
             ImportResult.SAVED -> "Programa guardado en este dispositivo. No se ha activado ninguna semana."
             ImportResult.ALREADY_IMPORTED -> "Este programa ya estaba importado. No se crearon duplicados."
+            ImportResult.MERGED -> "Semanas nuevas añadidas al programa guardado: ${merge?.addedWeeks?.joinToString(", ").orEmpty()}. " +
+                "Las semanas existentes no se duplicaron ni cambiaron. No se ha activado ninguna semana."
         })
     }
     private fun operation(block: suspend () -> Unit) {

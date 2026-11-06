@@ -24,7 +24,7 @@ object ProgramLibrarySerializer : Serializer<ProgramLibrary> {
     }
 }
 
-enum class ImportResult { SAVED, ALREADY_IMPORTED }
+enum class ImportResult { SAVED, ALREADY_IMPORTED, MERGED }
 
 class ProgramRepository(private val store: DataStore<ProgramLibrary>) {
     private val mutex = Mutex()
@@ -33,16 +33,25 @@ class ProgramRepository(private val store: DataStore<ProgramLibrary>) {
 
     suspend fun restore() = mutex.withLock { mutableLibrary.value = store.data.first() }
 
-    /** No replacement of an existing prescription and no activation of imported content. */
+    /** What saving [program] would do against the current library, without writing anything. */
+    fun preview(program: TrainingProgram): MergePlan = ProgramMerge.plan(library.value.programs.find { it.id == program.id }, program)
+
+    /**
+     * Idempotent import: identical content is a no-op, weeks with new IDs are appended, and nothing saved is ever
+     * replaced or deleted. Any difference in an existing element is a conflict listed by path; nothing is written.
+     * No imported content is activated.
+     */
     suspend fun importProgram(program: TrainingProgram): ImportResult = mutex.withLock {
         ProgramCodec.validate(program)
         var result = ImportResult.SAVED
         val saved = store.updateData { current ->
-            val existing = current.programs.find { it.id == program.id }
-            when {
-                existing == program -> { result = ImportResult.ALREADY_IMPORTED; current }
-                existing != null -> throw ProgramValidationException("Ya existe un programa con ID '${program.id}' y contenido diferente. No se ha reemplazado.")
-                else -> current.copy(programs = current.programs + program)
+            val plan = ProgramMerge.plan(current.programs.find { it.id == program.id }, program)
+            when (plan.kind) {
+                MergeKind.NEW -> current.copy(programs = current.programs + program)
+                MergeKind.IDENTICAL -> { result = ImportResult.ALREADY_IMPORTED; current }
+                MergeKind.ADDS_WEEKS -> { result = ImportResult.MERGED
+                    current.copy(programs = current.programs.map { if (it.id == program.id) plan.program else it }) }
+                MergeKind.CONFLICT -> throw ProgramValidationException(plan.summary())
             }
         }
         mutableLibrary.value = saved

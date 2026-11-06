@@ -39,7 +39,15 @@ fun ProgramScreen(
                 if (ui.preview != null) {
                     item { Text("Revisar importación", style = MaterialTheme.typography.titleLarge) }
                     item { Text("Revisa las semanas antes de guardar. Importar conserva la planificación; no inicia ni activa un entrenamiento.") }
-                    item { Button(onClick = onSave, enabled = ui.ready && !ui.busy) { Text("Guardar programa") } }
+                    ui.merge?.let { merge ->
+                        item {
+                            Text(merge.summary(), color = if (merge.kind == MergeKind.CONFLICT) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    item { Button(onClick = onSave, enabled = ui.ready && !ui.busy && ui.merge?.kind != MergeKind.CONFLICT) {
+                        Text(if (ui.merge?.kind == MergeKind.ADDS_WEEKS) "Añadir semanas nuevas" else "Guardar programa")
+                    } }
                     item { OutlinedButton(onClick = onCancel, enabled = !ui.busy) { Text("Cancelar importación") } }
                 } else if (selected == null) {
                     item { Text("Importa un programa JSON v1 desde un archivo o pega su contenido. Puedes variar días, ejercicios y series en cada semana.") }
