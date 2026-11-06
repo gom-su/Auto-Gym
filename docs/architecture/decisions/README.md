@@ -10,4 +10,6 @@ For each future accepted technical decision, add a numbered Markdown file with c
 
 - [0002 — JSON interchange](0002-json-interchange.md): strict typed packages, independent archive, privacy and idempotency.
 
+- [0004 — Planned-day sessions](0004-planned-day-sessions.md): sessions carry their own plan snapshot; archive-before-replace history; frozen v1 demo snapshot.
+
 - [0003 — Obsidian migration archive](0003-obsidian-migration-archive.md): original-preserving Workout v3 parsing, explicit uncertainty and offline review independent of executable programs/history.

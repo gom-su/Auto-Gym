@@ -13,7 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.workoutpoc.MainActivity
 import com.example.workoutpoc.R
-import com.example.workoutpoc.data.DemoWorkout
+import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.timer.clockSnapshot
 
@@ -50,9 +50,11 @@ class WorkoutNotificationManager(private val context: Context) {
     }
 
     fun build(s: WorkoutState): Notification {
+        val plan: List<PlannedSet> = s.activePlan()
+        val unit: WeightUnit = plan[s.index].unit
         val title: String = when (s.phase) {
-            Phase.ActiveSet -> DemoWorkout.sets[s.index].let { "${it.exercise} · ${it.number}/${it.total}" }
-            Phase.Resting -> "Descanso · siguiente: ${DemoWorkout.sets[(s.index + 1).coerceAtMost(6)].exercise}"
+            Phase.ActiveSet -> plan[s.index].let { "${it.exercise} · ${it.number}/${it.total}" }
+            Phase.Resting -> "Descanso · siguiente: ${plan[(s.index + 1).coerceAtMost(plan.lastIndex)].exercise}"
             Phase.Completed -> "Entrenamiento terminado"
             Phase.Idle -> "Preparando entrenamiento"
         }
@@ -67,7 +69,7 @@ class WorkoutNotificationManager(private val context: Context) {
         if (s.phase == Phase.Completed || s.phase == Phase.Idle) return builder.build()
         val compact = RemoteViews(context.packageName, R.layout.notification_compact)
         compact.setTextViewText(R.id.compact_title, if (s.phase == Phase.ActiveSet)
-            "$title\n${weightLabel(s.values.weightTenths)} kg · ${s.values.reps} reps" else "Descanso · 10 s o tiempo ampliado")
+            "$title\n${loadLabel(s.values.weightTenths, unit)} · ${s.values.reps} reps" else "Descanso · ${plan[s.index].restSeconds} s o tiempo ampliado")
         compact.setTextViewText(R.id.compact_complete, if (s.phase == Phase.Resting) "Saltar" else "Completar")
         compact.setOnClickPendingIntent(R.id.compact_complete, action(s,
             if (s.phase == Phase.Resting) WorkoutEvent.SkipRest else WorkoutEvent.CompleteSet))
@@ -77,7 +79,7 @@ class WorkoutNotificationManager(private val context: Context) {
         expanded.setViewVisibility(R.id.set_controls, if (s.phase == Phase.ActiveSet) View.VISIBLE else View.GONE)
         expanded.setViewVisibility(R.id.rest_controls, if (s.phase == Phase.Resting) View.VISIBLE else View.GONE)
         if (s.phase == Phase.ActiveSet) {
-            expanded.setTextViewText(R.id.weight, "${weightLabel(s.values.weightTenths)} kg")
+            expanded.setTextViewText(R.id.weight, loadLabel(s.values.weightTenths, unit))
             expanded.setTextViewText(R.id.reps, "${s.values.reps} reps")
             mapOf(R.id.weight_minus to WorkoutEvent.DecrementWeight, R.id.weight_plus to WorkoutEvent.IncrementWeight,
                 R.id.reps_minus to WorkoutEvent.DecrementReps, R.id.reps_plus to WorkoutEvent.IncrementReps,

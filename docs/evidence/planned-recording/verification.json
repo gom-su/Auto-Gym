@@ -1,0 +1,13 @@
+{
+  "verificationDate": "2026-11-06",
+  "requirement": "ENT-04",
+  "unitTests": { "tests": 49, "failures": 0, "errors": 0, "skipped": 1, "skippedReason": "opt-in private Obsidian source test" },
+  "build": "PASS",
+  "lint": { "errors": 0, "warnings": 65 },
+  "device": { "type": "emulator", "api": 36, "avd": "Workout_API_36" },
+  "plannedSessionDeviceTest": { "runs": 5, "passed": 5 },
+  "existingDeviceTests": "flaky on this emulator with and without the change; each case passed at least once with the change except ExchangeDeviceTest.documentExportReimportIntoCleanStoreAndPreserveSession, which also fails on unmodified main",
+  "baselineMainComparableRun": { "tests": 6, "passed": 4, "failed": 2 },
+  "physicalDeviceTested": false,
+  "publicEvidenceContainsRealWorkouts": false
+}

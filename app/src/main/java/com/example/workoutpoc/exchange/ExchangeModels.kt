@@ -1,6 +1,5 @@
 package com.example.workoutpoc.exchange
 
-import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.planning.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -23,7 +22,7 @@ import java.time.Instant
 )
 @Serializable data class TrainingResults(val sessions: List<SessionResult>, val demo: DemoSnapshot? = null)
 /** Legacy demo values are integer tenths of kg. Its load basis was never captured. */
-@Serializable data class DemoSnapshot(val state: WorkoutState, val loadUnit: String = "KG", val loadBasis: String = "UNSPECIFIED", val loadScale: Int = 10)
+@Serializable data class DemoSnapshot(val state: DemoStateV1, val loadUnit: String = "KG", val loadBasis: String = "UNSPECIFIED", val loadScale: Int = 10)
 @Serializable enum class PerformanceStatus { COMPLETED, PARTIAL, NOT_PERFORMED, OMITTED }
 @Serializable data class SessionResult(
     val id: String, val sessionPlanId: String?, val status: PerformanceStatus,
@@ -108,7 +107,7 @@ object ExchangeCodec {
             requireValid(d.loadUnit == "KG" && d.loadBasis == "UNSPECIFIED" && d.loadScale == 10, "Unidades de demo incompatibles.")
             val s = d.state
             requireValid(s.index in 0..7 && s.revision >= 0, "Estado de demo fuera de rango.")
-            fun values(v: com.example.workoutpoc.domain.SetValues) {
+            fun values(v: DemoSetValuesV1) {
                 requireValid(v.weightTenths in 0..20000 && v.reps in 0..1000 && v.rir in 0..4, "Valores de demo fuera de rango.")
             }
             values(s.values)

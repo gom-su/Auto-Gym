@@ -51,6 +51,7 @@ class ProgramViewModel(application: Application) : AndroidViewModel(application)
         val program = withContext(Dispatchers.Default) { ProgramCodec.decode(text) }
         mutableUi.value = mutableUi.value.copy(preview = program, message = null)
     }
+    fun showMessage(text: String) { mutableUi.value = mutableUi.value.copy(message = text) }
     fun cancelPreview() { if (!ui.value.busy) mutableUi.value = mutableUi.value.copy(preview = null, message = null) }
     fun save() = operation {
         val program = ui.value.preview ?: return@operation
