@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private val adherenceModel: AdherenceViewModel by viewModels()
     private val questionsModel: com.example.workoutpoc.questions.QuestionsViewModel by viewModels()
     private val stagnationModel: com.example.workoutpoc.catalog.StagnationViewModel by viewModels()
+    private val historyModel: com.example.workoutpoc.history.HistoryViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -92,6 +93,13 @@ class MainActivity : ComponentActivity() {
             var showAdherence by rememberSaveable { mutableStateOf(false) }
             var showQuestions by rememberSaveable { mutableStateOf(false) }
             var showStagnation by rememberSaveable { mutableStateOf(false) }
+            var showHistory by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showHistory) { showHistory = false }
+            if (showHistory) {
+                val historyUi by historyModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.history.HistoryScreen(historyUi, { showHistory = false }, historyModel::refresh)
+                return@setContent
+            }
             BackHandler(showStagnation) { showStagnation = false }
             if (showStagnation) {
                 val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
@@ -185,7 +193,7 @@ class MainActivity : ComponentActivity() {
                     }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
                     annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true },
                     { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true },
-                    { stagnationModel.refresh(); showStagnation = true })
+                    { stagnationModel.refresh(); showStagnation = true }, { historyModel.refresh(); showHistory = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

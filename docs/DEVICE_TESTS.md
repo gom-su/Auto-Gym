@@ -21,7 +21,7 @@ Compose screens are long lazy lists, so tests must not assume a target is on scr
 
 ## Status (2026-11-06)
 
-- **Full runs of 18 cases:** the 14 cases outside exchange and migration pass consistently, including `ProgramDeviceTest` and `WorkoutDeviceTest`, which were previously intermittent.
+- **Full runs of 18 cases** (before `HistoryDeviceTest` was added, which passes alone): the 14 cases outside exchange and migration pass consistently, including `ProgramDeviceTest` and `WorkoutDeviceTest`, which were previously intermittent.
 - **`ExchangeDeviceTest` and `MigrationDeviceTest`:**
   - They pass alone and in combined runs with `WorkoutDeviceTest`.
   - Two leftover-state problems were fixed. The floating workout panel left by earlier tests sat over their screens and intercepted taps, so both now stop the overlay service first. The save picker sometimes opened on a location that cannot hold files, so the export test now selects Downloads.
