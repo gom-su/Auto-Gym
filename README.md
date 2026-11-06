@@ -103,6 +103,10 @@ Open **Programas > Intercambio JSON** to review, save, copy and import/export ve
 
 Open **Programas**, choose a saved program day and tap **Entrenar este día**, then start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions support warm-up sets, pausing and resuming (rest resumes exactly), cardio entries and partial sessions (ENT-06). They also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). Everything is stored offline and every confirmed set survives a forced close (ENT-07, [decision 0005](docs/architecture/decisions/0005-offline-persistence.md)). See [planned recording](docs/PLANNED_RECORDING.md).
 
+### Body weight and composition (ANA-03)
+
+Open **Programas > Peso y composición corporal** to record dated measurements with their unit and method. Trends are drawn per method and unit; when different methods (e.g. bioimpedance and DEXA) or units exist for a metric, they stay separate and a warning says they are not directly comparable. See [measurements](docs/BODY_MEASUREMENTS.md).
+
 ### Week proposal review (AG-02, AG-05, AG-06)
 
 Open **Programas > Propuestas de semana** to review week proposals imported through **Intercambio JSON**. Each one shows configurable rule results (blocks and warnings), the changes computed against the base week, and the agent's reasons. It stays pending until you approve or reject it; approval appends the week to the program without replacing anything. See [proposal review](docs/PROPOSAL_REVIEW.md).

@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
     private val migrationModel: MigrationViewModel by viewModels()
     private val catalogModel: com.example.workoutpoc.catalog.CatalogViewModel by viewModels()
     private val proposalModel: com.example.workoutpoc.proposal.ProposalViewModel by viewModels()
+    private val bodyModel: com.example.workoutpoc.body.BodyViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -84,6 +85,14 @@ class MainActivity : ComponentActivity() {
             var showMigration by rememberSaveable { mutableStateOf(false) }
             var showCatalog by rememberSaveable { mutableStateOf(false) }
             var showProposals by rememberSaveable { mutableStateOf(false) }
+            var showBody by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showBody) { showBody = false }
+            if (showBody) {
+                val log by bodyModel.log.collectAsStateWithLifecycle()
+                val bodyUi by bodyModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.body.BodyScreen(log, bodyUi, { showBody = false }, bodyModel::refresh, bodyModel::add, bodyModel::remove)
+                return@setContent
+            }
             BackHandler(showProposals) { showProposals = false }
             if (showProposals) {
                 val proposalState by proposalModel.state.collectAsStateWithLifecycle()
@@ -147,7 +156,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
-                    annotations, programModel::setDeload)
+                    annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true })
                 return@setContent
             }
             val state by model.state.collectAsStateWithLifecycle()

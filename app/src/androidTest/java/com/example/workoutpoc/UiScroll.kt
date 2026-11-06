@@ -19,11 +19,18 @@ fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
     fun settled(): UiObject2? { waitForIdle(); SystemClock.sleep(250); return try { findObject(selector) } catch (_: StaleObjectException) { null } }
     wait(Until.findObject(selector), 1_500)?.let { return settled() ?: it }
     val x = displayWidth / 2
-    val low = (displayHeight * 0.70).toInt(); val high = (displayHeight * 0.40).toInt()
+    val distance = (displayHeight * 0.3).toInt()
+    // A slow drag that starts on a text field reads as a long press (selection toolbar): start clear of fields.
+    fun freeY(candidates: List<Double>): Int {
+        val fields = try { findObjects(By.clazz("android.widget.EditText")).map { it.visibleBounds } } catch (_: StaleObjectException) { emptyList() }
+        return candidates.map { (displayHeight * it).toInt() }.firstOrNull { y -> fields.none { y in (it.top - 20)..(it.bottom + 20) } }
+            ?: (displayHeight * candidates.first()).toInt()
+    }
     for (down in listOf(true, false)) {
         var previous: List<String>? = null
         for (step in 0 until 20) {
-            if (down) drag(x, low, x, high, 60) else drag(x, high, x, low, 60)
+            if (down) { val y = freeY(listOf(0.72, 0.78, 0.66, 0.84, 0.6)); drag(x, y, x, y - distance, 60) }
+            else { val y = freeY(listOf(0.40, 0.34, 0.46, 0.28, 0.52)); drag(x, y, x, y + distance, 60) }
             // A drag that starts on a text field can focus it; a shown keyboard then hides the rest of the screen.
             if (hasObject(By.pkg("com.google.android.inputmethod.latin"))) { pressBack(); waitForIdle() }
             settled()?.let { return it }
