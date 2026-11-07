@@ -17,7 +17,8 @@ data class SessionSummary(
     val sessionId: String, val title: String, val startedAtMillis: Long?, val endedAtMillis: Long?, val activeMillis: Long?,
     val status: DayStatus, val inProgress: Boolean, val endedEarly: Boolean,
     val completedSets: Int, val omittedSets: Int, val unreachedSets: Int, val extraSets: Int, val warmupSets: Int,
-    val cardio: List<CardioEntry>, val sets: List<HistorySet>, val demo: Boolean
+    val cardio: List<CardioEntry>, val sets: List<HistorySet>, val demo: Boolean,
+    val programId: String? = null, val programName: String? = null
 )
 
 fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: Int = 0): SessionSummary {
@@ -41,7 +42,7 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
         completed, omitted, (prescribed - completed - omitted).coerceAtLeast(0),
         s.records.count { plan[it.index].extra && !plan[it.index].warmup && it.status == SetStatus.COMPLETED },
         s.records.count { plan[it.index].warmup && it.status == SetStatus.COMPLETED },
-        s.cardio, sets, s.source == null)
+        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName)
 }
 
 /** All sessions with at least one record or cardio entry, newest first; the current one is included if started. */
@@ -53,3 +54,13 @@ fun recordedSessions(archived: List<WorkoutState>, current: WorkoutState): List<
     (archived + current).distinctBy { it.sessionId }
         .filter { it.records.isNotEmpty() || it.cardio.isNotEmpty() || (it.phase != Phase.Idle && it.startedAtMillis != null) }
         .sortedByDescending { s -> s.startedAtMillis ?: s.records.minOfOrNull { it.completedAtMillis } ?: 0L }
+
+/** Programs present in [sessions] as (id, name), in first-seen order; the demo is listed with a null ID. */
+fun programsIn(sessions: List<SessionSummary>): List<Pair<String?, String>> =
+    sessions.map { it.programId to (it.programName ?: "Demo") }.distinctBy { it.first }
+
+/** Totals shown above the list, computed only from what is listed. */
+data class HistoryTotals(val sessions: Int, val completedSets: Int, val omittedSets: Int, val cardio: Int, val activeMillis: Long)
+
+fun totals(sessions: List<SessionSummary>) = HistoryTotals(sessions.size, sessions.sumOf { it.completedSets + it.extraSets },
+    sessions.sumOf { it.omittedSets }, sessions.sumOf { it.cardio.size }, sessions.sumOf { it.activeMillis ?: 0L })

@@ -83,9 +83,14 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 }
 
 /** Read-only list of recorded sessions, newest first, with a detail view per session. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, onExportCsv: () -> Unit = {}) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    // "*" lists every program; otherwise a program ID, or "" for the demo session.
+    var program by rememberSaveable { mutableStateOf("*") }
+    val programs = programsIn(ui.sessions)
+    val listed = if (program == "*") ui.sessions else ui.sessions.filter { (it.programId ?: "") == program }
     val format = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val session = ui.sessions.find { it.sessionId == selected }
     MaterialTheme(colorScheme = darkColorScheme()) {
@@ -103,7 +108,20 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                     if (ui.sessions.isNotEmpty()) item {
                         OutlinedButton(onClick = onExportCsv, enabled = !ui.busy) { Text("Exportar CSV") }
                     }
-                    items(ui.sessions, key = { it.sessionId }) { s ->
+                    if (programs.size > 1) item {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(program == "*", { program = "*" }, label = { Text("Todos los programas") })
+                            programs.forEach { (id, name) ->
+                                FilterChip(program == (id ?: ""), { program = id ?: "" }, label = { Text(name) })
+                            }
+                        }
+                    }
+                    if (listed.isNotEmpty()) item {
+                        val t = totals(listed)
+                        Text("${t.sessions} sesiones · ${t.completedSets} series hechas · ${t.omittedSets} omitidas · " +
+                            "cardio ${t.cardio} · tiempo activo ${durationLabel(t.activeMillis)}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    items(listed, key = { it.sessionId }) { s ->
                         OutlinedButton(onClick = { selected = s.sessionId }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth()) {
                                 Text("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}")

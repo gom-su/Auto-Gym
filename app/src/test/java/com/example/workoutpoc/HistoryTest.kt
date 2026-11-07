@@ -90,6 +90,22 @@ class HistoryTest {
         assertTrue(rows[3].endsWith(",'=1+1,Bici,600,,"))
     }
 
+    @Test fun `programs are listed once and totals count only the listed sessions`() = runTest {
+        val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
+        repo.restore()
+        repo.go(WorkoutEvent.StartWorkout); repo.go(WorkoutEvent.CompleteSet); repo.go(WorkoutEvent.FinishWorkout)   // demo
+        repo.go(WorkoutEvent.ResetDemo)
+        repo.train("week-one", "day-one-a") { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.SkipSet) }
+        repo.go(WorkoutEvent.ResetDemo)
+        repo.train("week-one", "day-one-b") { go(WorkoutEvent.CompleteSet) }
+        repo.go(WorkoutEvent.ResetDemo)
+        val list = history(repo.archived.value.sessions, repo.state.value, time.wallMillis)
+        assertEquals(listOf<Pair<String?, String>>("fictional-program" to "Programa ficticio variable", null to "Demo"),
+            com.example.workoutpoc.history.programsIn(list))
+        val t = com.example.workoutpoc.history.totals(list.filter { it.programId == "fictional-program" })
+        assertEquals(2, t.sessions); assertEquals(2, t.completedSets); assertEquals(1, t.omittedSets); assertEquals(0, t.cardio)
+    }
+
     @Test fun `csv fields are quoted and formula-like text is neutralised`() {
         assertEquals("plain", HistoryCsv.field("plain"))
         assertEquals("\"a,b\"", HistoryCsv.field("a,b"))
