@@ -46,7 +46,10 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
 
 /** All sessions with at least one record or cardio entry, newest first; the current one is included if started. */
 fun history(archived: List<WorkoutState>, current: WorkoutState, nowWallMillis: Long): List<SessionSummary> =
+    recordedSessions(archived, current).map { summarize(it, nowWallMillis) }
+
+/** Sessions with something recorded (or started), each once, newest first. */
+fun recordedSessions(archived: List<WorkoutState>, current: WorkoutState): List<WorkoutState> =
     (archived + current).distinctBy { it.sessionId }
         .filter { it.records.isNotEmpty() || it.cardio.isNotEmpty() || (it.phase != Phase.Idle && it.startedAtMillis != null) }
         .sortedByDescending { s -> s.startedAtMillis ?: s.records.minOfOrNull { it.completedAtMillis } ?: 0L }
-        .map { summarize(it, nowWallMillis) }

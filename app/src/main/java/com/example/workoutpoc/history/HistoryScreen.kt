@@ -31,7 +31,42 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     private val app = application.workoutApp
     private val mutableUi = MutableStateFlow(HistoryUiState())
     val ui = mutableUi.asStateFlow()
+    private var pendingCsv: String? = null
     init { refresh() }
+    /** Prepares the CSV from storage, then [onReady] opens the system save dialog. */
+    fun prepareCsv(onReady: (String) -> Unit) {
+        if (ui.value.busy) return
+        mutableUi.value = mutableUi.value.copy(busy = true, message = null)
+        viewModelScope.launch {
+            try {
+                app.repository.restore()
+                val now = System.currentTimeMillis()
+                pendingCsv = HistoryCsv.encode(app.repository.archived.value.sessions, app.repository.state.value, now)
+                onReady("auto-gym-historial-${java.time.LocalDate.now()}.csv")
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo preparar el CSV. Tus datos se conservan. Reintenta.") }
+            finally { mutableUi.value = mutableUi.value.copy(busy = false) }
+        }
+    }
+    /** Writes the prepared CSV to the destination the user chose; nothing is written without one. */
+    fun writeCsv(uri: android.net.Uri?) {
+        val text = pendingCsv
+        pendingCsv = null
+        if (uri == null || ui.value.busy) return
+        mutableUi.value = mutableUi.value.copy(busy = true, message = null)
+        viewModelScope.launch {
+            try {
+                if (text == null) throw IllegalStateException()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                        ?: throw IllegalStateException()
+                }
+                mutableUi.value = mutableUi.value.copy(message = "Historial exportado en CSV.")
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo exportar el CSV. Vuelve a intentarlo.") }
+            finally { mutableUi.value = mutableUi.value.copy(busy = false) }
+        }
+    }
     fun refresh() {
         if (ui.value.busy) return
         mutableUi.value = mutableUi.value.copy(busy = true, message = null)
@@ -49,7 +84,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
 /** Read-only list of recorded sessions, newest first, with a detail view per session. */
 @Composable
-fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit) {
+fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, onExportCsv: () -> Unit = {}) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     val format = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val session = ui.sessions.find { it.sessionId == selected }
@@ -65,6 +100,9 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit) {
                 if (!ui.ready) item { Button(onClick = onRetry, enabled = !ui.busy) { Text("Reintentar") } }
                 if (session == null) {
                     if (ui.ready && ui.sessions.isEmpty()) item { Text("Aún no hay sesiones registradas.") }
+                    if (ui.sessions.isNotEmpty()) item {
+                        OutlinedButton(onClick = onExportCsv, enabled = !ui.busy) { Text("Exportar CSV") }
+                    }
                     items(ui.sessions, key = { it.sessionId }) { s ->
                         OutlinedButton(onClick = { selected = s.sessionId }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth()) {
