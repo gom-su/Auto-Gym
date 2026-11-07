@@ -53,6 +53,9 @@ class MainActivity : ComponentActivity() {
     private val exchangeFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(exchangeModel::previewFile)
     }
+    private val historyDestination = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        historyModel.writeCsv(uri)
+    }
     private val exchangeDestination = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         exchangeModel.write(uri)
     }
@@ -97,7 +100,8 @@ class MainActivity : ComponentActivity() {
             BackHandler(showHistory) { showHistory = false }
             if (showHistory) {
                 val historyUi by historyModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.history.HistoryScreen(historyUi, { showHistory = false }, historyModel::refresh)
+                com.example.workoutpoc.history.HistoryScreen(historyUi, { showHistory = false }, historyModel::refresh,
+                    { historyModel.prepareCsv { name -> historyDestination.launch(name) } })
                 return@setContent
             }
             BackHandler(showStagnation) { showStagnation = false }

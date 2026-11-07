@@ -1,6 +1,7 @@
 package com.example.workoutpoc
 
 import android.content.Intent
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.*
@@ -62,6 +63,43 @@ class HistoryDeviceTest {
         assertNotNull(device.scrollToText(" × 8 @ RIR ", contains = true))
         device.clickText("Ver todas las sesiones")
         assertNotNull(device.wait(Until.findObject(By.textContains("Programa ficticio de historial")), 5_000))
+        device.pressHome()
+    }
+
+    /** The picker redraws while it loads its roots, so nodes can go stale between finding and tapping: retry. */
+    private fun retry(block: () -> Unit) {
+        repeat(5) { try { block(); return } catch (_: StaleObjectException) { SystemClock.sleep(300) } catch (_: NullPointerException) { SystemClock.sleep(300) } }
+        block()
+    }
+    private fun pickerTap(selector: BySelector, required: Boolean = true): Boolean {
+        repeat(5) {
+            try {
+                val node = device.wait(Until.findObject(selector), 3_000) ?: return@repeat
+                node.click(); device.waitForIdle(); return true
+            } catch (_: StaleObjectException) { SystemClock.sleep(300) }
+        }
+        if (required) fail("Missing in picker: $selector")
+        return false
+    }
+
+    @Test fun csv_export_writes_the_recorded_sets_through_the_save_dialog() {
+        device.clickText("Programas")
+        device.clickText("Historial de sesiones")
+        device.clickText("Exportar CSV")
+        // The save picker may open on a location that cannot hold files (e.g. Recent): choose Downloads explicitly.
+        pickerTap(By.desc("Show roots"), required = false)
+        pickerTap(By.text("Downloads"), required = false)
+        val outputName = "history-export-${System.currentTimeMillis()}.csv"
+        retry { device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)!!.text = outputName }
+        if (!pickerTap(By.res("com.google.android.documentsui", "button1"), required = false)) pickerTap(By.text("SAVE"))
+        assertNotNull(device.scrollToText("Historial exportado en CSV."))
+        val path = device.executeShellCommand("find /sdcard/Download -name $outputName").trim()
+        assertTrue(path.isNotEmpty())
+        val csv = device.executeShellCommand("cat $path")
+        assertTrue(csv.startsWith("session_id,started_at,ended_at,program,"))
+        assertTrue(csv.contains("Programa ficticio de historial,Semana 1,Día A,PARTIAL (ENDED_EARLY),set,Sentadilla ficticia,"))
+        assertTrue(csv.contains(",Nota de historial,"))
+        device.executeShellCommand("rm $path")
         device.pressHome()
     }
 }

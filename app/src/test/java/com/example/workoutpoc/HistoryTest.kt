@@ -2,6 +2,7 @@ package com.example.workoutpoc
 
 import com.example.workoutpoc.data.*
 import com.example.workoutpoc.domain.*
+import com.example.workoutpoc.history.HistoryCsv
 import com.example.workoutpoc.history.history
 import com.example.workoutpoc.planning.*
 import kotlinx.coroutines.test.runTest
@@ -65,5 +66,35 @@ class HistoryTest {
         assertEquals(1, list.size)
         assertEquals(1, list.single().extraSets)
         assertEquals(DayStatus.COMPLETED, list.single().status)
+    }
+
+    @Test fun `csv has one row per set and cardio entry with only recorded values`() = runTest {
+        val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
+        repo.restore()
+        assertEquals(HistoryCsv.header.joinToString(",") + "\r\n", HistoryCsv.encode(emptyList(), repo.state.value, time.wallMillis))
+        repo.train("week-two", "day-two-c") {
+            go(WorkoutEvent.SkipSet)
+            go(WorkoutEvent.CompleteSet)
+            state.value.let { edit(it.sessionId, it.revision, 1, SetStatus.COMPLETED, it.records[1].values, "Nota, con \"comillas\"") }
+            state.value.let { addCardio(it.sessionId, it.revision, CardioEntry("c-1", "Bici", 600, null, null, "=1+1", time.wallMillis)) }
+        }
+        val rows = HistoryCsv.encode(repo.archived.value.sessions, repo.state.value, time.wallMillis).split("\r\n").filter { it.isNotEmpty() }
+        assertEquals(1 + 2 + 1, rows.size)
+        val skipped = rows[1].split(",")
+        assertEquals("SKIPPED", skipped[HistoryCsv.header.indexOf("set_status")])
+        assertEquals("", skipped[HistoryCsv.header.indexOf("load")]); assertEquals("", skipped[HistoryCsv.header.indexOf("reps")])
+        assertEquals("PARTIAL (ENDED_EARLY)", skipped[HistoryCsv.header.indexOf("session_status")])
+        assertEquals("1970-01-01T00:00:00Z".length, skipped[HistoryCsv.header.indexOf("started_at")].length)
+        assertTrue(rows[2].endsWith(",1,\"Nota, con \"\"comillas\"\"\",,,,"))
+        assertTrue(rows[3].contains(",cardio,"))
+        assertTrue(rows[3].endsWith(",'=1+1,Bici,600,,"))
+    }
+
+    @Test fun `csv fields are quoted and formula-like text is neutralised`() {
+        assertEquals("plain", HistoryCsv.field("plain"))
+        assertEquals("\"a,b\"", HistoryCsv.field("a,b"))
+        assertEquals("\"line\nbreak\"", HistoryCsv.field("line\nbreak"))
+        assertEquals("-2.5", HistoryCsv.field("-2.5"))
+        assertEquals("'@cmd", HistoryCsv.field("@cmd"))
     }
 }
