@@ -14,7 +14,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Session history through the real screen: an archived synthetic session is listed and its sets are shown. */
+/** Session history through the real screen: an archived synthetic session is listed and its sets and edit trail are shown. */
 @RunWith(AndroidJUnit4::class)
 class HistoryDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -37,6 +37,8 @@ class HistoryDeviceTest {
             repo.load(day.day.toPlannedSets(), day.source)
             repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
             repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            // One edit, so the detail shows the replaced version (audit trail).
+            repo.state.value.let { repo.edit(it.sessionId, it.revision, 0, SetStatus.COMPLETED, SetValues(210, 7, 2), "Nota de historial") }
             repo.dispatch(repo.state.value.command(WorkoutEvent.FinishWorkout))
             repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
         }
@@ -44,7 +46,7 @@ class HistoryDeviceTest {
         assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
     }
 
-    @Test fun archived_session_is_listed_with_its_sets() {
+    @Test fun archived_session_is_listed_with_its_sets_and_edits() {
         device.clickText("Programas")
         device.clickText("Historial de sesiones")
         // Newest first: the session just archived is at the top of the list.
@@ -54,6 +56,9 @@ class HistoryDeviceTest {
         title!!.visibleBounds.let { device.click(it.centerX(), it.centerY()) }
         assertNotNull(device.wait(Until.findObject(By.text("Series")), 5_000))
         assertNotNull(device.scrollToText("Sentadilla ficticia · serie 1"))
+        assertNotNull(device.scrollToText(" × 7 @ RIR 2 · editada", contains = true))
+        assertNotNull(device.scrollToText("Nota: Nota de historial"))
+        assertNotNull(device.scrollToText("Versiones anteriores (1)"))
         assertNotNull(device.scrollToText(" × 8 @ RIR ", contains = true))
         device.clickText("Ver todas las sesiones")
         assertNotNull(device.wait(Until.findObject(By.textContains("Programa ficticio de historial")), 5_000))

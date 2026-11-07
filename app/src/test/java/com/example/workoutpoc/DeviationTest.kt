@@ -108,6 +108,28 @@ class DeviationTest {
         assertEquals(SetStatus.SKIPPED, repo.state.value.records.single().status)
     }
 
+    @Test fun `every edit keeps the replaced version, oldest first, and survives storage`() = runTest {
+        val (repo, storage) = started("week-one", "day-one-a")
+        repo.go(WorkoutEvent.CompleteSet)
+        val original = repo.state.value.records.single()
+        assertTrue(original.revisions.isEmpty())
+        repo.state.value.let { assertTrue(repo.edit(it.sessionId, it.revision, 0, SetStatus.COMPLETED, SetValues(225, 7, 1), "Primera")) }
+        repo.state.value.let { assertTrue(repo.edit(it.sessionId, it.revision, 0, SetStatus.SKIPPED, SetValues(225, 7, 1), null)) }
+        val r = repo.state.value.records.single()
+        assertEquals(listOf(
+            SetRevision(SetStatus.COMPLETED, original.values, null, time.wallMillis),
+            SetRevision(SetStatus.COMPLETED, SetValues(225, 7, 1), "Primera", time.wallMillis)), r.revisions)
+        assertEquals(SetStatus.SKIPPED, r.status)
+        assertEquals(repo.state.value, roundTrip(storage.saved))
+        // A no-op save adds nothing to the trail.
+        repo.state.value.let { assertFalse(repo.edit(it.sessionId, it.revision, 0, SetStatus.SKIPPED, SetValues(225, 7, 1), null)) }
+        assertEquals(2, repo.state.value.records.single().revisions.size)
+        // The trail is bounded: once full, a further edit is refused rather than dropping old versions.
+        val full = repo.state.value.let { s -> s.copy(records = listOf(s.records[0].copy(revisions = List(MAX_SET_REVISIONS) { r.revisions[0] }))) }
+        try { WorkoutReducer(full.plan).edit(full, full.sessionId, full.revision, 0, SetStatus.COMPLETED, SetValues(200, 8, 3), null, time); fail() }
+        catch (_: WorkoutEditException) { }
+    }
+
     @Test fun `demo keeps its fixed plan and rejects deviations`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "demo-${++ids}" })
         repo.restore()
@@ -131,6 +153,11 @@ class DeviationTest {
             s.copy(records = listOf(s.records[0].copy(status = SetStatus.COMPLETED))),
             s.copy(records = listOf(s.records[0].copy(prescriptionId = "other"))),
             s.copy(records = listOf(s.records[0].copy(notes = " "))),
+            // A revision trail needs a matching edit time, ordered times and valid values.
+            s.copy(records = listOf(s.records[0].copy(revisions = listOf(SetRevision(SetStatus.SKIPPED, SetValues(200, 0, null), null, 5))))),
+            s.copy(records = listOf(s.records[0].copy(editedAtMillis = 5, revisions = listOf(
+                SetRevision(SetStatus.SKIPPED, SetValues(200, 0, null), null, 9), SetRevision(SetStatus.SKIPPED, SetValues(200, 0, null), null, 5))))),
+            s.copy(records = listOf(s.records[0].copy(editedAtMillis = 5, revisions = listOf(SetRevision(SetStatus.COMPLETED, SetValues(200, 0, null), null, 5))))),
             s.copy(plan = s.plan.mapIndexed { i, p -> if (i == 1) p.copy(extra = true) else p })
         ).forEach { bad ->
             try { WorkoutValidation.validate(bad); fail("accepted $bad") } catch (_: IllegalArgumentException) { }
