@@ -87,8 +87,12 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         if (cleanNotes != null && cleanNotes.length > MAX_NOTE_LENGTH) throw WorkoutEditException("La nota supera $MAX_NOTE_LENGTH caracteres.")
         val updated = record.copy(status = status, values = values, notes = cleanNotes)
         if (updated == record) return s
-        return s.copy(records = s.records.toMutableList().also { it[index] = updated.copy(editedAtMillis = now.wallMillis) },
-            revision = s.revision + 1)
+        if (record.revisions.size >= MAX_SET_REVISIONS) throw WorkoutEditException("La serie alcanzó el máximo de $MAX_SET_REVISIONS ediciones.")
+        // The replaced version is kept, never overwritten, so the edit trail stays complete.
+        val replaced = SetRevision(record.status, record.values, record.notes, now.wallMillis)
+        return s.copy(records = s.records.toMutableList().also {
+            it[index] = updated.copy(editedAtMillis = now.wallMillis, revisions = record.revisions + replaced)
+        }, revision = s.revision + 1)
     }
 
     private fun skip(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {

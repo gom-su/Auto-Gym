@@ -105,7 +105,7 @@ Open **Programas**, choose a saved program day and tap **Entrenar este día**, t
 
 ### Session history
 
-Open **Programas > Historial de sesiones** for every recorded session, newest first: date, program, week and day, status (completed, partial or not performed, never assumed), active time, and completed, omitted, unreached, extra and warm-up sets plus cardio. Tap a session to see each set's load, reps and RIR, notes and edits. The screen only reads; it never changes recorded data.
+Open **Programas > Historial de sesiones** for every recorded session, newest first: date, program, week and day, status (completed, partial or not performed, never assumed), active time, and completed, omitted, unreached, extra and warm-up sets plus cardio. Tap a session to see each set's load, reps and RIR, notes, and every earlier version of an edited set. The screen only reads; it never changes recorded data.
 
 ### Goals and adherence (ANA-04)
 

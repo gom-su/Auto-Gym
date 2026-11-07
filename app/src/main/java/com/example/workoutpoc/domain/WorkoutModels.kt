@@ -36,12 +36,20 @@ enum class SetStatus { COMPLETED, SKIPPED }
 
 /**
  * What was actually done for one plan position. The prescription stays in the session plan; edits change only
- * these recorded values and are marked with editedAtMillis. A SKIPPED set's values are not performance data.
+ * these recorded values and are marked with editedAtMillis. Every edit keeps the replaced version in [revisions]
+ * (oldest first), so the full audit trail survives. A SKIPPED set's values are not performance data.
  */
 @Serializable
 data class SetRecord(val index: Int, val exercise: String, val number: Int,
                      val values: SetValues, val completedAtMillis: Long, val prescriptionId: String? = null,
-                     val status: SetStatus = SetStatus.COMPLETED, val notes: String? = null, val editedAtMillis: Long? = null)
+                     val status: SetStatus = SetStatus.COMPLETED, val notes: String? = null, val editedAtMillis: Long? = null,
+                     val revisions: List<SetRevision> = emptyList())
+
+/** A recorded version that an edit replaced, with the time it was replaced. */
+@Serializable
+data class SetRevision(val status: SetStatus, val values: SetValues, val notes: String?, val replacedAtMillis: Long)
+
+const val MAX_SET_REVISIONS = 50
 
 const val MAX_NOTE_LENGTH = 1000
 

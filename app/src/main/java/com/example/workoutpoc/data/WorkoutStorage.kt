@@ -8,6 +8,7 @@ import com.example.workoutpoc.domain.PlannedSet
 import com.example.workoutpoc.domain.SetStatus
 import com.example.workoutpoc.domain.SetValues
 import com.example.workoutpoc.domain.MAX_NOTE_LENGTH
+import com.example.workoutpoc.domain.MAX_SET_REVISIONS
 import com.example.workoutpoc.domain.WorkoutState
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -52,7 +53,13 @@ object WorkoutValidation {
             require(r.prescriptionId == plan[r.index].prescriptionId)
             require(r.notes == null || (r.notes.isNotBlank() && r.notes.length <= MAX_NOTE_LENGTH))
             // Deviations exist only for planned sessions; the legacy demo shape stays exportable.
-            require(s.source != null || (r.status == SetStatus.COMPLETED && r.notes == null && r.editedAtMillis == null))
+            require(s.source != null || (r.status == SetStatus.COMPLETED && r.notes == null && r.editedAtMillis == null && r.revisions.isEmpty()))
+            require(r.revisions.size <= MAX_SET_REVISIONS && (r.revisions.isEmpty() || r.editedAtMillis == r.revisions.last().replacedAtMillis))
+            require(r.revisions.zipWithNext().all { (a, b) -> a.replacedAtMillis <= b.replacedAtMillis })
+            r.revisions.forEach { v ->
+                values(v.values, plan[r.index], allowZeroReps = v.status == SetStatus.SKIPPED)
+                require(v.notes == null || (v.notes.isNotBlank() && v.notes.length <= MAX_NOTE_LENGTH))
+            }
         }
         require((s.phase == Phase.Resting) == (s.rest != null))
         require(s.paused == null || s.phase == Phase.ActiveSet || s.phase == Phase.Resting)

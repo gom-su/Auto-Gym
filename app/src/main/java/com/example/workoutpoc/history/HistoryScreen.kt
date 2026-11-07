@@ -92,6 +92,15 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit) {
                                 Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
                                     "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps} @ RIR ${rirLabel(h.values.rir)}" + if (h.edited) " · editada" else "")
                                 h.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall) }
+                                if (h.revisions.isNotEmpty()) {
+                                    Text("Versiones anteriores (${h.revisions.size})", style = MaterialTheme.typography.labelMedium)
+                                    h.revisions.forEach { v ->
+                                        Text("Hasta ${format.format(Date(v.replacedAtMillis))}: " +
+                                            (if (v.status == SetStatus.SKIPPED) "omitida" else
+                                                "${loadLabel(v.values.weightTenths, h.unit)} × ${v.values.reps} @ RIR ${rirLabel(v.values.rir)}") +
+                                            (v.notes?.let { " · nota: $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
                             }
                         }
                     }
