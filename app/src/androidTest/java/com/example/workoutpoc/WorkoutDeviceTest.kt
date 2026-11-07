@@ -45,11 +45,16 @@ class WorkoutDeviceTest {
         device.waitForIdle()
     }
 
+    /** Taps a real notification/overlay control. Both redraw on every state change, so retry on stale nodes. */
     private fun control(id: String) {
-        val found = device.wait(Until.findObject(By.res(pkg, id)), 4_000)
-        assertNotNull("Missing real UI control: $id", found)
-        found!!.click()
-        device.waitForIdle()
+        val end = SystemClock.elapsedRealtime() + 6_000
+        while (SystemClock.elapsedRealtime() < end) {
+            try {
+                val found = device.wait(Until.findObject(By.res(pkg, id)), 1_000) ?: continue
+                found.click(); device.waitForIdle(); return
+            } catch (_: androidx.test.uiautomator.StaleObjectException) { SystemClock.sleep(100) }
+        }
+        fail("Missing real UI control: $id")
     }
 
     private fun awaitState(message: String, condition: (WorkoutState) -> Boolean) {
@@ -141,17 +146,38 @@ class WorkoutDeviceTest {
         assertTrue(rir1!!.text.contains("●"))
         screenshot("04-overlay-over-clock")
         control("collapse")
-        val bubble = device.wait(Until.findObject(By.descContains("Burbuja de entrenamiento")), 3_000)!!
-        val before = bubble.visibleBounds
-        bubble.drag(android.graphics.Point(800, 900), 500)
-        val moved = device.wait(Until.findObject(By.descContains("Burbuja de entrenamiento")), 2_000)!!
-        assertNotEquals(before, moved.visibleBounds)
+        // On a loaded emulator the window swap from panel to bubble can take several seconds; the node can also be
+        // replaced between finding and dragging, so retry the drag on a fresh node.
+        var before: android.graphics.Rect? = null
+        repeat(3) {
+            if (before != null) return@repeat
+            try {
+                val bubble = device.wait(Until.findObject(By.descContains("Burbuja de entrenamiento")), 8_000)
+                assertNotNull("Bubble not shown after collapsing the panel", bubble)
+                val bounds = bubble!!.visibleBounds
+                bubble.drag(android.graphics.Point(800, 900), 500)
+                before = bounds
+            } catch (_: androidx.test.uiautomator.StaleObjectException) { SystemClock.sleep(300) }
+        }
+        assertNotNull("Bubble could not be dragged", before)
+        // The bubble window moves asynchronously: wait for its new bounds, then tap there (not at a stale position).
+        var moved: android.graphics.Rect? = null
+        val movedBy = SystemClock.elapsedRealtime() + 5_000
+        while (moved == null && SystemClock.elapsedRealtime() < movedBy) {
+            try {
+                device.findObject(By.descContains("Burbuja de entrenamiento"))?.visibleBounds?.takeIf { it != before }?.let { moved = it }
+            } catch (_: androidx.test.uiautomator.StaleObjectException) { }
+            if (moved == null) SystemClock.sleep(100)
+        }
+        assertNotNull("Bubble did not move", moved)
+        SystemClock.sleep(300)
         screenshot("05-bubble")
-        moved.click()
+        val bubbleNow = device.wait(Until.findObject(By.descContains("Burbuja de entrenamiento")), 3_000)!!.visibleBounds
+        device.click(bubbleNow.centerX(), bubbleNow.centerY())
         control("overlay_complete")
         awaitState("Overlay complete") { it.phase == Phase.Resting && it.records.size == 2 }
         shade()
-        assertNotNull(device.wait(Until.findObject(By.res(pkg, "countdown")), 4_000))
+        assertNotNull(device.wait(Until.findObject(By.res(pkg, "countdown")), 8_000))
         screenshot("06-overlay-updates-notification")
         device.pressBack()
         // Let one real ten-second rest expire without skipping.
