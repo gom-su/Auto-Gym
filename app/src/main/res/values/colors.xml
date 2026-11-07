@@ -1,0 +1,6 @@
+<resources>
+    <!-- Brand surface and accent shared with the Compose theme (ui/theme/Theme.kt). -->
+    <color name="launcher_background">#101612</color>
+    <color name="brand_accent">#B4EE80</color>
+    <color name="brand_on_accent">#1A3700</color>
+</resources>

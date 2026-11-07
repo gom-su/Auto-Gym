@@ -1,8 +1,13 @@
 package com.example.workoutpoc.planning
 
+import com.example.workoutpoc.ui.*
+import com.example.workoutpoc.ui.theme.AppTheme
+import com.example.workoutpoc.ui.theme.Spacing
+import com.example.workoutpoc.ui.theme.tabular
+import androidx.compose.ui.Alignment
+import com.example.workoutpoc.history.tone
 import android.app.Application
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,51 +64,58 @@ class AdherenceViewModel(application: Application) : AndroidViewModel(applicatio
 @Composable
 fun AdherenceScreen(ui: AdherenceUiState, onBack: () -> Unit, onRetry: () -> Unit,
                     onNotPerformed: (DayRef, Boolean) -> Unit, onSaveGoals: (Goals) -> Unit) {
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Scaffold { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
-                item { TextButton(onClick = onBack, enabled = !ui.busy) { Text("Volver a Programas") } }
-                item { Text("Adherencia y objetivos", style = MaterialTheme.typography.headlineMedium) }
-                if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                ui.message?.let { item { Text(it) } }
-                if (!ui.ready) item { Button(onClick = onRetry, enabled = !ui.busy) { Text("Reintentar") } }
-                ui.progress?.let { p -> item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Esta semana", style = MaterialTheme.typography.titleMedium)
-                            Text("Sesiones con al menos una serie completada: ${p.sessions}" + (p.sessionsGoal?.let { " de $it" } ?: " · sin objetivo"))
-                            Text("Cardio registrado: ${p.cardioMinutes} min" + (p.cardioGoal?.let { " de $it" } ?: " · sin objetivo"))
-                        }
+    AppScreen("Adherencia y objetivos", "Volver a Programas", onBack, backEnabled = !ui.busy, busy = ui.busy, message = ui.message) {
+        if (!ui.ready && !ui.busy) item { RetryAction("Reintentar", onRetry, enabled = !ui.busy) }
+        ui.progress?.let { p -> item {
+            ContentCard {
+                Text("Esta semana", style = MaterialTheme.typography.titleMedium)
+                GoalProgressLine("Sesiones con al menos una serie completada: ${p.sessions}" + (p.sessionsGoal?.let { " de $it" } ?: " · sin objetivo"),
+                    p.sessions, p.sessionsGoal)
+                GoalProgressLine("Cardio registrado: ${p.cardioMinutes} min" + (p.cardioGoal?.let { " de $it" } ?: " · sin objetivo"),
+                    p.cardioMinutes, p.cardioGoal)
+            }
+        } }
+        item { ContentCard { GoalEditor(ui.goals, !ui.busy && ui.ready, onSaveGoals) } }
+        item { SupportingText("Completado: todas las series prescritas. Parcial: alguna completada o en curso. No realizado: lo declaraste o ninguna serie se completó. Sin registro: no hay datos; no se asume que no entrenaste.",
+            small = true) }
+        if (ui.weeks.isEmpty()) item { EmptyState("No hay programas guardados.", icon = AppIcons.Library) }
+        ui.weeks.forEach { w ->
+            item {
+                Column(Modifier.padding(top = Spacing.sm), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("${w.program.name} · ${w.week.name}", style = MaterialTheme.typography.titleMedium)
+                    Text(DayStatus.entries.joinToString(" · ") { "${it.label}: ${w.count(it)}" }, style = MaterialTheme.typography.bodySmall.tabular(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            items(w.days, key = { "${w.program.id}-${w.week.id}-${it.day.id}" }) { d ->
+                ContentCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Text(d.day.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        StatusPill(d.status.label + if (d.inProgress) " (en curso)" else "", d.status.tone())
                     }
-                } }
-                item { GoalEditor(ui.goals, !ui.busy && ui.ready, onSaveGoals) }
-                item { Text("Completado: todas las series prescritas. Parcial: alguna completada o en curso. No realizado: lo declaraste o ninguna serie se completó. Sin registro: no hay datos; no se asume que no entrenaste.",
-                    style = MaterialTheme.typography.bodySmall) }
-                if (ui.weeks.isEmpty()) item { Text("No hay programas guardados.") }
-                ui.weeks.forEach { w ->
-                    item {
-                        Text("${w.program.name} · ${w.week.name}", style = MaterialTheme.typography.titleMedium)
-                        Text(DayStatus.entries.joinToString(" · ") { "${it.label}: ${w.count(it)}" }, style = MaterialTheme.typography.bodySmall)
-                    }
-                    items(w.days, key = { "${w.program.id}-${w.week.id}-${it.day.id}" }) { d ->
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text("${d.day.name} · ${d.status.label}" + if (d.inProgress) " (en curso)" else "", style = MaterialTheme.typography.titleSmall)
-                                Text("Series prescritas: ${d.completedSets}/${d.prescribedSets} completadas · ${d.omittedSets} omitidas · ${d.unrecordedSets} sin registro" +
-                                    (if (d.extraSets > 0) " · ${d.extraSets} extra" else "") + (if (d.cardioMinutes > 0) " · cardio ${d.cardioMinutes} min" else ""),
-                                    style = MaterialTheme.typography.bodySmall)
-                                val ref = DayRef(w.program.id, w.week.id, d.day.id)
-                                // Only a day with no session can be declared as not performed; recorded facts take precedence.
-                                if (d.sessions == 0) TextButton(onClick = { onNotPerformed(ref, d.status != DayStatus.NOT_PERFORMED) }, enabled = !ui.busy) {
-                                    Text(if (d.status == DayStatus.NOT_PERFORMED) "Quitar «no realizado» de ${w.week.name} · ${d.day.name}" else "Marcar ${w.week.name} · ${d.day.name} como no realizado")
-                                }
-                            }
-                        }
-                    }
+                    Text("Series prescritas: ${d.completedSets}/${d.prescribedSets} completadas · ${d.omittedSets} omitidas · ${d.unrecordedSets} sin registro" +
+                        (if (d.extraSets > 0) " · ${d.extraSets} extra" else "") + (if (d.cardioMinutes > 0) " · cardio ${d.cardioMinutes} min" else ""),
+                        style = MaterialTheme.typography.bodySmall.tabular(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val ref = DayRef(w.program.id, w.week.id, d.day.id)
+                    // Only a day with no session can be declared as not performed; recorded facts take precedence.
+                    if (d.sessions == 0) QuietAction(
+                        if (d.status == DayStatus.NOT_PERFORMED) "Quitar «no realizado» de ${w.week.name} · ${d.day.name}" else "Marcar ${w.week.name} · ${d.day.name} como no realizado",
+                        { onNotPerformed(ref, d.status != DayStatus.NOT_PERFORMED) }, enabled = !ui.busy)
                 }
             }
         }
+    }
+
+}
+
+/** One weekly goal: its sentence and, when a goal is set, a progress bar towards it. */
+@Composable
+private fun GoalProgressLine(text: String, value: Int, goal: Int?) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(text, style = MaterialTheme.typography.bodyMedium.tabular())
+        if (goal != null && goal > 0) LinearProgressIndicator(progress = { (value.toFloat() / goal).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(6.dp), color = if (value >= goal) AppTheme.extended.success else MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest, drawStopIndicator = {})
     }
 }
 
@@ -114,14 +126,16 @@ private fun GoalEditor(goals: Goals, enabled: Boolean, onSave: (Goals) -> Unit) 
     val s = sessions.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
     val c = cardio.trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
     val valid = (sessions.isBlank() || s in 1..14) && (cardio.isBlank() || c in 1..3000)
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text("Objetivos semanales (vacío = sin objetivo)", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             OutlinedTextField(sessions, { sessions = it.take(2) }, label = { Text("Sesiones") }, singleLine = true, modifier = Modifier.weight(1f),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), supportingText = { Text("1–14") },
                 isError = sessions.isNotBlank() && s !in 1..14)
             OutlinedTextField(cardio, { cardio = it.take(4) }, label = { Text("Cardio (min)") }, singleLine = true, modifier = Modifier.weight(1f),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), supportingText = { Text("1–3000") },
                 isError = cardio.isNotBlank() && c !in 1..3000)
         }
-        Button(onClick = { onSave(Goals(s, c)) }, enabled = enabled && valid && Goals(s, c) != goals) { Text("Guardar objetivos") }
+        PrimaryAction("Guardar objetivos", { onSave(Goals(s, c)) }, enabled = enabled && valid && Goals(s, c) != goals, icon = AppIcons.Check)
     }
 }

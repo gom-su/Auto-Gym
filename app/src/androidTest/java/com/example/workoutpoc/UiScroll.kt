@@ -17,9 +17,19 @@ import org.junit.Assert.fail
  * has settled before it is returned. Node scroll actions are avoided: Compose lazy lists do not expose them
  * reliably, and single-line text fields are scrollable nodes too.
  */
+/**
+ * Drops UiAutomation's cached accessibility nodes (API 34+). A Compose list item that only changes state after it
+ * scrolled in (e.g. a button re-enabled when loading ends) can otherwise keep a cached node without its label child,
+ * and further drags at the end of the list send no event that would refresh it.
+ */
+fun freshTree() {
+    if (android.os.Build.VERSION.SDK_INT >= 34)
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.clearCache()
+}
+
 fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
     val selector = if (contains) By.textContains(text) else By.textStartsWith(text)
-    fun settled(): UiObject2? { waitForIdle(); SystemClock.sleep(250); return try { findObject(selector) } catch (_: StaleObjectException) { null } }
+    fun settled(): UiObject2? { waitForIdle(); SystemClock.sleep(250); freshTree(); return try { findObject(selector) } catch (_: StaleObjectException) { null } }
     wait(Until.findObject(selector), 1_500)?.let { return settled() ?: it }
     val x = displayWidth / 2
     val distance = (displayHeight * 0.3).toInt()
@@ -47,16 +57,21 @@ fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
     throw AssertionError()
 }
 
-/** Scrolls to and taps [text], retrying when Compose recycles the node between finding and tapping it. */
+/**
+ * Scrolls to and taps [text] (or a control described as [text]), retrying when Compose recycles the node between
+ * finding and tapping it.
+ */
 fun UiDevice.clickText(text: String) {
     // Tap the node's position rather than the node: a focused text field (blinking cursor) keeps refreshing the
     // accessibility tree, so a node reference can go stale between finding it and clicking it.
     fun tapIfVisible(): Boolean {
         // Fast path: find and read the position in one go, many times, so a refresh rarely lands in between.
         val end = SystemClock.elapsedRealtime() + 3_000
+        freshTree()
         while (SystemClock.elapsedRealtime() < end) {
             try {
-                val node = findObject(By.textStartsWith(text)) ?: return false
+                // Icon-only controls (the top bar's Up arrow) carry their label as a content description.
+                val node = findObject(By.textStartsWith(text)) ?: findObject(By.desc(text)) ?: return false
                 val bounds = node.visibleBounds
                 click(bounds.centerX(), bounds.centerY()); waitForIdle(); return true
             } catch (_: StaleObjectException) { SystemClock.sleep(50) }

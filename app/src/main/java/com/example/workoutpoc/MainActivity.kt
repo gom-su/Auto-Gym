@@ -77,8 +77,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
+        // Bar icons follow the system theme, like the app's colors (see AutoGymTheme).
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
         editorVisible = intent.action == "EDIT"
         pendingMode = savedInstanceState?.getString("pendingMode")
         lifecycleScope.launch {
@@ -86,7 +87,12 @@ class MainActivity : ComponentActivity() {
                 workoutApp.safely { RestTimer(workoutApp.repository).run() }
             }
         }
-        setContent {
+        setContent { com.example.workoutpoc.ui.theme.AutoGymTheme { Screens() } }
+    }
+
+    /** Destination switch. Each flag is saveable; the system Back closes the topmost open screen. */
+    @Composable
+    private fun Screens() {
             var showPrograms by rememberSaveable { mutableStateOf(false) }
             var showExchange by rememberSaveable { mutableStateOf(false) }
             var showMigration by rememberSaveable { mutableStateOf(false) }
@@ -102,33 +108,33 @@ class MainActivity : ComponentActivity() {
                 val historyUi by historyModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.history.HistoryScreen(historyUi, { showHistory = false }, historyModel::refresh,
                     { historyModel.prepareCsv { name -> historyDestination.launch(name) } })
-                return@setContent
+                return
             }
             BackHandler(showStagnation) { showStagnation = false }
             if (showStagnation) {
                 val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, { showStagnation = false }, stagnationModel::refresh, stagnationModel::setSettings)
-                return@setContent
+                return
             }
             BackHandler(showQuestions) { showQuestions = false }
             if (showQuestions) {
                 val questionsUi by questionsModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.questions.QuestionsScreen(questionsUi, { showQuestions = false }, questionsModel::refresh,
                     questionsModel::answer, questionsModel::reopen)
-                return@setContent
+                return
             }
             BackHandler(showAdherence) { showAdherence = false }
             if (showAdherence) {
                 val adherenceUi by adherenceModel.ui.collectAsStateWithLifecycle()
                 AdherenceScreen(adherenceUi, { showAdherence = false }, adherenceModel::refresh, adherenceModel::setNotPerformed, adherenceModel::saveGoals)
-                return@setContent
+                return
             }
             BackHandler(showBody) { showBody = false }
             if (showBody) {
                 val log by bodyModel.log.collectAsStateWithLifecycle()
                 val bodyUi by bodyModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.body.BodyScreen(log, bodyUi, { showBody = false }, bodyModel::refresh, bodyModel::add, bodyModel::remove)
-                return@setContent
+                return
             }
             BackHandler(showProposals) { showProposals = false }
             if (showProposals) {
@@ -137,7 +143,7 @@ class MainActivity : ComponentActivity() {
                 com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { showProposals = false; programModel.restore() },
                     proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
                     proposalModel::addExpectation, proposalModel::setManualOutcome)
-                return@setContent
+                return
             }
             BackHandler(showCatalog) { showCatalog = false }
             if (showCatalog) {
@@ -145,7 +151,7 @@ class MainActivity : ComponentActivity() {
                 val catalogUi by catalogModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.catalog.CatalogScreen(catalog, catalogUi, { showCatalog = false },
                     catalogModel::refresh, catalogModel::save, catalogModel.annotations.collectAsStateWithLifecycle().value)
-                return@setContent
+                return
             }
             BackHandler(showMigration) { showMigration = false }
             if (showMigration) {
@@ -156,7 +162,7 @@ class MainActivity : ComponentActivity() {
                     { migrationFile.launch(arrayOf("*/*")) },
                     migrationModel::previewText, migrationModel::save, migrationModel::cancel,
                     migrationModel::select, migrationModel::restore, migrationModel::acknowledge, migrationModel::convert)
-                return@setContent
+                return
             }
             BackHandler(showExchange) { showExchange = false }
             if (showExchange) {
@@ -169,7 +175,7 @@ class MainActivity : ComponentActivity() {
                     { include -> if (exchangeModel.stageExport(include)) exchangeDestination.launch("auto-gym-interchange-v1.json") },
                     exchangeModel::copy, exchangeModel.syncState.collectAsStateWithLifecycle().value,
                     exchangeModel::pair, exchangeModel::revoke, exchangeModel::copyKey)
-                return@setContent
+                return
             }
             BackHandler(showPrograms) { showPrograms = false }
             if (showPrograms) {
@@ -198,7 +204,7 @@ class MainActivity : ComponentActivity() {
                     annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true },
                     { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true },
                     { stagnationModel.refresh(); showStagnation = true }, { historyModel.refresh(); showHistory = true })
-                return@setContent
+                return
             }
             val state by model.state.collectAsStateWithLifecycle()
             val ready by model.ready.collectAsStateWithLifecycle()
@@ -240,7 +246,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 })
-        }
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

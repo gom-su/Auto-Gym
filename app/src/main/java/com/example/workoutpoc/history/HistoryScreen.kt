@@ -2,7 +2,6 @@ package com.example.workoutpoc.history
 
 import android.app.Application
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +15,11 @@ import com.example.workoutpoc.domain.loadLabel
 import com.example.workoutpoc.domain.rirLabel
 import com.example.workoutpoc.presentation.durationLabel
 import com.example.workoutpoc.workoutApp
+import com.example.workoutpoc.planning.DayStatus
+import com.example.workoutpoc.ui.*
+import com.example.workoutpoc.ui.theme.Spacing
+import com.example.workoutpoc.ui.theme.tabular
+import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,84 +97,85 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
     val listed = if (program == "*") ui.sessions else ui.sessions.filter { (it.programId ?: "") == program }
     val format = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val session = ui.sessions.find { it.sessionId == selected }
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Scaffold { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
-                item { TextButton(onClick = { if (session != null) selected = null else onBack() }) {
-                    Text(if (session != null) "Ver todas las sesiones" else "Volver a Programas") } }
-                item { Text("Historial de sesiones", style = MaterialTheme.typography.headlineMedium) }
-                if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                ui.message?.let { item { Text(it) } }
-                if (!ui.ready) item { Button(onClick = onRetry, enabled = !ui.busy) { Text("Reintentar") } }
-                if (session == null) {
-                    if (ui.ready && ui.sessions.isEmpty()) item { Text("Aún no hay sesiones registradas.") }
-                    if (ui.sessions.isNotEmpty()) item {
-                        OutlinedButton(onClick = onExportCsv, enabled = !ui.busy) { Text("Exportar CSV") }
+    BackHandler(session != null) { selected = null }
+    AppScreen("Historial de sesiones", if (session != null) "Ver todas las sesiones" else "Volver a Programas",
+        { if (session != null) selected = null else onBack() }, busy = ui.busy, message = ui.message, listState = rememberViewListState(session?.sessionId)) {
+        if (!ui.ready && !ui.busy) item { RetryAction("Reintentar", onRetry, enabled = !ui.busy) }
+        if (session == null) {
+            if (ui.ready && ui.sessions.isEmpty()) item { EmptyState("Aún no hay sesiones registradas.", icon = AppIcons.History) }
+            if (listed.isNotEmpty()) item {
+                val t = totals(listed)
+                MetricRow(listOf("${t.sessions}" to "sesiones", "${t.completedSets}" to "series hechas",
+                    "${t.omittedSets}" to "omitidas", durationLabel(t.activeMillis) to "tiempo activo"))
+            }
+            if (programs.size > 1) item {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    ChoiceChip(program == "*", { program = "*" }, label = { Text("Todos los programas") })
+                    programs.forEach { (id, name) ->
+                        ChoiceChip(program == (id ?: ""), { program = id ?: "" }, label = { Text(name) })
                     }
-                    if (programs.size > 1) item {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(program == "*", { program = "*" }, label = { Text("Todos los programas") })
-                            programs.forEach { (id, name) ->
-                                FilterChip(program == (id ?: ""), { program = id ?: "" }, label = { Text(name) })
-                            }
+                }
+            }
+            if (ui.sessions.isNotEmpty()) item {
+                TonalAction("Exportar CSV", onExportCsv, enabled = !ui.busy, icon = AppIcons.Download, fill = false)
+            }
+            items(listed, key = { it.sessionId }) { s ->
+                NavRow("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}", { selected = s.sessionId },
+                    supporting = statusLine(s), badge = { StatusPill(s.status.label, s.status.tone()) })
+            }
+        } else {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    Text(session.title, style = MaterialTheme.typography.headlineSmall)
+                    SupportingText(listOfNotNull(session.startedAtMillis?.let { "Inicio ${format.format(Date(it))}" },
+                        session.endedAtMillis?.let { "fin ${format.format(Date(it))}" },
+                        session.activeMillis?.let { "tiempo activo ${durationLabel(it)}" }).joinToString(" · "))
+                }
+            }
+            item {
+                Text(statusLine(session), style = MaterialTheme.typography.titleSmall)
+            }
+            item { SectionHeader("Series") }
+            if (session.sets.isEmpty()) item { EmptyState("Sin series registradas.") }
+            items(session.sets.size) { i ->
+                val h = session.sets[i]
+                ContentCard {
+                    Text("${h.exercise} · ${if (h.warmup) "aproximación" else if (h.extra) "serie extra" else "serie"} ${h.number}",
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
+                        "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps} @ RIR ${rirLabel(h.values.rir)}" + if (h.edited) " · editada" else "",
+                        style = MaterialTheme.typography.bodyLarge.tabular())
+                    h.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall) }
+                    if (h.revisions.isNotEmpty()) {
+                        HorizontalDivider(Modifier.padding(vertical = Spacing.xs), color = MaterialTheme.colorScheme.outlineVariant)
+                        Text("Versiones anteriores (${h.revisions.size})", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        h.revisions.forEach { v ->
+                            Text("Hasta ${format.format(Date(v.replacedAtMillis))}: " +
+                                (if (v.status == SetStatus.SKIPPED) "omitida" else
+                                    "${loadLabel(v.values.weightTenths, h.unit)} × ${v.values.reps} @ RIR ${rirLabel(v.values.rir)}") +
+                                (v.notes?.let { " · nota: $it" } ?: ""), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    if (listed.isNotEmpty()) item {
-                        val t = totals(listed)
-                        Text("${t.sessions} sesiones · ${t.completedSets} series hechas · ${t.omittedSets} omitidas · " +
-                            "cardio ${t.cardio} · tiempo activo ${durationLabel(t.activeMillis)}", style = MaterialTheme.typography.bodySmall)
-                    }
-                    items(listed, key = { it.sessionId }) { s ->
-                        OutlinedButton(onClick = { selected = s.sessionId }, modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}")
-                                Text(statusLine(s), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                } else {
-                    item { Text(session.title, style = MaterialTheme.typography.titleLarge) }
-                    item {
-                        Text(listOfNotNull(session.startedAtMillis?.let { "Inicio ${format.format(Date(it))}" },
-                            session.endedAtMillis?.let { "fin ${format.format(Date(it))}" },
-                            session.activeMillis?.let { "tiempo activo ${durationLabel(it)}" }).joinToString(" · "))
-                    }
-                    item { Text(statusLine(session), style = MaterialTheme.typography.titleSmall) }
-                    item { Text("Series", style = MaterialTheme.typography.titleMedium) }
-                    if (session.sets.isEmpty()) item { Text("Sin series registradas.") }
-                    items(session.sets.size) { i ->
-                        val h = session.sets[i]
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text("${h.exercise} · ${if (h.warmup) "aproximación" else if (h.extra) "serie extra" else "serie"} ${h.number}",
-                                    style = MaterialTheme.typography.titleSmall)
-                                Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
-                                    "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps} @ RIR ${rirLabel(h.values.rir)}" + if (h.edited) " · editada" else "")
-                                h.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall) }
-                                if (h.revisions.isNotEmpty()) {
-                                    Text("Versiones anteriores (${h.revisions.size})", style = MaterialTheme.typography.labelMedium)
-                                    h.revisions.forEach { v ->
-                                        Text("Hasta ${format.format(Date(v.replacedAtMillis))}: " +
-                                            (if (v.status == SetStatus.SKIPPED) "omitida" else
-                                                "${loadLabel(v.values.weightTenths, h.unit)} × ${v.values.reps} @ RIR ${rirLabel(v.values.rir)}") +
-                                            (v.notes?.let { " · nota: $it" } ?: ""), style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (session.cardio.isNotEmpty()) {
-                        item { Text("Cardio", style = MaterialTheme.typography.titleMedium) }
-                        items(session.cardio, key = { "c-${it.id}" }) { c ->
-                            Text(listOfNotNull(c.modality, c.durationSeconds?.let { "duración ${durationLabel(it * 1000L)}" },
-                                c.distanceTenths?.let { "${it / 10.0} ${c.distanceUnit!!.name.lowercase()}" }, c.notes).joinToString(" · "))
-                        }
+                }
+            }
+            if (session.cardio.isNotEmpty()) {
+                item { SectionHeader("Cardio") }
+                items(session.cardio, key = { "c-${it.id}" }) { c ->
+                    ContentCard {
+                        Text(listOfNotNull(c.modality, c.durationSeconds?.let { "duración ${durationLabel(it * 1000L)}" },
+                            c.distanceTenths?.let { "${it / 10.0} ${c.distanceUnit!!.name.lowercase()}" }, c.notes).joinToString(" · "))
                     }
                 }
             }
         }
     }
+}
+
+/** Colour of an adherence status wherever it is shown as a pill. */
+fun DayStatus.tone(): Tone = when (this) {
+    DayStatus.COMPLETED -> Tone.Success; DayStatus.PARTIAL -> Tone.Warning; DayStatus.NOT_PERFORMED -> Tone.Error; DayStatus.NO_RECORD -> Tone.Info
 }
 
 private fun statusLine(s: SessionSummary): String =

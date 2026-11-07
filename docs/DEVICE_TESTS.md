@@ -15,11 +15,15 @@ Compose screens are long lazy lists, so tests must not assume a target is on scr
   - The keyboard is dismissed if a drag opens it.
   - A match is re-found once the list has settled, and the search stops at the end of the content.
 - **`clickText(text)`** taps the node's *position*, retrying quickly. A focused text field (blinking cursor) keeps refreshing the accessibility tree, so node references go stale between finding and clicking.
+  - When no text matches, it taps a control whose content description is `text`: the top bar's Up arrow is icon-only and is described by its destination, such as "Volver a Programas" ([design system](DESIGN_SYSTEM.md)).
+- **`freshTree()`** clears UiAutomation's node cache (API 34+) before `clickText` and each `scrollToText` check. Otherwise a Compose list item whose state changes after it scrolled in (a button re-enabled when loading ends) could stay cached without its label, and drags at the end of the list send no event that refreshes it.
 - **`setFieldText(value, index)`** re-finds the text field on every attempt, confirms the value applied, and dismisses the keyboard if it opened. Setting text on a held field reference can hit a stale node.
 - **The system document picker** must not be driven with these drags: it treats slow drags as long presses and enters selection mode. Tests tap picker items directly with the shared `pickerClick`, scrolling only with the picker's own list and confirming with **Select** if the picker entered selection mode.
-- **Status messages** sit at the top of their screen's list. Assertions on them use `scrollToText` rather than checking only the viewport.
+- **Status messages** are pinned under the top bar (not in the list), so they are on screen whatever the scroll position.
 
 ## Status (2026-11-07)
+
+- **After the design-system update ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)):** a full run on a warm emulator passed 20 of 21, including the picker classes and `WorkoutDeviceTest`. The one failure, `ExchangeDeviceTest.contextPrivacyClipboardAndLocalGeneration`, read the clipboard before the asynchronous copy finished; it now waits for the new copy and passed 4 runs of 4 alone. `AdherenceDeviceTest` needed the `freshTree()` cache refresh described above.
 
 Regular suite: 21 cases in 19 classes. It excludes `NotificationLatencyTest` and `ExchangeFreshInstallTest`, which are run on their own ([latency](NOTIFICATION_LATENCY.md), [exchange](JSON_EXCHANGE.md)).
 

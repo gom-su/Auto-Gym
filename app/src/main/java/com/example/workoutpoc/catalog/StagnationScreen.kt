@@ -1,8 +1,12 @@
 package com.example.workoutpoc.catalog
 
+import com.example.workoutpoc.ui.*
+import com.example.workoutpoc.ui.theme.AppTheme
+import com.example.workoutpoc.ui.theme.Spacing
+import com.example.workoutpoc.ui.theme.tabular
+import androidx.compose.ui.Alignment
 import android.app.Application
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,56 +61,48 @@ class StagnationViewModel(application: Application) : AndroidViewModel(applicati
 @Composable
 fun StagnationScreen(ui: StagnationUiState, onBack: () -> Unit, onRetry: () -> Unit, onSettings: (StagnationSettings) -> Unit) {
     val format = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Scaffold { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
-                item { TextButton(onClick = onBack, enabled = !ui.busy) { Text("Volver a Programas") } }
-                item { Text("Señales de estancamiento", style = MaterialTheme.typography.headlineMedium) }
-                if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                ui.message?.let { item { Text(it) } }
-                if (!ui.ready) item { Button(onClick = onRetry, enabled = !ui.busy) { Text("Reintentar") } }
-                item {
-                    Text("Una señal aparece cuando, en las últimas exposiciones comparables (misma unidad y base, sin descargas), ninguna supera la mejor marca anterior en carga máxima o repeticiones a esa carga. Sin datos suficientes no se emite ninguna.",
-                        style = MaterialTheme.typography.bodySmall)
+    AppScreen("Señales de estancamiento", "Volver a Programas", onBack, backEnabled = !ui.busy, busy = ui.busy, message = ui.message) {
+        if (!ui.ready && !ui.busy) item { RetryAction("Reintentar", onRetry, enabled = !ui.busy) }
+        item {
+            SupportingText("Una señal aparece cuando, en las últimas exposiciones comparables (misma unidad y base, sin descargas), ninguna supera la mejor marca anterior en carga máxima o repeticiones a esa carga. Sin datos suficientes no se emite ninguna.")
+        }
+        item {
+            ContentCard {
+                Text("Umbrales", style = MaterialTheme.typography.titleMedium)
+                SegmentedChoice("Exposiciones en la ventana", (3..6).toList(), ui.settings.exposures, { "$it" },
+                    { onSettings(ui.settings.copy(exposures = it)) }, enabled = !ui.busy)
+                SegmentedChoice("Duración mínima de la ventana", listOf(7, 14, 21, 28), ui.settings.minSpanDays, { "$it días" },
+                    { onSettings(ui.settings.copy(minSpanDays = it)) }, enabled = !ui.busy)
+            }
+        }
+        item { SectionHeader("Alertas (${ui.report.alerts.size})") }
+        if (ui.report.alerts.isEmpty()) item { EmptyState("Sin señales de estancamiento con los datos y umbrales actuales.", icon = AppIcons.CheckCircle) }
+        items(ui.report.alerts, key = { "${it.exerciseId}-${it.unit}-${it.basis}" }) { a ->
+            val x = AppTheme.extended
+            ContentCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Icon(AppIcons.Warning, contentDescription = null, tint = x.warning, modifier = Modifier.size(20.dp))
+                    Text("${a.exerciseName} · ${unitLabel(a.unit)} · ${basisLabel(a.basis)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Exposiciones en la ventana", style = MaterialTheme.typography.labelLarge)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            (3..6).forEach { n -> FilterChip(ui.settings.exposures == n, { onSettings(ui.settings.copy(exposures = n)) }, { Text("$n") }, enabled = !ui.busy) }
-                        }
-                        Text("Duración mínima de la ventana", style = MaterialTheme.typography.labelLarge)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(7, 14, 21, 28).forEach { d -> FilterChip(ui.settings.minSpanDays == d, { onSettings(ui.settings.copy(minSpanDays = d)) }, { Text("$d días") }, enabled = !ui.busy) }
-                        }
-                    }
+                Text("Período: ${format.format(Date(a.fromMillis))} – ${format.format(Date(a.toMillis))}", style = MaterialTheme.typography.titleSmall.tabular())
+                Text(a.explanation, style = MaterialTheme.typography.bodyMedium)
+                HorizontalDivider(Modifier.padding(vertical = Spacing.xs), color = MaterialTheme.colorScheme.outlineVariant)
+                Text("Datos usados", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                (listOfNotNull(a.reference?.let { "Referencia" to it }) + a.window.map { "Ventana" to it }).forEach { (role, p) ->
+                    Text("$role · ${format.format(Date(p.startedAtMillis))} · ${p.label}: ${loadLabel(p.topLoadTenths, a.unit)} × ${p.repsAtTop}" +
+                        " · RIR mín. ${rirLabel(p.minRir)}", style = MaterialTheme.typography.bodySmall.tabular())
                 }
-                item { Text("Alertas (${ui.report.alerts.size})", style = MaterialTheme.typography.titleLarge) }
-                if (ui.report.alerts.isEmpty()) item { Text("Sin señales de estancamiento con los datos y umbrales actuales.") }
-                items(ui.report.alerts, key = { "${it.exerciseId}-${it.unit}-${it.basis}" }) { a ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("${a.exerciseName} · ${unitLabel(a.unit)} · ${basisLabel(a.basis)}", style = MaterialTheme.typography.titleMedium)
-                            Text("Período: ${format.format(Date(a.fromMillis))} – ${format.format(Date(a.toMillis))}", style = MaterialTheme.typography.titleSmall)
-                            Text(a.explanation)
-                            Text("Datos usados", style = MaterialTheme.typography.labelLarge)
-                            (listOfNotNull(a.reference?.let { "Referencia" to it }) + a.window.map { "Ventana" to it }).forEach { (role, p) ->
-                                Text("$role · ${format.format(Date(p.startedAtMillis))} · ${p.label}: ${loadLabel(p.topLoadTenths, a.unit)} × ${p.repsAtTop}" +
-                                    " · RIR mín. ${rirLabel(p.minRir)}", style = MaterialTheme.typography.bodySmall)
-                            }
-                            Text("Limitaciones", style = MaterialTheme.typography.labelLarge)
-                            a.limitations.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
-                }
-                if (ui.report.insufficient.isNotEmpty()) {
-                    item { Text("Sin datos suficientes (${ui.report.insufficient.size})", style = MaterialTheme.typography.titleMedium) }
-                    items(ui.report.insufficient, key = { "ins-${it.exerciseId}-${it.unit}-${it.basis}" }) { i ->
-                        Text("${i.exerciseName} · ${unitLabel(i.unit)} · ${basisLabel(i.basis)}: ${i.reason}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                Text("Limitaciones", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                a.limitations.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+        if (ui.report.insufficient.isNotEmpty()) {
+            item { SectionHeader("Sin datos suficientes (${ui.report.insufficient.size})") }
+            items(ui.report.insufficient, key = { "ins-${it.exerciseId}-${it.unit}-${it.basis}" }) { i ->
+                Text("${i.exerciseName} · ${unitLabel(i.unit)} · ${basisLabel(i.basis)}: ${i.reason}", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
+
 }

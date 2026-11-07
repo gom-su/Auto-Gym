@@ -4,7 +4,7 @@ Auto-Gym is a personal Android training application built with Kotlin. The curre
 
 ENT-01 adds a **Programas** library: import a variable program from JSON or pasted text, review its blocks/weeks/days/sets, explicitly save it and browse it offline. See the [contract, fictitious fixture and acceptance steps](docs/PROGRAM_IMPORT.md). The workout notification/overlay still records the fixed demo; imported programs do not activate a week. Physical-device acceptance was waived by the user; evidence is emulator-only.
 
-Track work in the [GitHub Project](https://github.com/users/gom-su/projects/1). See the [roadmap](ROADMAP.md), [product definition](docs/product/PRODUCT_DEFINITION.md), [backlog](docs/product/BACKLOG.md), and [current implementation gaps](docs/product/IMPLEMENTATION_GAPS.md). The repository is licensed under [MPL-2.0](LICENSE).
+Track work in the [GitHub Project](https://github.com/users/gom-su/projects/1). See the [roadmap](ROADMAP.md), [design system](docs/DESIGN_SYSTEM.md), [product definition](docs/product/PRODUCT_DEFINITION.md), [backlog](docs/product/BACKLOG.md), and [current implementation gaps](docs/product/IMPLEMENTATION_GAPS.md). The repository is licensed under [MPL-2.0](LICENSE).
 
 The demo uses fixed synthetic workout data. Keep real workout records, body measurements, private documents, and credentials outside version control. Public examples and fixtures must be fictitious. The future external agent proposes plans for deterministic validation and explicit user approval; this project does not build or train AI models or provide clinical functionality.
 

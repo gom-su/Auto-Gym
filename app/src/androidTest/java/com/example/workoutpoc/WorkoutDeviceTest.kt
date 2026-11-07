@@ -38,8 +38,14 @@ class WorkoutDeviceTest {
         assertNotNull(device.wait(Until.findObject(By.text("Iniciar demo — Notificación")), 8_000))
     }
 
+    /** Taps a control by its text, or by its content description for icon-only controls such as the Up arrow. */
     private fun button(text: String) {
-        val found = device.wait(Until.findObject(By.text(text)), 4_000)
+        val end = SystemClock.elapsedRealtime() + 4_000
+        var found: UiObject2? = null
+        while (found == null && SystemClock.elapsedRealtime() < end) {
+            found = device.findObject(By.text(text)) ?: device.findObject(By.desc(text))
+            if (found == null) SystemClock.sleep(100)
+        }
         assertNotNull("Missing button: $text", found)
         found!!.click()
         device.waitForIdle()
