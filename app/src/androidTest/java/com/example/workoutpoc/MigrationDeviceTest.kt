@@ -28,6 +28,8 @@ class MigrationDeviceTest {
     private fun click(text: String) = device.clickText(text)
     /** Taps a node found by content description at its position, retrying if Compose refreshed it meanwhile. */
     private fun tapDesc(description: String) {
+        // Search both directions: the list may already be scrolled past the node (UiScrollable only scrolls forward).
+        if (!device.wait(Until.hasObject(By.desc(description)), 1_000)) device.scrollToDesc(description)
         val end = android.os.SystemClock.elapsedRealtime() + 6_000
         while (android.os.SystemClock.elapsedRealtime() < end) {
             try {
@@ -93,7 +95,6 @@ class MigrationDeviceTest {
         scrollTop()
         val first = expected.issues.first()
         val checkDescription = "Advertencia de la línea ${first.line}: ${first.message}"
-        UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().description(checkDescription))
         tapDesc(checkDescription)
         val saveText = "Guardar con pendientes (${expected.issues.size - 1})"
         click("Texto original con líneas")
@@ -119,7 +120,6 @@ class MigrationDeviceTest {
         val pending = expected.issues.size - 1
         click("Importación ${before.documents.size + 1} · ${expected.title} · $pending pendientes")
         click("Advertencias (${expected.issues.size})")
-        UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().description(checkDescription))
         tapDesc(checkDescription)
         assertTrue(device.wait(Until.hasObject(By.text("Pendiente de revisión")), 5_000))
         runBlocking { app.migrations.restore() }

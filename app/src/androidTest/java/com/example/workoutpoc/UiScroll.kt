@@ -17,8 +17,14 @@ import org.junit.Assert.fail
  * has settled before it is returned. Node scroll actions are avoided: Compose lazy lists do not expose them
  * reliably, and single-line text fields are scrollable nodes too.
  */
-fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
-    val selector = if (contains) By.textContains(text) else By.textStartsWith(text)
+fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 =
+    scrollTo(if (contains) By.textContains(text) else By.textStartsWith(text), text)
+
+/** Like [scrollToText] for a content description (e.g. a checkbox labelled only through semantics). */
+fun UiDevice.scrollToDesc(description: String): UiObject2 = scrollTo(By.desc(description), description)
+
+/** Searches down to the end of the content, then back up, for [selector]; [label] names it in the failure. */
+fun UiDevice.scrollTo(selector: androidx.test.uiautomator.BySelector, label: String): UiObject2 {
     fun settled(): UiObject2? { waitForIdle(); SystemClock.sleep(250); return try { findObject(selector) } catch (_: StaleObjectException) { null } }
     wait(Until.findObject(selector), 1_500)?.let { return settled() ?: it }
     val x = displayWidth / 2
@@ -43,7 +49,7 @@ fun UiDevice.scrollToText(text: String, contains: Boolean = false): UiObject2 {
             previous = visible
         }
     }
-    fail("Missing: $text")
+    fail("Missing: $label")
     throw AssertionError()
 }
 
