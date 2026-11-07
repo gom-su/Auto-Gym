@@ -54,6 +54,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             WorkoutEvent.SkipSet -> if (s.source != null && s.phase == Phase.ActiveSet) skip(s, plan, now) else s
             WorkoutEvent.AddSet -> if (s.source != null && s.phase != Phase.Idle && plan.size < MAX_PLAN_SIZE) addSet(s, plan) else s
             WorkoutEvent.RemoveExtraSet -> if (s.source != null && s.phase == Phase.ActiveSet && plan[s.index].extra) removeExtra(s, plan, now) else s
+            WorkoutEvent.PostponeExercise -> s.postponeTarget(plan)?.let { postpone(s, plan, it) } ?: s
             else -> if (s.phase == Phase.ActiveSet) active(s, plan, c, now) else s
         }
         return if (changed == s) s else changed.copy(revision = s.revision + 1)
@@ -143,6 +144,13 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     fun removeCardio(s: WorkoutState, sessionId: String, revision: Long, id: String): WorkoutState {
         if (sessionId != s.sessionId || revision != s.revision || s.cardio.none { it.id == id }) return s
         return s.copy(cardio = s.cardio.filterNot { it.id == id }, revision = s.revision + 1)
+    }
+
+    /** Swaps the current exercise's unrecorded block with the next exercise's; the next exercise is prefilled from its prescription. */
+    private fun postpone(s: WorkoutState, plan: List<PlannedSet>, t: PostponeTarget): WorkoutState {
+        val newPlan = plan.subList(0, s.index) + plan.subList(t.currentEnd, t.nextEnd) +
+            plan.subList(s.index, t.currentEnd) + plan.subList(t.nextEnd, plan.size)
+        return s.copy(plan = newPlan, values = values(newPlan, s.index))
     }
 
     private fun removeExtra(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {

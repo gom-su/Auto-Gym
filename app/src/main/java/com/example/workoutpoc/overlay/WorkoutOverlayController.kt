@@ -65,6 +65,11 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
         root.findViewById<TextView>(R.id.overlay_weight).text = loadLabel(state.values.weightTenths, current.unit)
         root.findViewById<TextView>(R.id.overlay_reps).text = "${state.values.reps} reps"
         root.findViewById<Button>(R.id.overlay_complete).isEnabled = state.values.reps > 0
+        val postpone: PostponeTarget? = state.postponeTarget(plan)
+        root.findViewById<Button>(R.id.overlay_postpone).apply {
+            visibility = if (postpone != null) View.VISIBLE else View.GONE
+            contentDescription = postpone?.let { "Posponer ${current.exercise}; siguiente: ${it.nextExercise}" }
+        }
         root.findViewById<TextView>(R.id.overlay_countdown).text = "${seconds(state)} s"
         listOf(R.id.overlay_rir0, R.id.overlay_rir1, R.id.overlay_rir2, R.id.overlay_rir3, R.id.overlay_rir4)
             .forEachIndexed { rir, id ->
@@ -96,6 +101,7 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
                 R.id.overlay_reps_minus to WorkoutEvent.DecrementReps,
                 R.id.overlay_reps_plus to WorkoutEvent.IncrementReps,
                 R.id.overlay_complete to WorkoutEvent.CompleteSet,
+                R.id.overlay_postpone to WorkoutEvent.PostponeExercise,
                 R.id.overlay_add to WorkoutEvent.AddRestTime,
                 R.id.overlay_skip to WorkoutEvent.SkipRest).forEach { (id, event) ->
                 findViewById<View>(id).setOnClickListener { dispatch(snapshot.command(event)) }

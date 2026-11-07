@@ -29,6 +29,7 @@ Planned sessions support deviations. The demo keeps its fixed proof-of-concept p
 | **Omitir serie** (active set) | Records the position as `SKIPPED` and moves to the next set without rest. The prescription stays in the plan. |
 | **Añadir serie extra de …** (any started phase) | Inserts an unprescribed set of the last recorded exercise as the next position. It is prefilled from that exercise's last real values. After the end, it reopens the session. |
 | **Quitar serie extra** (unrecorded extra) | Removes it again; the next prescribed set is prefilled from its prescription. |
+| **Posponer …** (first set of an exercise only) | For when the machine is busy. Moves all of that exercise's unrecorded sets, including unrecorded warm-ups, to right after the next exercise, which becomes current and is prefilled from its prescription. Tapping it again on that exercise's first set pushes it back once more. It is offered only while nothing of the exercise has been recorded (not after a recorded warm-up), not during rest or a pause, and not on the last exercise. It is available on the main screen and in the floating panel. Prescriptions are unchanged; only the order of positions not yet performed changes, and records and v1 export follow the order sets were actually done. |
 | **Editar serie N** (recorded set) | Changes real load, reps, RIR, omitted/completed status and notes (≤ 1,000 characters). The edit is bound to the snapshot it was opened from, so a stale save is rejected. Out-of-range values report an error. |
 
 Recorded values never modify the prescription: the session plan keeps each prescribed set unchanged. Extra sets have no prescription ID and are marked `extra`. Edited records carry `editedAtMillis` and a full audit trail: every edit appends the replaced version (status, values, notes and the time it was replaced) to `revisions`, oldest first. A save that changes nothing adds no revision. The trail is capped at 50 versions per set; a further edit is refused rather than dropping old versions. Restore also checks that the trail is ordered, that its last time matches `editedAtMillis` and that each version's values are in range. **Historial de sesiones** shows the previous versions under each edited set. Interchange v1 does not export the trail (its contract is frozen). Restore validates that each record's prescription ID matches its position, that a completed set has at least one repetition, that notes are non-blank and within the limit, and that the demo has no deviations.
@@ -143,5 +144,17 @@ The v1 JSON contract is unchanged. The legacy `demo` snapshot is now a frozen `D
   - It ran 7 rounds over the whole demo session through the real Activity, alternating a force-stop right after the tap with a force-stop after the UI confirmed the set.
   - After every relaunch, all confirmed sets were present (1→7) and no storage error was shown.
   - The immediate kills also kept the tapped set, because the write precedes the UI update.
+
+### Postpone an exercise (2026-11-07, same emulator)
+
+- Unit tests: 130 run, 0 failures, 1 skipped (the opt-in private test). `PostponeTest` adds 6 cases:
+  - the first-set move and next-exercise prefill;
+  - reordering after recorded sets;
+  - availability only on a first set with another exercise after it (not on later sets, during rest or on the last exercise);
+  - paused, recorded-warm-up, stale and demo states ignoring the command;
+  - an unrecorded warm-up moving with its exercise;
+  - completion and v1 export in performed order.
+- `assembleDebug` passes. `lintDebug`: 0 errors, 67 warnings (unchanged).
+- One combined run of `DeviationDeviceTest` and `PlannedSessionDeviceTest`: 4 of 4 passed. That includes postponing from the main screen and from the floating panel, with `workout.json` checked on disk and the button hidden on the second set.
 
 Physical-device testing was not performed.
