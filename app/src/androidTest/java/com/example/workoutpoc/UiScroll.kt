@@ -5,6 +5,9 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.UiObjectNotFoundException
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
 import org.junit.Assert.fail
 
@@ -92,4 +95,25 @@ fun UiDevice.setFieldText(value: String, index: Int = 0) {
         } catch (_: StaleObjectException) { SystemClock.sleep(200) }
     }
     fail("Could not set text field $index")
+}
+
+/**
+ * Taps an item in the system document picker: waits for it, scrolling the picker's own list (never slow drags, which
+ * it treats as long presses). If the tap put the picker in selection mode instead of opening the file, which happens
+ * on a freshly booted emulator, the picker's own Select button confirms the choice.
+ */
+fun UiDevice.pickerClick(text: String) {
+    if (!wait(Until.hasObject(By.text(text)), 3_000))
+        try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
+    val end = android.os.SystemClock.elapsedRealtime() + 8_000
+    while (true) {
+        try {
+            val node = wait(Until.findObject(By.text(text)), 1_000)
+            if (node != null) { node.click(); break }
+        } catch (_: StaleObjectException) { }
+        if (android.os.SystemClock.elapsedRealtime() > end) org.junit.Assert.fail("Missing in picker: $text")
+    }
+    waitForIdle()
+    val select = wait(Until.findObject(By.pkg("com.google.android.documentsui").text("Select")), 1_500)
+    if (select != null) try { select.click(); waitForIdle() } catch (_: StaleObjectException) { }
 }

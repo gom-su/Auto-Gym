@@ -33,12 +33,7 @@ class ProgramDeviceTest {
     // Shared helpers: search both directions, re-find after the list settles, retry stale nodes.
     private fun click(text: String) = device.clickText(text)
     /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
-    private fun pickerClick(text: String) {
-        if (!device.wait(Until.hasObject(By.text(text)), 3_000))
-            try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
-        val node = device.wait(Until.findObject(By.text(text)), 8_000)
-        assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
-    }
+    private fun pickerClick(text: String) = device.pickerClick(text)
 
     private fun edit(text: String) {
         var input = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 3_000)
@@ -79,6 +74,9 @@ class ProgramDeviceTest {
         val fixture = source.replace("fictional-program", "device-test-program")
         val file = File(app.getExternalFilesDir(null), "ent-01-device.json").apply { writeText(fixture) }
         device.executeShellCommand("cp ${file.absolutePath} /sdcard/Download/ent-01-device.json")
+        // Index the copied file so the system picker lists it (after a reboot it can otherwise be missing).
+        device.executeShellCommand("am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/ent-01-device.json")
+        android.os.SystemClock.sleep(1_000)
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         click("Programas")
         click("Seleccionar archivo JSON")
