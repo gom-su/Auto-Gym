@@ -37,6 +37,17 @@ Only comma-separated results and explicit `NxM` repetition groups are expanded; 
 
 Preview and review state survive Activity rotation through the ViewModel. Unsaved review is explicitly temporary and may be lost on process death. Saved documents and seen flags survive force-stop. No source text or personal filenames are written to application logs.
 
+## Converting a saved migration into a program week
+
+A saved migration can be turned into a program v1 week from **Convertir en programa** in its review. The page shows the resulting program, block, week and counts, every value that is not converted, and any blocker, before anything is written. Pressing **Crear o ampliar programa** saves through the normal idempotent program import (ENT-09). Nothing is activated until a day is trained.
+
+- **Blockers:** pending warnings (review or acknowledge them first), an exercise without an explicit set count, or no day with exercises.
+- **Exact values only:** a set gets reps or RIR only when the objective has one exact number. A range such as 8–12 leaves the field unset instead of picking a bound. A load is kept only with an exact magnitude, a kg/lb unit and a basis (`total`, `/lado`, `/mano`); `BW` becomes bodyweight. Approximate loads (`~20 kg`) and loads without a basis stay unset.
+- **Not converted, and listed as such:** cardio (program v1 has none), days without exercises, "por lado" in the objective, and recorded results (actual reps and RIR are not turned into history). All of it stays in the migration archive.
+- **Identifiers:** the program ID comes from the `program` metadata (accents folded, e.g. `obsidian-programa-ficticio-faro`), the block from `block` and the week from `week`. Successive weeks of the same program therefore append to one program, and converting the same week again changes nothing. Without `block` or `week`, the block is named «Bloque sin número» and the week is identified by the migration, and the page says so.
+
+Verified by `MigrationConversionTest` (unit) and `MigrationConversionDeviceTest` (API 36 emulator).
+
 ## Acceptance and repeat verification
 
 1. Import each synthetic example through Android's real document picker; inspect both days and the separate objectives/results/comments. Cancel a review and verify no save occurs.

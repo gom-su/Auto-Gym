@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.workoutpoc.planning.ImportResult
+import com.example.workoutpoc.planning.ProgramValidationException
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +75,22 @@ class MigrationViewModel(application: Application) : AndroidViewModel(applicatio
         if (preview != null) mutableUi.value = ui.value.copy(preview = preview.copy(
             issues = preview.issues.map { if (it.id == issueId) it.copy(acknowledged = value) else it }))
         else ui.value.selectedId?.let { repository.acknowledge(it, issueId, value) }
+    }
+    /** Converts the selected saved migration into a program week through the idempotent program import. */
+    fun convert() = operation {
+        val document = ui.value.selectedId?.let { id -> archive.value.documents.find { it.id == id } } ?: return@operation
+        val report = MigrationConversion.convert(document)
+        val program = report.program ?: throw MigrationException(report.blockers.joinToString(" "))
+        val programs = getApplication<Application>().workoutApp.programs
+        programs.restore()
+        val message = try {
+            when (programs.importProgram(program)) {
+                ImportResult.SAVED -> "Programa «${program.name}» creado. Revísalo en Programas; nada se activa hasta que entrenes un día."
+                ImportResult.MERGED -> "Semana añadida al programa «${program.name}». Las semanas guardadas no cambian."
+                ImportResult.ALREADY_IMPORTED -> "Esta semana ya estaba convertida. No se crearon duplicados."
+            }
+        } catch (e: ProgramValidationException) { throw MigrationException(e.message ?: "La conversión entra en conflicto con el programa guardado.") }
+        mutableUi.value = ui.value.copy(message = message)
     }
     private fun operation(block: suspend () -> Unit) {
         if (ui.value.busy) return

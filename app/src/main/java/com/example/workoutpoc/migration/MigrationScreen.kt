@@ -19,7 +19,8 @@ import androidx.compose.ui.unit.dp
 fun MigrationScreen(
     archive: MigrationArchive, ui: MigrationUiState, onBack: () -> Unit, onFile: () -> Unit,
     onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit,
-    onSelect: (String?) -> Unit, onRetry: () -> Unit, onAcknowledge: (String, Boolean) -> Unit
+    onSelect: (String?) -> Unit, onRetry: () -> Unit, onAcknowledge: (String, Boolean) -> Unit,
+    onConvert: () -> Unit = {}
 ) {
     var text by remember { mutableStateOf("") }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -66,9 +67,29 @@ fun MigrationScreen(
                             TextButton(onClick = { page = "summary"; dayId = null }) { Text("Estructura y notas") }
                             TextButton(onClick = { page = "issues" }) { Text("Advertencias (${document.issues.size})") }
                             TextButton(onClick = { page = "original" }) { Text("Texto original con líneas") }
+                            if (ui.preview == null) TextButton(onClick = { page = "convert" }) { Text("Convertir en programa") }
                         }
                     }
                     when (page) {
+                        "convert" -> {
+                            val report = MigrationConversion.convert(document)
+                            item { Text("Conversión en programa", style = MaterialTheme.typography.titleMedium) }
+                            item { Text("Solo los valores exactos se convierten en prescripción; lo demás queda sin fijar y se conserva en la migración. Semanas del mismo programa se añaden sin duplicados.") }
+                            if (report.blockers.isNotEmpty()) {
+                                item { Text("No se puede convertir todavía", style = MaterialTheme.typography.titleSmall) }
+                                items(report.blockers.size) { i -> Text("• ${report.blockers[i]}") }
+                            }
+                            report.program?.let { p ->
+                                val week = p.blocks.single().weeks.single()
+                                item { Text("${p.name} · ${p.blocks.single().name} · ${week.name} · ${week.days.size} días · " +
+                                    "${week.days.sumOf { it.exercises.size }} ejercicios") }
+                            }
+                            if (report.dropped.isNotEmpty()) {
+                                item { Text("No se convierte (${report.dropped.size})", style = MaterialTheme.typography.titleSmall) }
+                                items(report.dropped.size) { i -> Text("• ${report.dropped[i]}", style = MaterialTheme.typography.bodySmall) }
+                            }
+                            item { Button(onClick = onConvert, enabled = report.program != null && ui.ready && !ui.busy) { Text("Crear o ampliar programa") } }
+                        }
                         "original" -> items(document.lines, key = { "line-${it.line}" }) { line ->
                             SelectionContainer { Text("${line.line}  ${line.text}") }
                         }

@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
                     // Providers disagree on Markdown MIME types (including null). Validate bytes, not the picker label.
                     { migrationFile.launch(arrayOf("*/*")) },
                     migrationModel::previewText, migrationModel::save, migrationModel::cancel,
-                    migrationModel::select, migrationModel::restore, migrationModel::acknowledge)
+                    migrationModel::select, migrationModel::restore, migrationModel::acknowledge, migrationModel::convert)
                 return@setContent
             }
             BackHandler(showExchange) { showExchange = false }
