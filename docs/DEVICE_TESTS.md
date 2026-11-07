@@ -16,14 +16,14 @@ Compose screens are long lazy lists, so tests must not assume a target is on scr
   - A match is re-found once the list has settled, and the search stops at the end of the content.
 - **`clickText(text)`** taps the node's *position*, retrying quickly. A focused text field (blinking cursor) keeps refreshing the accessibility tree, so node references go stale between finding and clicking.
 - **`setFieldText(value, index)`** re-finds the text field on every attempt, confirms the value applied, and dismisses the keyboard if it opened. Setting text on a held field reference can hit a stale node.
-- **The system document picker** must not be driven with these drags: it treats slow drags as long presses and enters selection mode. Tests tap picker items directly (`pickerClick`), scrolling only with the picker's own list.
+- **The system document picker** must not be driven with these drags: it treats slow drags as long presses and enters selection mode. Tests tap picker items directly with the shared `pickerClick`, scrolling only with the picker's own list and confirming with **Select** if the picker entered selection mode.
 - **Status messages** sit at the top of their screen's list. Assertions on them use `scrollToText` rather than checking only the viewport.
 
-## Status (2026-11-06)
+## Status (2026-11-07)
 
-- **Full runs of 18 cases** (before `HistoryDeviceTest` was added, which passes alone): the 14 cases outside exchange and migration pass consistently, including `ProgramDeviceTest` and `WorkoutDeviceTest`, which were previously intermittent.
-- **`ExchangeDeviceTest` and `MigrationDeviceTest`:**
-  - They pass alone and in combined runs with `WorkoutDeviceTest`.
-  - Two leftover-state problems were fixed. The floating workout panel left by earlier tests sat over their screens and intercepted taps, so both now stop the overlay service first. The save picker sometimes opened on a location that cannot hold files, so the export test now selects Downloads.
-  - Late in the full 18-case run on this emulator they can still fail. One capture showed the app window with no content, a transitional state rather than a specific screen problem.
+Regular suite: 21 cases in 19 classes. It excludes `NotificationLatencyTest` and `ExchangeFreshInstallTest`, which are run on their own ([latency](NOTIFICATION_LATENCY.md), [exchange](JSON_EXCHANGE.md)).
+
+- **Latest full run on a warm emulator:** 16 of 21 passed, including every test added on 2026-11-06/07 (`HistoryDeviceTest` ×2, `MigrationConversionDeviceTest`, the edit-trail checks). The failures were in the system file picker (`ProgramDeviceTest`, `ExchangeDeviceTest`, `MigrationDeviceTest` ×2) and the overlay bubble drag in `WorkoutDeviceTest`.
+- **Picker fix:** on a freshly booted emulator the picker can treat a tap on a file as a selection, leaving a **Select** button instead of opening it. The shared `pickerClick` in `UiScroll.kt` now presses that button, and `ProgramDeviceTest` indexes its copied file like the other picker tests. Afterwards the picker classes passed 4 of 5; the remaining case is the long `MigrationDeviceTest` file review, which fails intermittently at the warning checkbox and passes alone.
+- **Run on a warm emulator.** Right after a reboot the app may not come to the front at the first launch; taps then land on the home screen, open other apps (Clock, Settings) and cascade into most of the run failing. A long session (hours) can also crash the emulator's system process (`INSTRUMENTATION_ABORTED: System has crashed`). Neither is an app failure: reboot, wait a few minutes, run one short test, then run the suite.
 - **Physical-device testing** remains the user's acceptance step (ENT-01).

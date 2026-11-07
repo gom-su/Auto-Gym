@@ -39,12 +39,7 @@ class MigrationDeviceTest {
         fail("Missing: $description")
     }
     /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
-    private fun pickerClick(text: String) {
-        if (!device.wait(Until.hasObject(By.text(text)), 3_000))
-            try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
-        val node = device.wait(Until.findObject(By.text(text)), 8_000)
-        assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
-    }
+    private fun pickerClick(text: String) = device.pickerClick(text)
     private fun open() {
         // Earlier tests may leave the floating workout panel up; it sits over this screen and intercepts taps and drags.
         app.stopService(Intent(app, com.example.workoutpoc.overlay.WorkoutOverlayService::class.java))

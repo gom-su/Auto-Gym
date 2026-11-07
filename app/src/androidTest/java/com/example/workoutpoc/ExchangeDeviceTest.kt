@@ -26,12 +26,7 @@ class ExchangeDeviceTest {
         device.waitForIdle()
     }
     /** The system file picker treats slow drags as long presses (selection mode): tap directly, scrolling its own list. */
-    private fun pickerClick(text: String) {
-        if (!device.wait(Until.hasObject(By.text(text)), 3_000))
-            try { UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().text(text)) } catch (_: UiObjectNotFoundException) { }
-        val node = device.wait(Until.findObject(By.text(text)), 8_000)
-        assertNotNull("Missing in picker: $text", node); node!!.click(); device.waitForIdle()
-    }
+    private fun pickerClick(text: String) = device.pickerClick(text)
     @org.junit.After fun capture() {
         val file = File(app.getExternalFilesDir(null), "exchange-last-ui.xml")
         device.dumpWindowHierarchy(file)
