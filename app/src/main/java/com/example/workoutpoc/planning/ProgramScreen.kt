@@ -1,17 +1,23 @@
 package com.example.workoutpoc.planning
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.workoutpoc.ui.*
+import com.example.workoutpoc.ui.theme.Spacing
+import com.example.workoutpoc.ui.theme.tabular
 
 @Composable
 fun ProgramScreen(
@@ -28,109 +34,158 @@ fun ProgramScreen(
     val selected = ui.preview ?: library.programs.find { it.id == selectedId }
     var weekId by rememberSaveable(selectedId, ui.preview?.id) { mutableStateOf<String?>(null) }
     var dayId by rememberSaveable(selectedId, ui.preview?.id, weekId) { mutableStateOf<String?>(null) }
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Scaffold { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
-                item { TextButton(onClick = onBack) { Text("Volver al entrenamiento") } }
-                item { Text("Programas", style = MaterialTheme.typography.headlineLarge) }
-                // Grouped by purpose so the program library stays close to the top of the screen.
-                item { MenuSection("Planificación con IA", listOf(
-                    "Propuestas de semana" to onProposals, "Preguntas de planificación" to onQuestions, "Intercambio JSON" to onExchange)) }
-                item { MenuSection("Análisis", listOf(
-                    "Historial de sesiones" to onHistory, "Catálogo de ejercicios" to onCatalog, "Adherencia y objetivos" to onAdherence,
-                    "Señales de estancamiento" to onStagnation, "Peso y composición corporal" to onBody)) }
-                item { MenuSection("Importar", listOf("Migrar desde Obsidian" to onMigration)) }
-                if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                ui.message?.let { item { Text(it) } }
-                if (!ui.ready) item {
-                    Button(onClick = onRetry, enabled = !ui.busy) { Text("Reintentar biblioteca") }
-                }
-                if (ui.preview != null) {
-                    item { Text("Revisar importación", style = MaterialTheme.typography.titleLarge) }
-                    item { Text("Revisa las semanas antes de guardar. Importar conserva la planificación; no inicia ni activa un entrenamiento.") }
-                    ui.merge?.let { merge ->
-                        item {
-                            Text(merge.summary(), color = if (merge.kind == MergeKind.CONFLICT) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
-                    item { Button(onClick = onSave, enabled = ui.ready && !ui.busy && ui.merge?.kind != MergeKind.CONFLICT) {
-                        Text(if (ui.merge?.kind == MergeKind.ADDS_WEEKS) "Añadir semanas nuevas" else "Guardar programa")
-                    } }
-                    item { OutlinedButton(onClick = onCancel, enabled = !ui.busy) { Text("Cancelar importación") } }
-                } else if (selected == null) {
-                    item { Text("Importa un programa JSON v1 desde un archivo o pega su contenido. Puedes variar días, ejercicios y series en cada semana.") }
-                    item { Button(onClick = onFile, enabled = ui.ready && !ui.busy) { Text("Seleccionar archivo JSON") } }
-                    item { OutlinedTextField(value = text, onValueChange = { if (it.length <= ProgramCodec.MAX_BYTES) text = it },
-                        label = { Text("Contenido JSON del programa") }, modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp)) }
-                    item { OutlinedButton(onClick = { onText(text) }, enabled = ui.ready && !ui.busy && text.isNotBlank()) { Text("Revisar JSON") } }
-                    if (library.programs.isEmpty()) item { Text("Aún no hay programas guardados.") }
-                    items(library.programs, key = { it.id }) { program ->
-                        OutlinedButton(onClick = { selectedId = program.id }, modifier = Modifier.fillMaxWidth()) { Text(program.name) }
-                    }
-                } else item { TextButton(onClick = { selectedId = null }) { Text("Ver todos los programas") } }
-                if (selected != null) programBrowser(selected, weekId, dayId,
-                    { weekId = it }, { dayId = it },
-                    // Only saved programs can be trained; a preview must be saved first.
-                    if (ui.preview == null && ui.ready && !ui.busy) onTrainDay else null,
-                    annotations, if (ui.preview == null && ui.ready && !ui.busy) onDeload else null)
+    // System Back climbs one level of the browser before leaving the screen.
+    BackHandler(dayId != null || weekId != null || (ui.preview == null && selectedId != null)) {
+        when { dayId != null -> dayId = null; weekId != null -> weekId = null; else -> selectedId = null }
+    }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val level = listOf(selectedId, weekId, dayId, ui.preview?.id)
+    var shownLevel by rememberSaveable { mutableStateOf(level.toString()) }
+    LaunchedEffect(level) {
+        // Item 0 is the tool grid; what follows it is the current level of the library.
+        if (shownLevel != level.toString()) { shownLevel = level.toString(); listState.scrollToItem(1) }
+    }
+    AppScreen("Programas", "Volver al entrenamiento", onBack, busy = ui.busy, message = ui.message, listState = listState) {
+        // A compact grid grouped by purpose, so the program library stays close to the top of the screen.
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                ToolGroup("Planificación con IA", listOf(
+                    Triple("Propuestas de semana", AppIcons.Bolt, onProposals), Triple("Preguntas de planificación", AppIcons.Question, onQuestions),
+                    Triple("Intercambio JSON", AppIcons.Swap, onExchange)))
+                ToolGroup("Datos y análisis", listOf(
+                    Triple("Historial de sesiones", AppIcons.History, onHistory), Triple("Catálogo de ejercicios", AppIcons.List, onCatalog),
+                    Triple("Adherencia y objetivos", AppIcons.Target, onAdherence), Triple("Señales de estancamiento", AppIcons.Trend, onStagnation),
+                    Triple("Peso y composición corporal", AppIcons.Scale, onBody), Triple("Migrar desde Obsidian", AppIcons.Upload, onMigration)))
             }
         }
+        if (!ui.ready && !ui.busy) item { RetryAction("Reintentar biblioteca", onRetry, enabled = !ui.busy) }
+        if (ui.preview != null) {
+            item { SectionHeader("Revisar importación", supporting = "Revisa las semanas antes de guardar. Importar conserva la planificación; no inicia ni activa un entrenamiento.") }
+            ui.merge?.let { merge ->
+                item {
+                    Banner(merge.summary(), tone = when (merge.kind) {
+                        MergeKind.CONFLICT -> Tone.Error; MergeKind.IDENTICAL -> Tone.Info; else -> Tone.Success })
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    PrimaryAction(if (ui.merge?.kind == MergeKind.ADDS_WEEKS) "Añadir semanas nuevas" else "Guardar programa", onSave,
+                        enabled = ui.ready && !ui.busy && ui.merge?.kind != MergeKind.CONFLICT, icon = AppIcons.Check)
+                    SecondaryAction("Cancelar importación", onCancel, enabled = !ui.busy)
+                }
+            }
+        } else if (selected == null) {
+            item { SectionHeader("Importar programa") }
+            item {
+                ContentCard {
+                    SupportingText("Importa un programa JSON v1 desde un archivo o pega su contenido. Puedes variar días, ejercicios y series en cada semana.")
+                    PrimaryAction("Seleccionar archivo JSON", onFile, enabled = ui.ready && !ui.busy, icon = AppIcons.Upload)
+                    OutlinedTextField(value = text, onValueChange = { if (it.length <= ProgramCodec.MAX_BYTES) text = it },
+                        label = { Text("Contenido JSON del programa") }, modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp))
+                    SecondaryAction("Revisar JSON", { onText(text) }, enabled = ui.ready && !ui.busy && text.isNotBlank())
+                }
+            }
+            item { SectionHeader("Tus programas · ${library.programs.size}") }
+            if (library.programs.isEmpty()) item { EmptyState("Aún no hay programas guardados.", icon = AppIcons.Library) }
+            items(library.programs, key = { it.id }) { program ->
+                val weeks = program.blocks.sumOf { it.weeks.size }
+                NavRow(program.name, { selectedId = program.id }, icon = AppIcons.Library,
+                    supporting = "${plural(program.blocks.size, "bloque", "bloques")} · ${plural(weeks, "semana", "semanas")}")
+            }
+        }
+        if (selected != null) programBrowser(selected, weekId, dayId, if (ui.preview == null) ({ selectedId = null }) else null,
+            { weekId = it }, { dayId = it },
+            // Only saved programs can be trained; a preview must be saved first.
+            if (ui.preview == null && ui.ready && !ui.busy) onTrainDay else null,
+            annotations, if (ui.preview == null && ui.ready && !ui.busy) onDeload else null)
     }
 }
 
+private fun plural(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
+
 private fun LazyListScope.programBrowser(
-    program: TrainingProgram, weekId: String?, dayId: String?,
+    program: TrainingProgram, weekId: String?, dayId: String?, onAllPrograms: (() -> Unit)?,
     onWeek: (String?) -> Unit, onDay: (String?) -> Unit,
     onTrainDay: ((TrainingProgram, String, String) -> Unit)?,
     annotations: WeekAnnotations, onDeload: ((String, String, Boolean) -> Unit)?
 ) {
     val week = program.blocks.flatMap { it.weeks }.find { it.id == weekId }
     val day = week?.days?.find { it.id == dayId }
-    item { Text(program.name, style = MaterialTheme.typography.titleLarge) }
-    if (week == null) program.blocks.forEach { block ->
-        item { Text(block.name, style = MaterialTheme.typography.titleMedium) }
-        items(block.weeks, key = { "week-${it.id}" }) { w ->
-            OutlinedButton(onClick = { onWeek(w.id) }) { Text("${w.name} · ${w.days.size} ${if (w.days.size == 1) "día" else "días"}") }
+    // One wrapping trail of every level above the current one, instead of a stack of separate back links.
+    val trail = listOfNotNull(onAllPrograms?.let { "Ver todos los programas" to it },
+        if (week != null) "Semanas" to { onWeek(null) } else null, if (day != null) "Días" to { onDay(null) } else null)
+    if (trail.isNotEmpty()) item { Breadcrumbs(trail) }
+    if (week == null) {
+        item { Text(program.name, style = MaterialTheme.typography.headlineSmall) }
+        program.blocks.forEach { block ->
+            item { Text(block.name, Modifier.padding(top = Spacing.sm).semantics { heading() }, style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary) }
+            items(block.weeks, key = { "week-${it.id}" }) { w ->
+                NavRow("${w.name} · ${w.days.size} ${if (w.days.size == 1) "día" else "días"}", { onWeek(w.id) }, icon = AppIcons.Calendar,
+                    supporting = "versión ${w.version}",
+                    badge = if (annotations.isDeload(program.id, w.id)) ({ StatusPill("descarga") }) else null)
+            }
         }
     } else {
-        item { TextButton(onClick = { onWeek(null) }) { Text("Ver semanas") } }
-        item { Text("${week.name} · versión ${week.version}", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                SupportingText(program.name, small = true)
+                Text("${week.name} · versión ${week.version}", style = MaterialTheme.typography.headlineSmall)
+            }
+        }
         if (onDeload != null) item {
             val deload = annotations.isDeload(program.id, week.id)
             // The whole row toggles, so the label is a tap target and is announced with the switch state.
-            Row(Modifier.fillMaxWidth().toggleable(deload, role = androidx.compose.ui.semantics.Role.Switch) { onDeload(program.id, week.id, it) },
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Switch(deload, null)
-                Text("Semana de descarga" + if (deload) " (marcada)" else "")
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Row(Modifier.fillMaxWidth().toggleable(deload, role = Role.Switch) { onDeload(program.id, week.id, it) }
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Semana de descarga" + if (deload) " (marcada)" else "", style = MaterialTheme.typography.bodyLarge)
+                        Text("Las gráficas y comparaciones no la tratan como regresión.", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(deload, null)
+                }
             }
         }
-        if (day == null) items(week.days, key = { "day-${it.id}" }) { d ->
-            OutlinedButton(onClick = { onDay(d.id) }) { Text("${d.name} · ${d.exercises.size} ${if (d.exercises.size == 1) "ejercicio" else "ejercicios"} · ${d.exercises.sumOf { it.sets.size }} series") }
+        if (day == null) {
+            item { Eyebrow("DÍAS", Modifier.padding(top = Spacing.sm)) }
+            items(week.days, key = { "day-${it.id}" }) { d ->
+                NavRow("${d.name} · ${d.exercises.size} ${if (d.exercises.size == 1) "ejercicio" else "ejercicios"} · ${d.exercises.sumOf { it.sets.size }} series",
+                    { onDay(d.id) }, icon = AppIcons.Fitness)
+            }
         } else {
-            item { TextButton(onClick = { onDay(null) }) { Text("Ver días") } }
-            item { Text(day.name, style = MaterialTheme.typography.titleMedium) }
+            item { Text(day.name, style = MaterialTheme.typography.titleLarge) }
             if (onTrainDay != null) item {
-                Button(onClick = { onTrainDay(program, week.id, day.id) }, modifier = Modifier.fillMaxWidth()) { Text("Entrenar este día") }
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    PrimaryAction("Entrenar este día", { onTrainDay(program, week.id, day.id) }, icon = AppIcons.Play, tall = true)
+                    SupportingText("Carga el día como próxima sesión. Una sesión en curso no se reemplaza; una terminada se archiva antes.", small = true)
+                }
             }
-            if (onTrainDay != null) item {
-                Text("Carga el día como próxima sesión. Una sesión en curso no se reemplaza; una terminada se archiva antes.",
-                    style = MaterialTheme.typography.bodySmall)
-            }
-            day.exercises.forEach { exercise ->
-                item { Text(exercise.name, style = MaterialTheme.typography.titleMedium) }
-                items(exercise.sets.size, key = { "set-${exercise.sets[it].id}" }) { index ->
-                    val set = exercise.sets[index]
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Serie ${index + 1} · ${set.reps?.let { "$it reps" } ?: "reps sin indicar"} · ${set.rir?.let { "RIR $it" } ?: "RIR sin indicar"}")
-                            Text(set.load?.let { "${it.value} ${it.unit.label()} · ${it.basis.label()}" } ?: "Carga sin indicar")
-                            Text(set.restSeconds?.let { "Descanso: $it s" } ?: "Descanso sin indicar")
-                        }
+            items(day.exercises, key = { "exercise-${it.id}" }) { exercise ->
+                ContentCard {
+                    Text(exercise.name, style = MaterialTheme.typography.titleMedium)
+                    exercise.sets.forEachIndexed { index, set ->
+                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        SetLine(index, set)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SetLine(index: Int, set: SetPrescription) {
+    Column(Modifier.padding(vertical = Spacing.xs), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text("Serie ${index + 1} · ${set.reps?.let { "$it reps" } ?: "reps sin indicar"} · ${set.rir?.let { "RIR $it" } ?: "RIR sin indicar"}",
+            style = MaterialTheme.typography.bodyLarge.tabular())
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Text(set.load?.let { "${it.value} ${it.unit.label()} · ${it.basis.label()}" } ?: "Carga sin indicar",
+                style = MaterialTheme.typography.bodySmall.tabular(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(set.restSeconds?.let { "Descanso: $it s" } ?: "Descanso sin indicar",
+                style = MaterialTheme.typography.bodySmall.tabular(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -143,15 +198,28 @@ private fun LoadBasis.label() = when (this) {
     LoadBasis.BODYWEIGHT -> "peso corporal"; LoadBasis.MACHINE_SETTING -> "configuración de máquina"
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** Labelled group of tool tiles, three per row with equal heights. */
 @Composable
-private fun MenuSection(title: String, entries: List<Pair<String, () -> Unit>>) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.semantics { heading() })
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Compact chips (48 dp touch targets) so several destinations share a row.
-            entries.forEach { (label, action) -> AssistChip(onClick = action, label = { Text(label) }) }
+private fun ToolGroup(title: String, entries: List<Triple<String, ImageVector, () -> Unit>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Eyebrow(title.uppercase())
+        entries.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                row.forEach { (label, icon, action) -> ToolTile(label, icon, action, Modifier.weight(1f).fillMaxHeight()) }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolTile(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier) {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 88.dp), shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.md), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            IconBadge(icon, size = 36.dp)
+            Text(label, style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 3)
         }
     }
 }

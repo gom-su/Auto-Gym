@@ -48,11 +48,19 @@ class ExchangeDeviceTest {
         val redacted = ExchangeCodec.decode(clipboard.primaryClip!!.getItemAt(0).text.toString())
         assertTrue(redacted.context!!.measurements.isEmpty())
         assertNotEquals(original.importId, redacted.importId)
+        // The status message above the review pushed it down: read fresh bounds, and confirm the tap took effect.
+        device.waitForIdle(); freshTree()
         val checkbox = device.wait(Until.findObject(By.clazz("android.widget.CheckBox")), 5000)
         assertNotNull("Measurement checkbox", checkbox); checkbox!!.click()
+        device.waitForIdle(); freshTree()
+        assertTrue("Measurement checkbox not checked", device.wait(Until.hasObject(By.clazz("android.widget.CheckBox").checked(true)), 3000))
         click("Copiar JSON")
         device.waitForIdle()
-        val complete = ExchangeCodec.decode(clipboard.primaryClip!!.getItemAt(0).text.toString())
+        // Copying is asynchronous: wait until the clipboard holds the new copy rather than the earlier redacted one.
+        fun clip() = ExchangeCodec.decode(clipboard.primaryClip!!.getItemAt(0).text.toString())
+        val copiedBy = android.os.SystemClock.elapsedRealtime() + 5_000
+        while (clip().importId != original.importId && android.os.SystemClock.elapsedRealtime() < copiedBy) android.os.SystemClock.sleep(100)
+        val complete = clip()
         assertEquals(original, complete)
         assertEquals(original, app.exchanges.archive.value.packages.single { it.importId == original.importId })
         click("Cerrar revisión")

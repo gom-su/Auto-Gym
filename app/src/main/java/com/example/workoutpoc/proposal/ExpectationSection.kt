@@ -1,5 +1,8 @@
 package com.example.workoutpoc.proposal
 
+import com.example.workoutpoc.ui.*
+import com.example.workoutpoc.ui.theme.Spacing
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,42 +24,47 @@ fun ExpectationSection(importId: String, proposal: WeekProposal, expectations: L
     var direction by rememberSaveable(importId) { mutableStateOf(ExpectedDirection.INCREASE) }
     var days by rememberSaveable(importId) { mutableStateOf("28") }
     val parsedDays = days.trim().toIntOrNull()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Evaluación posterior", style = MaterialTheme.typography.titleLarge)
-        Text("Define qué debería lograr la recomendación y en cuánto tiempo. Se contrasta con la última exposición previa a la decisión, sin semanas de descarga; mientras la ventana siga abierta queda pendiente y, sin datos suficientes, inconclusa.",
-            style = MaterialTheme.typography.bodySmall)
-        if (expectations.isEmpty()) Text("Sin resultados esperados registrados.")
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        SectionHeader("Evaluación posterior",
+            supporting = "Define qué debería lograr la recomendación y en cuánto tiempo. Se contrasta con la última exposición previa a la decisión, sin semanas de descarga; mientras la ventana siga abierta queda pendiente y, sin datos suficientes, inconclusa.")
+        if (expectations.isEmpty()) EmptyState("Sin resultados esperados registrados.", icon = AppIcons.Target)
         expectations.forEach { e ->
             val r = results[e.id]
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${e.exerciseName}: ${e.direction.label} ${e.metric.label.lowercase()} en ${e.windowDays} días", style = MaterialTheme.typography.titleSmall)
-                    Text("Resultado: ${r?.outcome?.label ?: Outcome.PENDING.label}" + if (r?.manual == true) " (manual)" else " (automático)",
-                        style = MaterialTheme.typography.titleSmall)
-                    r?.let { Text(it.detail, style = MaterialTheme.typography.bodySmall) }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(e.manualOutcome == null, { onManual(e.id, null, null) }, { Text("Automático") }, enabled = enabled)
-                        listOf(Outcome.FAVORABLE, Outcome.UNFAVORABLE, Outcome.INCONCLUSIVE).forEach { o ->
-                            FilterChip(e.manualOutcome == o, { onManual(e.id, o, e.note) }, { Text(o.label) }, enabled = enabled)
-                        }
+            val outcome = r?.outcome ?: Outcome.PENDING
+            ContentCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("${e.exerciseName}: ${e.direction.label} ${e.metric.label.lowercase()} en ${e.windowDays} días", style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f))
+                    StatusPill(outcome.label, when (outcome) { Outcome.FAVORABLE -> Tone.Success; Outcome.UNFAVORABLE -> Tone.Error; else -> Tone.Info })
+                }
+                Text("Resultado: ${r?.outcome?.label ?: Outcome.PENDING.label}" + if (r?.manual == true) " (manual)" else " (automático)",
+                    style = MaterialTheme.typography.bodyMedium)
+                r?.let { Text(it.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                ChipGroup("Resultado manual") {
+                    ChoiceChip(e.manualOutcome == null, { onManual(e.id, null, null) }, { Text("Automático") }, enabled = enabled)
+                    listOf(Outcome.FAVORABLE, Outcome.UNFAVORABLE, Outcome.INCONCLUSIVE).forEach { o ->
+                        ChoiceChip(e.manualOutcome == o, { onManual(e.id, o, e.note) }, { Text(o.label) }, enabled = enabled)
                     }
                 }
             }
         }
-        Text("Nuevo resultado esperado", style = MaterialTheme.typography.titleMedium)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            exercises.forEach { ex -> FilterChip(exerciseId == ex.exerciseId, { exerciseId = ex.exerciseId }, { Text(ex.name) }) }
+        ContentCard {
+            Text("Nuevo resultado esperado", style = MaterialTheme.typography.titleMedium)
+            ChipGroup("Ejercicio") {
+                exercises.forEach { ex -> ChoiceChip(exerciseId == ex.exerciseId, { exerciseId = ex.exerciseId }, { Text(ex.name) }) }
+            }
+            ChipGroup("Métrica") {
+                listOf(ChartMetric.TOP_LOAD, ChartMetric.TOTAL_REPS, ChartMetric.VOLUME).forEach { m -> ChoiceChip(metric == m, { metric = m }, { Text(m.label) }) }
+            }
+            ChipGroup("Dirección esperada") {
+                ExpectedDirection.entries.forEach { d -> ChoiceChip(direction == d, { direction = d }, { Text(d.label.replaceFirstChar { it.uppercase() }) }) }
+            }
+            OutlinedTextField(days, { days = it.take(2) }, label = { Text("Ventana (días, 1–84)") }, singleLine = true, isError = parsedDays !in 1..84,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+            PrimaryAction("Guardar resultado esperado", {
+                val ex = exercises.first { it.exerciseId == exerciseId }
+                onAdd(Expectation(UUID.randomUUID().toString(), importId, ex.exerciseId, ex.name, metric, direction, parsedDays!!, 1L))
+            }, enabled = enabled && exerciseId != null && parsedDays in 1..84, icon = AppIcons.Check)
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(ChartMetric.TOP_LOAD, ChartMetric.TOTAL_REPS, ChartMetric.VOLUME).forEach { m -> FilterChip(metric == m, { metric = m }, { Text(m.label) }) }
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ExpectedDirection.entries.forEach { d -> FilterChip(direction == d, { direction = d }, { Text(d.label.replaceFirstChar { it.uppercase() }) }) }
-        }
-        OutlinedTextField(days, { days = it.take(2) }, label = { Text("Ventana (días, 1–84)") }, singleLine = true, isError = parsedDays !in 1..84)
-        Button(enabled = enabled && exerciseId != null && parsedDays in 1..84, onClick = {
-            val ex = exercises.first { it.exerciseId == exerciseId }
-            onAdd(Expectation(UUID.randomUUID().toString(), importId, ex.exerciseId, ex.name, metric, direction, parsedDays!!, 1L))
-        }) { Text("Guardar resultado esperado") }
     }
 }

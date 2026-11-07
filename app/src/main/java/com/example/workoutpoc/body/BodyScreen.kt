@@ -1,9 +1,13 @@
 package com.example.workoutpoc.body
 
+import com.example.workoutpoc.ui.*
+import com.example.workoutpoc.ui.theme.AppTheme
+import com.example.workoutpoc.ui.theme.Spacing
+import com.example.workoutpoc.ui.theme.tabular
+import androidx.compose.ui.Alignment
 import android.app.Application
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,55 +59,65 @@ private val dayFormat get() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()
 fun BodyScreen(log: MeasurementLog, ui: BodyUiState, onBack: () -> Unit, onRetry: () -> Unit,
                onAdd: (BodyMeasurement) -> Unit, onRemove: (String) -> Unit) {
     val groups = remember(log) { trends(log) }
-    MaterialTheme(colorScheme = darkColorScheme()) {
-        Scaffold { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
-                item { TextButton(onClick = onBack, enabled = !ui.busy) { Text("Volver a Programas") } }
-                item { Text("Peso y composición corporal", style = MaterialTheme.typography.headlineMedium) }
-                if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                ui.message?.let { item { Text(it) } }
-                if (!ui.ready) item { Button(onClick = onRetry, enabled = !ui.busy) { Text("Reintentar mediciones") } }
-                item { MeasurementForm(enabled = ui.ready && !ui.busy, onAdd) }
-                item { Text("Tendencias", style = MaterialTheme.typography.titleLarge) }
-                if (groups.isEmpty()) item { Text("Aún no hay mediciones.") }
-                groups.forEach { g ->
-                    item { Text(g.label ?: g.metric.label, style = MaterialTheme.typography.titleMedium) }
-                    if (g.mixedMethods || g.mixedUnits) item {
-                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                            Text(buildString {
-                                if (g.mixedMethods) append("Hay mediciones con métodos distintos (${g.methods.joinToString { it.label }}). No son directamente comparables: cada método se muestra como una serie separada. ")
-                                if (g.mixedUnits) append("También hay unidades distintas (${g.units.joinToString { it.label }}); no se convierten.")
-                            }.trim(), Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
-                        }
-                    }
-                    g.series.forEach { s ->
-                        item { SeriesCard(s, onRemove, !ui.busy) }
-                    }
-                }
+    AppScreen("Peso y composición corporal", "Volver a Programas", onBack, backEnabled = !ui.busy, busy = ui.busy, message = ui.message) {
+        if (!ui.ready && !ui.busy) item { RetryAction("Reintentar mediciones", onRetry, enabled = !ui.busy) }
+        item { ContentCard { MeasurementForm(enabled = ui.ready && !ui.busy, onAdd) } }
+        item { SectionHeader("Tendencias") }
+        if (groups.isEmpty()) item { EmptyState("Aún no hay mediciones.", icon = AppIcons.Scale) }
+        groups.forEach { g ->
+            item { Text(g.label ?: g.metric.label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = Spacing.xs)) }
+            if (g.mixedMethods || g.mixedUnits) item {
+                Banner(buildString {
+                    if (g.mixedMethods) append("Hay mediciones con métodos distintos (${g.methods.joinToString { it.label }}). No son directamente comparables: cada método se muestra como una serie separada. ")
+                    if (g.mixedUnits) append("También hay unidades distintas (${g.units.joinToString { it.label }}); no se convierten.")
+                }.trim(), tone = Tone.Warning)
+            }
+            g.series.forEach { s ->
+                item { SeriesCard(s, onRemove, !ui.busy) }
             }
         }
     }
+
 }
 
 @Composable
 private fun SeriesCard(s: MeasurementSeries, onRemove: (String) -> Unit, enabled: Boolean) {
     val first = s.points.first(); val last = s.points.last()
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("${s.method.label} · ${s.unit.label} · ${s.points.size} mediciones", style = MaterialTheme.typography.titleSmall)
-            Text("Última: ${last.value.fmt()} ${s.unit.label} (${dayFormat.format(Date(last.measuredAtMillis))})" +
-                if (s.points.size > 1) " · cambio desde la primera: ${(last.value - first.value).let { (if (it > 0) "+" else "") + it.fmt() }} ${s.unit.label}" else "")
-            if (s.points.size > 1) TrendChart(s)
-            s.points.asReversed().forEach { m ->
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Text("${dayFormat.format(Date(m.measuredAtMillis))} · ${m.value.fmt()} ${m.unit.label}" +
-                        listOfNotNull(m.fasted?.let { if (it) "en ayunas" else "sin ayuno" }, m.timeOfDay, m.device, m.notes).joinToString("") { " · $it" },
-                        Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { onRemove(m.id) }, enabled = enabled) { Text("Eliminar") }
+    var removing by remember { mutableStateOf<BodyMeasurement?>(null) }
+    ContentCard {
+        Text("${s.method.label} · ${s.unit.label} · ${s.points.size} mediciones", style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text("${last.value.fmt()} ${s.unit.label}", style = MaterialTheme.typography.headlineMedium.tabular())
+            if (s.points.size > 1) {
+                val delta = last.value - first.value
+                Text((if (delta > 0) "+" else "") + delta.fmt() + " ${s.unit.label}", style = MaterialTheme.typography.titleSmall.tabular(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            }
+        }
+        Text("Última: ${last.value.fmt()} ${s.unit.label} (${dayFormat.format(Date(last.measuredAtMillis))})" +
+            if (s.points.size > 1) " · cambio desde la primera: ${(last.value - first.value).let { (if (it > 0) "+" else "") + it.fmt() }} ${s.unit.label}" else "",
+            style = MaterialTheme.typography.bodySmall.tabular(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (s.points.size > 1) TrendChart(s)
+        HorizontalDivider(Modifier.padding(vertical = Spacing.xs), color = MaterialTheme.colorScheme.outlineVariant)
+        s.points.asReversed().forEach { m ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${dayFormat.format(Date(m.measuredAtMillis))} · ${m.value.fmt()} ${m.unit.label}" +
+                    listOfNotNull(m.fasted?.let { if (it) "en ayunas" else "sin ayuno" }, m.timeOfDay, m.device, m.notes).joinToString("") { " · $it" },
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall.tabular())
+                IconButton(onClick = { removing = m }, enabled = enabled) {
+                    Icon(AppIcons.Delete, contentDescription = "Eliminar medición del ${dayFormat.format(Date(m.measuredAtMillis))}",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
+    }
+    removing?.let { m ->
+        AlertDialog(onDismissRequest = { removing = null }, icon = { Icon(AppIcons.Delete, contentDescription = null) },
+            title = { Text("¿Eliminar medición?") },
+            text = { Text("${dayFormat.format(Date(m.measuredAtMillis))} · ${m.value.fmt()} ${m.unit.label} (${s.method.label}). No se puede deshacer.") },
+            confirmButton = { TextButton(onClick = { removing = null; onRemove(m.id) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Eliminar") } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancelar") } })
     }
 }
 
@@ -112,6 +126,7 @@ private fun TrendChart(s: MeasurementSeries) {
     val values = s.points.map { it.value }
     val min = values.min(); val max = values.max()
     val line = MaterialTheme.colorScheme.primary; val axis = MaterialTheme.colorScheme.outline
+    val grid = MaterialTheme.colorScheme.outlineVariant; val surface = MaterialTheme.colorScheme.surfaceContainerLow
     val start = s.points.first().measuredAtMillis; val span = (s.points.last().measuredAtMillis - start).coerceAtLeast(1)
     val description = "${s.method.label}: " + s.points.joinToString("; ") { "${dayFormat.format(Date(it.measuredAtMillis))} ${it.value.fmt()} ${s.unit.label}" }
     // X is proportional to time, so irregular measurement intervals are not shown as evenly spaced.
@@ -119,11 +134,14 @@ private fun TrendChart(s: MeasurementSeries) {
         val pad = 10.dp.toPx(); val w = size.width - 2 * pad; val h = size.height - 2 * pad
         fun x(t: Long) = pad + (t - start).toFloat() / span * w
         fun y(v: Double) = pad + h - (if (max == min) 0.5f else ((v - min) / (max - min)).toFloat()) * h
+        val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
+        listOf(0f, 0.5f).forEach { f -> drawLine(grid, Offset(pad, pad + h * f), Offset(pad + w, pad + h * f), 1.dp.toPx(), pathEffect = dash) }
         drawLine(axis, Offset(pad, pad + h), Offset(pad + w, pad + h), 1.dp.toPx())
-        s.points.zipWithNext { a, b -> drawLine(line, Offset(x(a.measuredAtMillis), y(a.value)), Offset(x(b.measuredAtMillis), y(b.value)), 2.dp.toPx()) }
-        s.points.forEach { drawCircle(line, 4.dp.toPx(), Offset(x(it.measuredAtMillis), y(it.value))) }
+        s.points.zipWithNext { a, b -> drawLine(line, Offset(x(a.measuredAtMillis), y(a.value)), Offset(x(b.measuredAtMillis), y(b.value)), 3.dp.toPx(),
+            cap = androidx.compose.ui.graphics.StrokeCap.Round) }
+        s.points.forEach { val c = Offset(x(it.measuredAtMillis), y(it.value)); drawCircle(surface, 6.dp.toPx(), c); drawCircle(line, 4.dp.toPx(), c) }
     }
-    Text("mín. ${min.fmt()} · máx. ${max.fmt()} ${s.unit.label}", style = MaterialTheme.typography.bodySmall)
+    Text("mín. ${min.fmt()} · máx. ${max.fmt()} ${s.unit.label}", style = MaterialTheme.typography.bodySmall.tabular(), color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -141,21 +159,24 @@ private fun MeasurementForm(enabled: Boolean, onAdd: (BodyMeasurement) -> Unit) 
     val parsedValue = value.trim().replace(',', '.').toDoubleOrNull()
     val parsedDate = runCatching { dayFormat.parse(date.trim())?.time }.getOrNull()
     val valid = parsedValue != null && parsedDate != null && method != null && (metric != BodyMetric.OTHER || label.isNotBlank())
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text("Nueva medición", style = MaterialTheme.typography.titleLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { BodyMetric.entries.forEach { m -> FilterChip(metric == m, { metric = m }, { Text(m.label) }) } }
+        ChipGroup("Medida") { BodyMetric.entries.forEach { m -> ChoiceChip(metric == m, { metric = m }, { Text(m.label) }) } }
         if (metric == BodyMetric.OTHER) OutlinedTextField(label, { if (it.length <= 100) label = it }, label = { Text("Nombre de la medida") }, singleLine = true)
-        OutlinedTextField(value, { value = it }, label = { Text("Valor") }, singleLine = true, isError = value.isNotBlank() && parsedValue == null)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { metric.units.forEach { u -> FilterChip(unit == u, { unit = u }, { Text(u.label) }) } }
-        Text("Método (obligatorio: no se compara entre métodos)", style = MaterialTheme.typography.labelLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) { MeasureMethod.entries.forEach { m -> FilterChip(method == m, { method = m }, { Text(m.label) }) } }
-        OutlinedTextField(date, { date = it }, label = { Text("Fecha (AAAA-MM-DD)") }, singleLine = true, isError = parsedDate == null)
-        Text("Ayuno (opcional)", style = MaterialTheme.typography.labelLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(null to "sin indicar", true to "en ayunas", false to "sin ayuno").forEach { (v, l) -> FilterChip(fasted == v, { fasted = v }, { Text(l) }) }
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.Top) {
+            OutlinedTextField(value, { value = it }, label = { Text("Valor") }, singleLine = true, isError = value.isNotBlank() && parsedValue == null,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
+                modifier = Modifier.weight(1f))
+            OutlinedTextField(date, { date = it }, label = { Text("Fecha (AAAA-MM-DD)") }, singleLine = true, isError = parsedDate == null,
+                modifier = Modifier.weight(1.4f))
         }
-        OutlinedTextField(notes, { if (it.length <= 1000) notes = it }, label = { Text("Notas (opcional)") })
-        Button(enabled = enabled && valid, onClick = {
+        SegmentedChoice("Unidad", metric.units, unit, { it.label }, { unit = it })
+        ChipGroup("Método (obligatorio: no se compara entre métodos)") { MeasureMethod.entries.forEach { m -> ChoiceChip(method == m, { method = m }, { Text(m.label) }) } }
+        SegmentedChoice("Ayuno (opcional)", listOf(null, true, false), fasted,
+            { when (it) { null -> "sin indicar"; true -> "en ayunas"; false -> "sin ayuno" } }, { fasted = it })
+        OutlinedTextField(notes, { if (it.length <= 1000) notes = it }, label = { Text("Notas (opcional)") }, modifier = Modifier.fillMaxWidth())
+        if (method == null) SupportingText("Elige un método para poder guardar.", small = true)
+        Button(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = enabled && valid, onClick = {
             onAdd(BodyMeasurement(UUID.randomUUID().toString(), parsedDate!!, metric, parsedValue!!, unit, method!!,
                 label.trim().ifBlank { null }?.takeIf { metric == BodyMetric.OTHER }, fasted, null, null, notes.trim().ifBlank { null }))
             value = ""; notes = ""

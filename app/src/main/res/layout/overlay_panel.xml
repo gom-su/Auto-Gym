@@ -1,6 +1,6 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="280dp" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp" android:background="@drawable/overlay_background">
     <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
-        <TextView android:id="@+id/drag_handle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:gravity="center_vertical" android:text="⠿ ENTRENAMIENTO" android:textColor="#B4EE80" android:textSize="12sp" android:contentDescription="Arrastrar panel"/>
+        <TextView android:id="@+id/drag_handle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:gravity="center_vertical" android:text="⠿ ENTRENAMIENTO" android:textColor="#B4EE80" android:textSize="12sp" android:letterSpacing="0.1" android:textStyle="bold" android:contentDescription="Arrastrar panel"/>
         <Button android:id="@+id/collapse" style="@style/OverlayControl" android:text="−" android:contentDescription="Contraer a burbuja"/>
         <Button android:id="@+id/close" style="@style/OverlayControl" android:text="×" android:contentDescription="Cerrar solo el panel"/>
     </LinearLayout>
@@ -25,13 +25,13 @@
             <Button android:id="@+id/overlay_rir3" style="@style/OverlayControl" android:text="3"/>
             <Button android:id="@+id/overlay_rir4" style="@style/OverlayControl" android:text="4+"/>
         </LinearLayout>
-        <Button android:id="@+id/overlay_complete" android:layout_width="match_parent" android:layout_height="56dp" android:text="Completar serie" android:textColor="#18221C" android:backgroundTint="#B4EE80"/>
+        <Button android:id="@+id/overlay_complete" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="8dp" android:text="Completar serie" android:textColor="#1A3700" android:textStyle="bold" android:textAllCaps="false" android:textSize="16sp" android:background="@drawable/overlay_primary_background" android:stateListAnimator="@null"/>
     </LinearLayout>
     <LinearLayout android:id="@+id/overlay_rest" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
         <TextView android:id="@+id/overlay_countdown" android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center" android:textSize="36sp" android:textColor="#B4EE80"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="56dp">
-            <Button android:id="@+id/overlay_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp" android:text="+10 s"/>
-            <Button android:id="@+id/overlay_skip" android:layout_width="0dp" android:layout_weight="1" android:layout_height="56dp" android:text="Saltar"/>
+            <Button android:id="@+id/overlay_add" style="@style/OverlayAction" android:text="+10 s" android:textAllCaps="false"/>
+            <Button android:id="@+id/overlay_skip" style="@style/OverlayAction" android:text="Saltar" android:textAllCaps="false"/>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
