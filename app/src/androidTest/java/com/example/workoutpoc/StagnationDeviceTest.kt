@@ -47,7 +47,9 @@ class StagnationDeviceTest {
 
     @Test fun insufficient_evidence_is_reported_with_its_reason() {
         device.openTab("Progreso")
-        device.clickText("Estancamiento")
+        device.clickText("Ejercicios")
+        // The signals open from the row at the top of Ejercicios; listed exercises carry an "estancado" badge.
+        device.clickText("Señales de estancamiento")
         assertNotNull(device.scrollToText("Alertas ("))
         assertNotNull(device.scrollToText("Sin datos suficientes ("))
         assertNotNull(device.scrollToText("se necesitan", contains = true))
