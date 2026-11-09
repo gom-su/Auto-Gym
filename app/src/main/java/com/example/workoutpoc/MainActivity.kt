@@ -29,6 +29,9 @@ import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.overlay.WorkoutOverlayService
 import com.example.workoutpoc.presentation.*
 import com.example.workoutpoc.timer.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import com.example.workoutpoc.navigation.*
 import com.example.workoutpoc.ui.LocalBackLabel
 import com.example.workoutpoc.ui.LocalTabRoot
@@ -59,9 +62,10 @@ class MainActivity : ComponentActivity() {
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
-    private val programFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(programModel::previewFile)
-    }
+    /** The one Importar: any file, routed to its review by its content (see [ImportKind]). */
+    private val importFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(::importUri) }
+    /** Where the last import went, consumed by the navigation once its review is ready to show. */
+    private var importRoute: ImportKind? by mutableStateOf(null)
     private val exchangeModel: ExchangeViewModel by viewModels()
     private val exchangeFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(exchangeModel::previewFile)
@@ -118,6 +122,14 @@ class MainActivity : ComponentActivity() {
         // The notification's Edit opens the quick editor, which lives on the session screen.
         LaunchedEffect(editorVisible) { if (editorVisible && nav.top != Destination.Session) nav.openSession() }
         BackHandler(nav.canGoBack) { nav.back() }
+        LaunchedEffect(importRoute) {
+            when (importRoute ?: return@LaunchedEffect) {
+                ImportKind.PROGRAM -> nav.select(Tab.Plan)
+                ImportKind.EXCHANGE -> nav.open(Destination.Exchange)
+                ImportKind.MARKDOWN -> nav.open(Destination.Migration)
+            }
+            importRoute = null
+        }
         val top = nav.top
         if (top != null) {
             LaunchedEffect(top) {
@@ -167,9 +179,7 @@ class MainActivity : ComponentActivity() {
                 val library by programModel.library.collectAsStateWithLifecycle()
                 val ui by programModel.ui.collectAsStateWithLifecycle()
                 val annotations by programModel.annotations.collectAsStateWithLifecycle()
-                ProgramScreen(library, ui, nav::back,
-                    { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
-                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
+                ProgramScreen(library, ui, nav::back, ::pickImport, ::routeImport, programModel::save, programModel::cancelPreview, programModel::restore,
                     { program, weekId, dayId -> trainDay(program.id, weekId, dayId, nav) },
                     annotations, programModel::setDeload) { nav.open(Destination.Plans) }
             }
@@ -208,8 +218,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            Tab.Agente -> com.example.workoutpoc.agent.AgentScreen({ nav.open(Destination.Plans) }, { nav.open(Destination.Questions) },
-                { nav.open(Destination.Proposals) }, { nav.open(Destination.Exchange) })
+            Tab.Agente -> {
+                val home by homeModel.ui.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { homeModel.refresh() }
+                com.example.workoutpoc.agent.AgentScreen(home, { nav.open(Destination.Plans) }, { nav.open(Destination.Questions) },
+                    { nav.open(Destination.Proposals) }, { nav.open(Destination.Exchange) }, ::pickImport)
+            }
         }
     }
 
@@ -327,6 +341,54 @@ class MainActivity : ComponentActivity() {
             catch (e: RuntimeException) { Log.w("WorkoutActivity", "Ajustes de overlay no disponibles", e); message = "Este dispositivo no permite abrir los ajustes del panel flotante." }
         }
     }
+    private fun pickImport() {
+        // Markdown has no reliable MIME type across providers; the content decides, not the picker label.
+        importFile.launch(arrayOf("*/*"))
+    }
+
+    private fun importUri(uri: Uri) {
+        lifecycleScope.launch {
+            try { routeImport(withContext(Dispatchers.IO) { readImport(uri) }) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            // The reason is shown in Plan, next to Importar, wherever the file was picked.
+            catch (e: ProgramValidationException) { programModel.showMessage(e.message ?: "No se pudo leer el archivo."); importRoute = ImportKind.PROGRAM }
+            catch (e: Exception) {
+                Log.w("WorkoutActivity", "Importación ilegible", e)
+                programModel.showMessage("No se pudo leer el archivo. No se guardó nada."); importRoute = ImportKind.PROGRAM
+            }
+        }
+    }
+
+    /** Reads at most 1 MiB of strict UTF-8, the limit every review screen enforces. */
+    private fun readImport(uri: Uri): String = contentResolver.openInputStream(uri)?.use { input ->
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (output.size() <= ExchangeCodec.MAX_BYTES) {
+            val count = input.read(buffer, 0, minOf(buffer.size, ExchangeCodec.MAX_BYTES + 1 - output.size()))
+            if (count == -1) break
+            output.write(buffer, 0, count)
+        }
+        val bytes = output.toByteArray()
+        if (bytes.size > ExchangeCodec.MAX_BYTES) throw ProgramValidationException("El archivo supera 1 MiB.")
+        try { bytes.decodeToString(throwOnInvalidSequence = true) }
+        catch (_: Exception) { throw ProgramValidationException("El archivo debe estar codificado en UTF-8.") }
+    } ?: throw ProgramValidationException("No se pudo abrir el archivo seleccionado.")
+
+    /** Sends imported text to the review that can read it; that screen validates it fully before anything is saved. */
+    private fun routeImport(text: String) {
+        val kind = ImportKind.detect(text)
+        importRoute = kind
+        lifecycleScope.launch {
+            // A review's model ignores requests while busy, and it is busy loading right after it is created (the
+            // first import into a screen not yet opened). Wait until it is idle, then hand it the text.
+            when (kind) {
+                ImportKind.PROGRAM -> { programModel.ui.first { !it.busy }; programModel.previewText(text) }
+                ImportKind.EXCHANGE -> { exchangeModel.ui.first { !it.busy }; exchangeModel.previewText(text) }
+                ImportKind.MARKDOWN -> { migrationModel.ui.first { !it.busy }; migrationModel.previewText(text) }
+            }
+        }
+    }
+
     private fun openNotificationSettings() {
         startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
     }

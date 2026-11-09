@@ -5,7 +5,7 @@ Implemented scope: independent variable programs, blocks, weeks, days, exercises
 ## Try it
 
 1. Open the **Plan** tab.
-2. Copy the fictitious [example](../app/src/main/assets/examples/variable-program-v1.json) to the phone's Downloads directory, then choose **Seleccionar archivo JSON**. Alternatively paste its contents and press **Revisar JSON**.
+2. Copy the fictitious [example](../app/src/main/assets/examples/variable-program-v1.json) to the phone's Downloads directory, then choose **Importar › Seleccionar archivo** at the bottom of the **Plan** tab. Alternatively paste its contents and press **Revisar contenido**. The same Importar also takes agent files (they open in Intercambio JSON) and Obsidian Markdown weeks (they open in Migrar desde Obsidian); the content decides, and every screen still reviews before saving.
 3. In **Revisar importación**, inspect **Semana 1** (2 days, one exercise per day, 2/1 sets) and **Semana 2** (1 day, two exercises, 1/3 sets). A second block includes a third week to check block separation. Exercise identity `squat` repeats with distinct prescriptions.
 4. Press **Guardar programa**, open the saved program and inspect the same weeks and days. **Cancelar importación** saves nothing.
 5. Force-stop and reopen the app; the library must retain all associations and prescribed values. The demo session is independent.
