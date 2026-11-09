@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(top) {
                 when (top) {
                     Destination.Plans -> planModel.refresh(); Destination.Proposals -> proposalModel.refresh()
-                    Destination.Questions -> questionsModel.refresh(); else -> Unit
+                    Destination.Questions -> questionsModel.refresh(); Destination.Stagnation -> stagnationModel.refresh(); else -> Unit
                 }
             }
             CompositionLocalProvider(LocalBackLabel provides nav.backLabel()) {
@@ -186,17 +186,20 @@ class MainActivity : ComponentActivity() {
             Tab.Progreso -> {
                 LaunchedEffect(nav.section) {
                     when (nav.section) {
-                        ProgressSection.Ejercicios -> catalogModel.refresh(); ProgressSection.Sesiones -> historyModel.refresh()
+                        // The exercise list carries the stagnation badges, so both are computed.
+                        ProgressSection.Ejercicios -> { catalogModel.refresh(); stagnationModel.refresh() }
+                        ProgressSection.Sesiones -> historyModel.refresh()
                         ProgressSection.Adherencia -> adherenceModel.refresh(); ProgressSection.Cuerpo -> bodyModel.refresh()
-                        ProgressSection.Estancamiento -> stagnationModel.refresh()
                     }
                 }
                 when (nav.section) {
                     ProgressSection.Ejercicios -> {
                         val catalog by catalogModel.catalog.collectAsStateWithLifecycle()
                         val catalogUi by catalogModel.ui.collectAsStateWithLifecycle()
+                        val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
                         com.example.workoutpoc.catalog.CatalogScreen(catalog, catalogUi, nav::back,
-                            catalogModel::refresh, catalogModel::save, catalogModel.annotations.collectAsStateWithLifecycle().value)
+                            catalogModel::refresh, catalogModel::save, catalogModel.annotations.collectAsStateWithLifecycle().value,
+                            stagnationUi.report.alerts) { nav.open(Destination.Stagnation) }
                     }
                     ProgressSection.Sesiones -> {
                         val historyUi by historyModel.ui.collectAsStateWithLifecycle()
@@ -211,10 +214,6 @@ class MainActivity : ComponentActivity() {
                         val log by bodyModel.log.collectAsStateWithLifecycle()
                         val bodyUi by bodyModel.ui.collectAsStateWithLifecycle()
                         com.example.workoutpoc.body.BodyScreen(log, bodyUi, nav::back, bodyModel::refresh, bodyModel::add, bodyModel::remove)
-                    }
-                    ProgressSection.Estancamiento -> {
-                        val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
-                        com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, nav::back, stagnationModel::refresh, stagnationModel::setSettings)
                     }
                 }
             }
@@ -237,6 +236,10 @@ class MainActivity : ComponentActivity() {
                 demoAvailable = state.source == null, onDemo = nav::openSession,
                 loggingMode = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode,
                 onLoggingMode = { mode -> lifecycleScope.launch { workoutApp.safely { workoutApp.settings.setLoggingMode(mode) } } })
+            Destination.Stagnation -> {
+                val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, nav::back, stagnationModel::refresh, stagnationModel::setSettings)
+            }
             Destination.Plans -> {
                 val planUi by planModel.ui.collectAsStateWithLifecycle()
                 PlanScreen(planUi, nav::back, planModel::refresh, planModel::select, planModel::activate)

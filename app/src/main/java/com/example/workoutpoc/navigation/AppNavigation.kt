@@ -19,11 +19,11 @@ enum class Tab(val label: String, val icon: ImageVector) {
 }
 
 /** Screens opened over the tabs. The bottom bar is hidden while one is open; Back closes it. */
-enum class Destination { Session, Settings, Plans, Proposals, Questions, Exchange, Migration }
+enum class Destination { Session, Settings, Plans, Proposals, Questions, Exchange, Migration, Stagnation }
 
 /** What the Progreso tab shows; switched with chips at the top of the tab. */
 enum class ProgressSection(val label: String) {
-    Ejercicios("Ejercicios"), Sesiones("Sesiones"), Adherencia("Adherencia"), Cuerpo("Cuerpo"), Estancamiento("Estancamiento")
+    Ejercicios("Ejercicios"), Sesiones("Sesiones"), Adherencia("Adherencia"), Cuerpo("Cuerpo")
 }
 
 /**
@@ -63,7 +63,9 @@ class AppNavigator(tab: Tab, stack: List<Destination>, section: ProgressSection)
     companion object {
         val Saver = listSaver<AppNavigator, String>(
             save = { listOf(it.tab.name, it.section.name) + it.stack.map { d -> d.name } },
-            restore = { AppNavigator(Tab.valueOf(it[0]), it.drop(2).map(Destination::valueOf), ProgressSection.valueOf(it[1])) })
+            // Names saved by an older version (a removed section or screen) fall back instead of failing to restore.
+            restore = { AppNavigator(Tab.valueOf(it[0]), it.drop(2).mapNotNull { d -> Destination.entries.find { e -> e.name == d } },
+                ProgressSection.entries.find { s -> s.name == it[1] } ?: ProgressSection.Ejercicios) })
     }
 }
 
@@ -71,6 +73,7 @@ val Destination.title: String get() = when (this) {
     Destination.Session -> "Sesión"; Destination.Settings -> "Ajustes"; Destination.Plans -> "Planes de periodización"
     Destination.Proposals -> "Propuestas de semana"; Destination.Questions -> "Preguntas de planificación"
     Destination.Exchange -> "Intercambio JSON"; Destination.Migration -> "Migrar desde Obsidian"
+    Destination.Stagnation -> "Señales de estancamiento"
 }
 
 @Composable

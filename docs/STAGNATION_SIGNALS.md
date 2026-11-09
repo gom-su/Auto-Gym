@@ -1,6 +1,6 @@
 # Stagnation signals (INT-03)
 
-Open **Progreso > Estancamiento**.
+Open **Progreso > Ejercicios**. Each exercise with a current alert carries an **estancado** badge, and its detail opens with the alert's explanation. The **Señales de estancamiento** row at the top of the list opens every alert with its evidence, the insufficient-evidence groups and the thresholds.
 
 ## Rule
 

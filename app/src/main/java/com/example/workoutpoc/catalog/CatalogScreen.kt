@@ -30,7 +30,9 @@ private fun LoadBasis.label() = when (this) {
 
 @Composable
 fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Unit, onRetry: () -> Unit, onSave: (CatalogExercise) -> Unit,
-                  annotations: com.example.workoutpoc.planning.WeekAnnotations = com.example.workoutpoc.planning.WeekAnnotations()) {
+                  annotations: com.example.workoutpoc.planning.WeekAnnotations = com.example.workoutpoc.planning.WeekAnnotations(),
+                  /** Current stagnation alerts (INT-03); each listed exercise with one carries a badge and its explanation. */
+                  alerts: List<StagnationAlert> = emptyList(), onStagnation: (() -> Unit)? = null) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = catalog.exercises.find { it.id == selectedId }
     val ambiguous = remember(catalog) { CatalogCodec.ambiguous(catalog) }
@@ -40,16 +42,27 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
         listState = rememberViewListState(selected?.id), drillUp = selected != null) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar catálogo", onRetry, enabled = !ui.busy) }
         if (selected == null) {
+            onStagnation?.let { open ->
+                val stalled = alerts.map { it.exerciseId }.distinct().size
+                item { NavRow("Señales de estancamiento", open, icon = AppIcons.Trend,
+                    supporting = if (stalled == 0) "Ninguna alerta con la evidencia actual · umbrales y datos insuficientes"
+                        else "${plural(stalled, "ejercicio sin progreso", "ejercicios sin progreso")} frente a su mejor marca · umbrales y evidencia",
+                    badge = if (stalled > 0) ({ StatusPill("$stalled", Tone.Warning) }) else null) }
+            }
             item { SupportingText("Cada ejercicio tiene un ID estable. Cambiar su nombre no altera su historial; variantes con distinto equipo o configuración son ejercicios distintos.") }
             if (catalog.exercises.isEmpty()) item { EmptyState("Aún no hay ejercicios. Se registran al guardar programas o entrenar sesiones planificadas.", icon = AppIcons.List) }
             items(catalog.exercises, key = { it.id }) { e ->
                 val count = remember(ui.sessions, e.id) { exerciseHistory(e.id, ui.sessions).size }
                 NavRow(listOfNotNull(e.name, e.variant, e.equipment?.label()).joinToString(" · "), { selectedId = e.id },
                     supporting = "ID ${e.id} · ${plural(count, "serie registrada", "series registradas")}" + if (e.id in ambiguous) " · nombre ambiguo" else "",
-                    icon = AppIcons.Fitness, badge = if (e.id in ambiguous) ({ StatusPill("revisar", Tone.Warning) }) else null)
+                    icon = AppIcons.Fitness, badge = rowBadges(e.id in ambiguous, alerts.any { it.exerciseId == e.id }))
             }
         } else {
             item { Text(selected.name, style = MaterialTheme.typography.headlineSmall) }
+            alerts.filter { it.exerciseId == selected.id }.forEach { alert ->
+                item { Banner(alert.explanation, tone = Tone.Warning, title = "Señal de estancamiento",
+                    action = onStagnation?.let { open -> { TextButton(onClick = open) { Text("Ver evidencia") } } }) }
+            }
             item { ContentCard { ExerciseEditor(selected, selected.id in ambiguous, !ui.busy && ui.ready, onSave) } }
             item { PhaseComparisonSection(selected.id, ui.sessions, ui.programs, annotations) }
             val history = exerciseHistory(selected.id, ui.sessions)
@@ -110,3 +123,12 @@ private fun ExerciseEditor(exercise: CatalogExercise, ambiguous: Boolean, enable
 }
 
 private fun plural(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
+
+/** Status is spelled out, never colour alone: "estancado" for a current alert, "revisar" for an ambiguous name. */
+private fun rowBadges(ambiguous: Boolean, stalled: Boolean): (@Composable () -> Unit)? =
+    if (!ambiguous && !stalled) null else ({
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            if (stalled) StatusPill("estancado", Tone.Warning)
+            if (ambiguous) StatusPill("revisar", Tone.Warning)
+        }
+    })
