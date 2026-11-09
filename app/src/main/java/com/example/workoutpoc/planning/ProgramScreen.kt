@@ -62,22 +62,24 @@ fun ProgramScreen(
                 }
             }
         } else if (selected == null) {
-            item { SectionHeader("Importar programa") }
-            item {
-                ContentCard {
-                    SupportingText("Importa un programa JSON v1 desde un archivo o pega su contenido. Puedes variar días, ejercicios y series en cada semana.")
-                    PrimaryAction("Seleccionar archivo JSON", onFile, enabled = ui.ready && !ui.busy, icon = AppIcons.Upload)
-                    OutlinedTextField(value = text, onValueChange = { if (it.length <= ProgramCodec.MAX_BYTES) text = it },
-                        label = { Text("Contenido JSON del programa") }, modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp))
-                    SecondaryAction("Revisar JSON", { onText(text) }, enabled = ui.ready && !ui.busy && text.isNotBlank())
-                }
-            }
             item { SectionHeader("Tus programas · ${library.programs.size}") }
             if (library.programs.isEmpty()) item { EmptyState("Aún no hay programas guardados.", icon = AppIcons.Library) }
             items(library.programs, key = { it.id }) { program ->
                 val weeks = program.blocks.sumOf { it.weeks.size }
                 NavRow(program.name, { selectedId = program.id }, icon = AppIcons.Library,
                     supporting = "${plural(program.blocks.size, "bloque", "bloques")} · ${plural(weeks, "semana", "semanas")}")
+            }
+            // One import for everything: the content decides where it is reviewed (program here, agent files in
+            // Intercambio JSON, Markdown weeks in Migrar desde Obsidian). Nothing is saved without a review.
+            item { SectionHeader("Importar") }
+            item {
+                ContentCard {
+                    SupportingText("Selecciona un archivo o pega su contenido: un programa JSON, un archivo del agente (plan, propuesta, envío firmado) o una semana de Obsidian. Se abre su revisión; nada se guarda sin tu confirmación.")
+                    PrimaryAction("Seleccionar archivo", onFile, enabled = ui.ready && !ui.busy, icon = AppIcons.Upload)
+                    OutlinedTextField(value = text, onValueChange = { if (it.length <= ProgramCodec.MAX_BYTES) text = it },
+                        label = { Text("Contenido para importar") }, modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp))
+                    SecondaryAction("Revisar contenido", { onText(text) }, enabled = ui.ready && !ui.busy && text.isNotBlank())
+                }
             }
         }
         if (selected != null) programBrowser(selected, weekId, dayId, if (ui.preview == null) ({ selectedId = null }) else null,
