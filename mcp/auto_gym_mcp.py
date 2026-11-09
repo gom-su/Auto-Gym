@@ -5,6 +5,9 @@ The phone app remains the source of truth. This server only transports:
     (Programas > Intercambio JSON > Preparar contexto local). Nothing else on disk is readable through it.
   * it writes new v1 WeekProposal packages, one file per proposal, into an outbox directory. The user imports
     them in the app, where they stay pending until explicitly approved. There is no approval tool.
+  * it writes v1 PlanOutline packages: the general multi-week (typically 12-week) structure the user activates in the
+    app. Once active, the exported context carries, per plan, the next week to plan and its targets
+    (get_next_week_brief), and week proposals for that program must follow it.
 
 With --sign-key (a pairing key generated in the app: Intercambio JSON > Envíos firmados), each proposal is wrapped in
 an HMAC-SHA256 signed envelope (INT-02). The app accepts it only if the key is paired and not revoked, the signature,
@@ -114,6 +117,100 @@ def validate_week(week):
         seen.add(d["id"])
 
 
+def validate_outline(o):
+    """Mirrors the app's PlanOutline v1 rules (PlanOutlines.validate)."""
+    def text(v, path, limit=10000):
+        _check(isinstance(v, str) and v.strip() and len(v) <= limit, f"{path}: texto vacío o demasiado largo.")
+
+    def ident(v, path):
+        _check(isinstance(v, str) and ID.match(v) is not None, f"{path}: ID no válido.")
+
+    def integer(v, lo, hi, path):
+        _check(v is None or (isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi), f"{path}: fuera de rango ({lo}–{hi}).")
+
+    def span(lo, hi, a, b, what, path):
+        integer(lo, a, b, f"{path}: {what} mínimo"); integer(hi, a, b, f"{path}: {what} máximo")
+        _check(lo is None or hi is None or lo <= hi, f"{path}: {what} mínimo mayor que el máximo.")
+
+    def fields(obj, required, optional, path):
+        _check(isinstance(obj, dict) and required <= set(obj) <= required | optional,
+               f"{path}: campos esperados {', '.join(sorted(required))}" + (f" (opcionales {', '.join(sorted(optional))})" if optional else "") + ".")
+
+    fields(o, {"id", "version", "programId", "programName", "name", "goals", "rules", "days", "blocks", "weeks"}, set(), "Plan")
+    ident(o["id"], "Plan"); ident(o["programId"], "Plan programId"); text(o["programName"], "Plan programName", 200); text(o["name"], "Plan", 200)
+    _check(isinstance(o["version"], int) and not isinstance(o["version"], bool) and o["version"] > 0, "Plan: versión positiva.")
+    for key in ("goals", "rules"):
+        _check(isinstance(o[key], list), f"Plan: {key} debe ser una lista de textos.")
+        for t in o[key]:
+            text(t, f"Plan {key}")
+    _check(isinstance(o["days"], list) and o["days"], "Plan: falta la distribución de días.")
+    template = set()
+    day_ids = []
+    for d in o["days"]:
+        fields(d, {"id", "name", "exercises"}, {"focus"}, "Día")
+        ident(d["id"], "Día"); text(d["name"], f"Día {d['id']}", 200); day_ids.append(d["id"])
+        if d.get("focus") is not None:
+            text(d["focus"], f"Día {d['id']}")
+        _check(isinstance(d["exercises"], list) and d["exercises"], f"Día {d['id']}: falta un ejercicio.")
+        seen = set()
+        for e in d["exercises"]:
+            fields(e, {"exerciseId", "name"}, {"sets", "notes"}, f"Día {d['id']} / ejercicio")
+            ident(e["exerciseId"], f"Día {d['id']} / {e.get('name')}"); text(e["name"], f"Día {d['id']} / ejercicio", 200)
+            integer(e.get("sets"), 1, 50, f"Día {d['id']} / {e['name']} series")
+            if e.get("notes") is not None:
+                text(e["notes"], f"Día {d['id']} / {e['name']}")
+            _check(e["exerciseId"] not in seen, f"Día {d['id']}: ejercicio repetido.")
+            seen.add(e["exerciseId"]); template.add(e["exerciseId"])
+    _check(len(set(day_ids)) == len(day_ids), "Plan: días duplicados.")
+    _check(isinstance(o["blocks"], list) and o["blocks"], "Plan: falta un bloque.")
+    block_ids = []
+    for b in o["blocks"]:
+        fields(b, {"id", "name"}, {"focus"}, "Bloque")
+        ident(b["id"], "Bloque"); text(b["name"], f"Bloque {b['id']}", 200); block_ids.append(b["id"])
+        if b.get("focus") is not None:
+            text(b["focus"], f"Bloque {b['id']}")
+    _check(len(set(block_ids)) == len(block_ids), "Plan: bloques duplicados.")
+    _check(isinstance(o["weeks"], list) and 1 <= len(o["weeks"]) <= 52, "Plan: entre 1 y 52 semanas.")
+    for i, w in enumerate(o["weeks"], 1):
+        p = f"Semana {i}"
+        fields(w, {"number", "blockId", "phase", "microcycle", "deload", "targets"}, {"cardio", "notes"}, p)
+        _check(w["number"] == i, f"{p}: las semanas se numeran 1..N, en orden y sin huecos.")
+        _check(w["blockId"] in block_ids, f"{p}: bloque {w['blockId']} no definido.")
+        text(w["phase"], f"{p}: fase", 200); text(w["microcycle"], f"{p}: microciclo", 200)
+        _check(isinstance(w["deload"], bool), f"{p}: deload debe ser true o false.")
+        if w.get("notes") is not None:
+            text(w["notes"], p)
+        _check(isinstance(w["targets"], list), f"{p}: targets debe ser una lista.")
+        scopes = []
+        for t in w["targets"]:
+            fields(t, {"label"}, {"exerciseIds", "sets", "repsMin", "repsMax", "rirMin", "rirMax"}, f"{p} / objetivo")
+            tp = f"{p} / {t['label']}"
+            text(t["label"], f"{p}: objetivo", 200)
+            ids = t.get("exerciseIds") or []
+            _check(isinstance(ids, list) and len(set(ids)) == len(ids), f"{tp}: exerciseIds sin repetir.")
+            for e in ids:
+                _check(e in template, f"{tp}: el ejercicio {e} no está en la distribución de días.")
+            integer(t.get("sets"), 1, 50, f"{tp}: series")
+            span(t.get("repsMin"), t.get("repsMax"), 1, 1000, "repeticiones", tp)
+            span(t.get("rirMin"), t.get("rirMax"), 0, 10, "RIR", tp)
+            scopes += ids or ["*"]
+        _check(len(set(scopes)) == len(scopes), f"{p}: dos objetivos aplican al mismo ejercicio.")
+        c = w.get("cardio")
+        if c is not None:
+            fields(c, {"modality"}, {"minutes", "sessions", "rpeMin", "rpeMax", "notes"}, f"{p}: cardio")
+            text(c["modality"], f"{p}: modalidad de cardio", 200)
+            integer(c.get("minutes"), 1, 600, f"{p}: minutos de cardio"); integer(c.get("sessions"), 1, 14, f"{p}: sesiones de cardio")
+            span(c.get("rpeMin"), c.get("rpeMax"), 1, 10, "RPE", f"{p}: cardio")
+            if c.get("notes") is not None:
+                text(c["notes"], f"{p}: cardio")
+    order = []
+    for w in o["weeks"]:
+        if not order or order[-1] != w["blockId"]:
+            order.append(w["blockId"])
+    _check(len(set(order)) == len(order), "Plan: las semanas de un bloque deben ser consecutivas.")
+    _check(order == block_ids, "Plan: cada bloque necesita semanas y se lista en el orden en que ocurre.")
+
+
 def parse_key(text):
     """'agk1.<keyId>.<base64url secret>' as shown by the app."""
     parts = (text or "").strip().split(".")
@@ -155,6 +252,14 @@ class Server:
                                         "differences": {"type": "array", "items": {"type": "string"}},
                                         "reasons": {"type": "array", "items": {"type": "string"},
                                                     "description": "Mention each exercise you change by name so the app can attach the reason to that change."}}}},
+        {"name": "create_plan_outline",
+         "description": "Creates a v1 PlanOutline: the general structure of a multi-week plan (typically 12 weeks) for one program: goals, rules (progression, effort, pain, cardio, deloads), the day distribution (A–D) with its exercises, blocks, and one entry per week with block, phase, microcycle, deload flag, set/rep/RIR targets and cardio. Written to the outbox; the user activates it in the app. It contains no prescriptions: each week is then proposed with create_week_proposal, following get_next_week_brief.",
+         "inputSchema": {"type": "object", "additionalProperties": False, "required": ["outline"],
+                         "properties": {"outline": {"type": "object", "description": "PlanOutline v1: id, version, programId, programName, name, goals[], rules[], days[ id, name, focus?, exercises[ exerciseId, name, sets?, notes? ] ], blocks[ id, name, focus? ], weeks[ number (1..N), blockId, phase, microcycle, deload, targets[ label, exerciseIds? (empty = all others), sets?, repsMin?, repsMax?, rirMin?, rirMax? ], cardio?{ modality, minutes?, sessions?, rpeMin?, rpeMax?, notes? }, notes? ]. To revise an active plan, reuse its id with a higher version."}}}},
+        {"name": "get_next_week_brief",
+         "description": "For a program with an activated plan: which week to plan next (computed by the app from the saved weeks and real records), its block, week in block, phase, microcycle, deload flag, targets and cardio, the day templates and rules, and the reference week (highest week with real data) with its recorded sessions plus the week before it for trends. status READY means plan weekNumber now; ALREADY_PLANNED means that week exists and needs records first; CYCLE_COMPLETE means the plan is over (do not create another week).",
+         "inputSchema": {"type": "object", "additionalProperties": False, "required": ["programId"],
+                         "properties": {"programId": {"type": "string"}}}},
         {"name": "list_created_proposals",
          "description": "Lists proposal files this server wrote to the outbox. Whether the user approved them is only known in the app.",
          "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
@@ -165,6 +270,10 @@ class Server:
             return load_context(self.context_path)
         if name == "create_week_proposal":
             return self.create_proposal(args or {})
+        if name == "create_plan_outline":
+            return self.create_outline(args or {})
+        if name == "get_next_week_brief":
+            return self.next_week_brief(args or {})
         if name == "list_created_proposals":
             return sorted(f for f in os.listdir(self.outbox) if f.endswith(".json"))
         raise ToolError(f"Herramienta desconocida: {name}. Este servidor no puede aprobar ni activar propuestas.")
@@ -181,31 +290,86 @@ class Server:
         validate_week(a["week"])
         context = load_context(self.context_path)["context"]
         program = next((p for p in context.get("programs", []) if p.get("id") == a["programId"]), None)
-        _check(program is not None, f"El programa {a['programId']} no está en el contexto autorizado.")
-        _check(any(b.get("id") == a["blockId"] for b in program["blocks"]), f"El bloque {a['blockId']} no existe en ese programa.")
+        outline = next((o for o in context.get("outlines", []) if o.get("programId") == a["programId"]), None)
+        if outline is not None:
+            # With an activated plan, the app decides which week comes next; the agent only fills it in.
+            brief = next((b for b in context.get("nextWeeks", []) if b.get("programId") == a["programId"]), None)
+            _check(brief is not None, "El contexto no incluye la próxima semana del plan; vuelve a exportarlo desde la app.")
+            _check(brief["status"] == "READY", f"No toca planificar una semana nueva: {brief['message']}")
+            _check(a["blockId"] == brief["blockId"],
+                   f"La semana {brief['weekNumber']} del plan pertenece al bloque {brief['blockId']}, no a {a['blockId']}.")
+        else:
+            _check(program is not None, f"El programa {a['programId']} no está en el contexto autorizado.")
+            _check(any(b.get("id") == a["blockId"] for b in program["blocks"]), f"El bloque {a['blockId']} no existe en ese programa.")
         week_ids = [d["id"] for d in a["week"]["days"]] + [a["week"]["id"]] + \
             [x for d in a["week"]["days"] for e in d["exercises"] for x in [e["id"]] + [s["id"] for s in e["sets"]]]
-        reused = set(week_ids) & set(_all_ids(program))
+        reused = set(week_ids) & set(_all_ids(program) if program else [])
         _check(not reused, "La semana reutiliza IDs guardados (" + ", ".join(sorted(reused)[:5]) + "); usa IDs nuevos.")
+        result = self._write("WeekProposal", "proposal",
+                             {"id": a["proposalId"], "version": a["version"], "programId": a["programId"], "blockId": a["blockId"],
+                              "source": "Agente vía MCP", "week": a["week"], "differences": a["differences"], "reasons": a["reasons"]})
+        result["next"] = "Importa el archivo en Auto-Gym > Programas > Intercambio JSON y revísalo en Propuestas de semana. Solo la persona usuaria puede aprobarlo."
+        return result
+
+    def create_outline(self, a):
+        _check(set(a) == {"outline"}, "Campo esperado: outline.")
+        validate_outline(a["outline"])
+        context = load_context(self.context_path)["context"]
+        active = next((o for o in context.get("outlines", []) if o.get("programId") == a["outline"]["programId"]), None)
+        if active is not None:
+            _check(active["id"] == a["outline"]["id"],
+                   f"El programa ya tiene el plan activo {active['id']}; publica una versión nueva de ese plan.")
+            _check(a["outline"]["version"] > active["version"],
+                   f"La versión debe ser posterior a la activa ({active['version']}).")
+        result = self._write("PlanOutline", "outline", a["outline"])
+        result["next"] = "Importa el archivo en Auto-Gym > Programas > Intercambio JSON y actívalo en Planes de periodización. Después, exporta un contexto nuevo para planificar la semana 1."
+        return result
+
+    def next_week_brief(self, a):
+        _check(set(a) == {"programId"} and isinstance(a["programId"], str), "Campo esperado: programId.")
+        context = load_context(self.context_path)["context"]
+        outline = next((o for o in context.get("outlines", []) if o.get("programId") == a["programId"]), None)
+        _check(outline is not None, f"El programa {a['programId']} no tiene un plan activo en el contexto autorizado.")
+        brief = next((b for b in context.get("nextWeeks", []) if b.get("programId") == a["programId"]), None)
+        _check(brief is not None, "El contexto no incluye la próxima semana del plan; vuelve a exportarlo desde la app.")
+        program = next((p for p in context.get("programs", []) if p.get("id") == a["programId"]), None)
+        weeks = [w for b in (program or {}).get("blocks", []) for w in b["weeks"]]
+        sessions = context.get("history", {}).get("sessions", [])
+
+        def recorded(week):
+            if week is None:
+                return []
+            days = {d["id"] for d in week["days"]}
+            return [s for s in sessions if s.get("sessionPlanId") in days]
+
+        ref = brief.get("referenceWeekNumber")
+        reference = weeks[ref - 1] if ref else None
+        previous = weeks[ref - 2] if ref and ref >= 2 else None
+        return {"brief": brief,
+                "plan": {k: outline[k] for k in ("id", "version", "name", "programName", "goals", "rules", "days", "blocks")},
+                "referenceWeek": {"number": ref, "plan": reference, "sessions": recorded(reference)} if reference else None,
+                "previousWeek": {"number": ref - 1, "plan": previous, "sessions": recorded(previous)} if previous else None,
+                "proposal": {"programId": a["programId"], "blockId": brief.get("blockId"),
+                             "weekName": f"Semana {brief['weekNumber']}" if brief.get("weekNumber") else None,
+                             "rule": "Usa IDs nuevos para la semana, días, ejercicios y series. Solo con status READY."}}
+
+    def _write(self, payload_type, key, payload):
         import_id = "mcp-" + uuid.uuid4().hex
-        package = {"schemaVersion": 1, "type": "WeekProposal", "importId": import_id,
+        package = {"schemaVersion": 1, "type": payload_type, "importId": import_id,
                    "createdAt": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-                   "context": None,
-                   "proposal": {"id": a["proposalId"], "version": a["version"], "programId": a["programId"], "blockId": a["blockId"],
-                                "source": "Agente vía MCP", "week": a["week"], "differences": a["differences"], "reasons": a["reasons"]},
-                   "results": None}
+                   "context": None, "proposal": None, "results": None}
+        package[key] = payload
         text = json.dumps(package, ensure_ascii=False, indent=2)
-        _check(len(text.encode("utf-8")) <= MAX_BYTES, "La propuesta supera 1 MiB.")
+        _check(len(text.encode("utf-8")) <= MAX_BYTES, "El paquete supera 1 MiB.")
         if self.sign_key:
-            text = json.dumps(sign(self.sign_key[0], self.sign_key[1], "WeekProposal", text), ensure_ascii=False, indent=2)
+            text = json.dumps(sign(self.sign_key[0], self.sign_key[1], payload_type, text), ensure_ascii=False, indent=2)
             _check(len(text.encode("utf-8")) <= MAX_BYTES, "El envío firmado supera 1 MiB.")
         path = os.path.join(self.outbox, import_id + ".json")
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(text)
         os.replace(tmp, path)  # atomic: the app never sees a partial file
-        return {"file": path, "importId": import_id, "status": "pendiente", "signedWith": self.sign_key[0] if self.sign_key else None,
-                "next": "Importa el archivo en Auto-Gym > Programas > Intercambio JSON y revísalo en Propuestas de semana. Solo la persona usuaria puede aprobarlo."}
+        return {"file": path, "importId": import_id, "status": "pendiente", "signedWith": self.sign_key[0] if self.sign_key else None}
 
     # --- JSON-RPC ----------------------------------------------------------------------------------------------
     def handle(self, msg):
@@ -215,7 +379,7 @@ class Server:
         try:
             if method == "initialize":
                 result = {"protocolVersion": PROTOCOL_VERSION, "serverInfo": SERVER_INFO, "capabilities": {"tools": {}},
-                          "instructions": "Read the authorized Auto-Gym context and create week proposals. You cannot approve them."}
+                          "instructions": "Read the authorized Auto-Gym context, create a multi-week plan outline once, then one week proposal at a time following get_next_week_brief. You cannot approve or activate anything."}
             elif method == "ping":
                 result = {}
             elif method == "tools/list":

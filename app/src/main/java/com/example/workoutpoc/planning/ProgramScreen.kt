@@ -27,7 +27,7 @@ fun ProgramScreen(
     onCatalog: () -> Unit = {}, onProposals: () -> Unit = {},
     annotations: WeekAnnotations = WeekAnnotations(), onDeload: (String, String, Boolean) -> Unit = { _, _, _ -> },
     onBody: () -> Unit = {}, onAdherence: () -> Unit = {}, onQuestions: () -> Unit = {}, onStagnation: () -> Unit = {},
-    onHistory: () -> Unit = {}
+    onHistory: () -> Unit = {}, onPlans: () -> Unit = {}
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -50,6 +50,7 @@ fun ProgramScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 ToolGroup("Planificación con IA", listOf(
+                    Triple("Planes de periodización", AppIcons.Calendar, onPlans),
                     Triple("Propuestas de semana", AppIcons.Bolt, onProposals), Triple("Preguntas de planificación", AppIcons.Question, onQuestions),
                     Triple("Intercambio JSON", AppIcons.Swap, onExchange)))
                 ToolGroup("Datos y análisis", listOf(

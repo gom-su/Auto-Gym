@@ -1,5 +1,6 @@
 package com.example.workoutpoc.proposal
 
+import com.example.workoutpoc.exchange.SessionResult
 import com.example.workoutpoc.exchange.WeekProposal
 import com.example.workoutpoc.planning.*
 import kotlinx.serialization.Serializable
@@ -16,7 +17,9 @@ import kotlin.math.roundToInt
     val rirZero: Severity = Severity.WARNING,
     val newExercise: Severity = Severity.WARNING,
     /** A computed change for which the agent gave no reason mentioning the exercise (AG-07). */
-    val unexplainedChange: Severity = Severity.WARNING
+    val unexplainedChange: Severity = Severity.WARNING,
+    /** Reps, RIR, sets, exercises or deload volume outside the activated multi-week plan's targets for that week. */
+    val outlineTargets: Severity = Severity.WARNING
 ) {
     fun validate() {
         require(schemaVersion == 1) { "Versión de reglas no compatible." }
@@ -55,34 +58,58 @@ object ProposalRules {
      * Evaluates [proposal] against the saved [library]. Comparisons use the base week: the last saved week of the
      * target block. [knownExerciseIds] are IDs seen in programs, history or the catalog.
      */
-    fun evaluate(proposal: WeekProposal, library: ProgramLibrary, knownExerciseIds: Set<String>, settings: RuleSettings): ProposalEvaluation {
+    /**
+     * The program as it would be after approving [p]: the week appended to its block. With an activated [outline],
+     * a block the plan defines is created when its first week arrives, and so is the program itself for week 1.
+     * Null when the target program or block is unknown.
+     */
+    fun appliedProgram(p: WeekProposal, program: TrainingProgram?, outline: PlanOutline?): TrainingProgram? {
+        val planned = outline?.takeIf { it.programId == p.programId }?.blocks?.find { it.id == p.blockId }
+        return when {
+            program == null -> planned?.let { TrainingProgram(p.programId, outline.programName, listOf(TrainingBlock(it.id, it.name, listOf(p.week)))) }
+            program.blocks.any { it.id == p.blockId } -> program.copy(blocks = program.blocks.map { if (it.id == p.blockId) it.copy(weeks = it.weeks + p.week) else it })
+            planned != null -> program.copy(blocks = program.blocks + TrainingBlock(planned.id, planned.name, listOf(p.week)))
+            else -> null
+        }
+    }
+
+    fun evaluate(proposal: WeekProposal, library: ProgramLibrary, knownExerciseIds: Set<String>, settings: RuleSettings,
+                 outline: PlanOutline? = null, sessions: List<SessionResult> = emptyList()): ProposalEvaluation {
         val issues = mutableListOf<ValidationIssue>()
         fun add(code: String, severity: Severity, message: String) { if (severity != Severity.OFF) issues += ValidationIssue(code, severity, message) }
         val week = proposal.week
         val program = library.programs.find { it.id == proposal.programId }
         val block = program?.blocks?.find { it.id == proposal.blockId }
+        val plan = outline?.takeIf { it.programId == proposal.programId }
+        val plannedBlock = plan?.blocks?.find { it.id == proposal.blockId }
         var alreadyApplied = false
+        val differences = mutableListOf<String>()
         when {
-            program == null -> add("PROGRAM_MISSING", Severity.BLOCKING, "El programa ${proposal.programId} no está guardado en este dispositivo.")
-            block == null -> add("BLOCK_MISSING", Severity.BLOCKING, "El bloque ${proposal.blockId} no existe en ${program.name}.")
+            program == null && plannedBlock == null -> add("PROGRAM_MISSING", Severity.BLOCKING, "El programa ${proposal.programId} no está guardado en este dispositivo" +
+                (if (plan != null) " y el bloque ${proposal.blockId} no está en su plan." else "."))
+            program != null && block == null && plannedBlock == null -> add("BLOCK_MISSING", Severity.BLOCKING, "El bloque ${proposal.blockId} no existe en ${program.name}" +
+                (if (plan != null) " ni en su plan." else "."))
             else -> {
-                val existing = program.blocks.flatMap { it.weeks }.find { it.id == week.id }
-                if (existing != null && existing == week && block.weeks.any { it.id == week.id }) alreadyApplied = true
+                val existing = program?.blocks?.flatMap { it.weeks }?.find { it.id == week.id }
+                if (existing != null && existing == week && block?.weeks?.any { it.id == week.id } == true) alreadyApplied = true
                 else if (existing != null) add("WEEK_EXISTS", Severity.BLOCKING,
                     "La semana ${week.id} ya existe en el programa con otro contenido. Una propuesta no reemplaza semanas guardadas; usa un ID nuevo.")
                 else {
                     // Appending must keep the program valid, e.g. no proposal ID may reuse a saved day or set ID.
+                    val applied = appliedProgram(proposal, program, plan)!!
+                    if (program == null) differences += "Crea el programa ${applied.name} con el bloque ${plannedBlock!!.name}."
+                    else if (block == null) differences += "Empieza el bloque ${plannedBlock!!.name} del plan."
                     try {
-                        val plan = ProgramMerge.plan(program, program.copy(blocks = program.blocks.map { if (it.id == block.id) it.copy(weeks = it.weeks + week) else it }))
-                        plan.conflicts.forEach { add("INTEGRITY", Severity.BLOCKING, it) }
+                        if (program == null) ProgramCodec.validate(applied)
+                        else ProgramMerge.plan(program, applied).conflicts.forEach { add("INTEGRITY", Severity.BLOCKING, it) }
                     } catch (e: ProgramValidationException) {
                         add("INTEGRITY", Severity.BLOCKING, "La semana propuesta reutiliza identificadores guardados: ${e.message}")
                     }
                 }
             }
         }
-        val base = block?.weeks?.lastOrNull { it.id != week.id }
-        val differences = mutableListOf<String>()
+        val base = if (plan != null) outlineChecks(proposal, program, plan, alreadyApplied, sessions, settings, ::add)
+            else block?.weeks?.lastOrNull { it.id != week.id }
         val proposed = week.summary()
         week.days.flatMap { it.exercises }.flatMap { e -> e.sets.filter { it.rir == 0 }.map { e.name } }.distinct().forEach {
             add("RIR_ZERO", settings.rirZero, "$it: prescribe series al fallo (RIR 0).")
@@ -121,7 +148,58 @@ object ProposalRules {
         return ProposalEvaluation(proposal, base, issues, differences, alreadyApplied)
     }
 
-    private fun range(a: Int?, b: Int?) = if (a == null) "—" else if (a == b) "$a" else "$a–$b"
+    /**
+     * Checks against the activated plan and returns the base week for comparisons: the previous week of the plan,
+     * skipping deloads unless there is nothing else, so progression after a deload is measured against real work.
+     */
+    private fun outlineChecks(p: WeekProposal, program: TrainingProgram?, plan: PlanOutline, alreadyApplied: Boolean,
+                              sessions: List<SessionResult>, settings: RuleSettings,
+                              add: (String, Severity, String) -> Unit): WeekPlan? {
+        val weeks = PlanOutlines.programWeeks(program)
+        val position = if (alreadyApplied) weeks.indexOfFirst { it.second.id == p.week.id } + 1 else weeks.size + 1
+        PlanOutlines.conflicts(plan, program).forEach { add("OUTLINE_PROGRAM", Severity.BLOCKING, it) }
+        if (position > plan.weeks.size) {
+            add("OUTLINE_COMPLETE", Severity.BLOCKING, "El plan ${plan.name} tiene ${plan.weeks.size} semanas; no se añade una semana $position. El ciclo requiere evaluación.")
+            return weeks.lastOrNull()?.second
+        }
+        val target = plan.weeks[position - 1]
+        if (target.blockId != p.blockId) add("OUTLINE_BLOCK", Severity.BLOCKING,
+            "La semana $position del plan pertenece al bloque ${target.blockId}, no a ${p.blockId}.")
+        val previous = weeks.take(position - 1).map { it.second }
+        if (!alreadyApplied && previous.isNotEmpty()) {
+            val last = previous.last()
+            if (last.days.none { d -> sessions.any { it.sessionPlanId == d.id && PlanOutlines.hasRealData(it) } })
+                add("OUTLINE_NO_DATA", settings.outlineTargets, "La semana ${position - 1} (${last.name}) aún no tiene registros reales; la semana $position se planifica sin evidencia.")
+        }
+        val templateIds = plan.days.flatMap { d -> d.exercises.map { it.exerciseId } }.toSet()
+        val exercises = p.week.days.flatMap { it.exercises }
+        exercises.map { it.exerciseId to it.name }.distinctBy { it.first }.filter { it.first !in templateIds }.forEach { (id, name) ->
+            add("OUTLINE_EXERCISE", settings.outlineTargets, "$name ($id) no está en la distribución de días del plan.")
+        }
+        fun targetFor(exerciseId: String) = target.targets.find { exerciseId in it.exerciseIds } ?: target.targets.find { it.exerciseIds.isEmpty() }
+        exercises.groupBy { it.exerciseId }.forEach { (id, list) ->
+            val t = targetFor(id) ?: return@forEach
+            val name = list.first().name
+            val sets = list.flatMap { it.sets }
+            val reps = sets.mapNotNull { it.reps }
+            val rirs = sets.mapNotNull { it.rir }
+            if ((t.repsMin != null && reps.any { it < t.repsMin }) || (t.repsMax != null && reps.any { it > t.repsMax }))
+                add("OUTLINE_REPS", settings.outlineTargets, "$name: repeticiones ${range(reps.minOrNull(), reps.maxOrNull())} fuera del objetivo ${range(t.repsMin, t.repsMax)} de ${t.label} (semana $position).")
+            if (t.rirMin != null && rirs.any { it < t.rirMin })
+                add("OUTLINE_RIR", settings.outlineTargets, "$name: RIR ${rirs.min()} por debajo del mínimo ${t.rirMin} de ${t.label} (semana $position).")
+            if (t.sets != null && list.any { it.sets.size > t.sets })
+                add("OUTLINE_SETS", settings.outlineTargets, "$name: ${list.maxOf { it.sets.size }} series; el plan indica ${t.sets} en ${t.label} (semana $position).")
+        }
+        val base = previous.withIndex().lastOrNull { (i, _) -> !plan.weeks[i].deload }?.value ?: previous.lastOrNull()
+        if (target.deload && base != null) {
+            val before = base.days.sumOf { d -> d.exercises.sumOf { it.sets.size } }
+            val now = p.week.days.sumOf { d -> d.exercises.sumOf { it.sets.size } }
+            if (now > before) add("OUTLINE_DELOAD", settings.outlineTargets, "La semana $position es de descarga y tiene $now series frente a $before de ${base.name}.")
+        }
+        return base
+    }
+
+    private fun range(a: Int?, b: Int?) = if (a == null && b == null) "—" else if (a == b) "$a" else "${a ?: "—"}–${b ?: "—"}"
     private fun Double.fmt() = if (this == toLong().toDouble()) toLong().toString() else toString()
     private fun Set<Pair<LoadUnit, LoadBasis>>.label() = joinToString(", ") { "${it.first} ${it.second}" }
 }

@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
     private val questionsModel: com.example.workoutpoc.questions.QuestionsViewModel by viewModels()
     private val stagnationModel: com.example.workoutpoc.catalog.StagnationViewModel by viewModels()
     private val historyModel: com.example.workoutpoc.history.HistoryViewModel by viewModels()
+    private val planModel: PlanViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -103,6 +104,13 @@ class MainActivity : ComponentActivity() {
             var showQuestions by rememberSaveable { mutableStateOf(false) }
             var showStagnation by rememberSaveable { mutableStateOf(false) }
             var showHistory by rememberSaveable { mutableStateOf(false) }
+            var showPlans by rememberSaveable { mutableStateOf(false) }
+            BackHandler(showPlans) { showPlans = false }
+            if (showPlans) {
+                val planUi by planModel.ui.collectAsStateWithLifecycle()
+                PlanScreen(planUi, { showPlans = false }, planModel::refresh, planModel::select, planModel::activate)
+                return
+            }
             BackHandler(showHistory) { showHistory = false }
             if (showHistory) {
                 val historyUi by historyModel.ui.collectAsStateWithLifecycle()
@@ -203,7 +211,8 @@ class MainActivity : ComponentActivity() {
                     }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
                     annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true },
                     { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true },
-                    { stagnationModel.refresh(); showStagnation = true }, { historyModel.refresh(); showHistory = true })
+                    { stagnationModel.refresh(); showStagnation = true }, { historyModel.refresh(); showHistory = true },
+                    { planModel.refresh(); showPlans = true })
                 return
             }
             val state by model.state.collectAsStateWithLifecycle()

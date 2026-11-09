@@ -6,14 +6,20 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
-@Serializable enum class ExchangeType { TrainingContext, WeekProposal, TrainingResults }
+@Serializable enum class ExchangeType { TrainingContext, WeekProposal, TrainingResults, PlanOutline }
 @Serializable data class ExchangePackage(
     val schemaVersion: Int, val type: ExchangeType, val importId: String, val createdAt: String,
-    val context: TrainingContext? = null, val proposal: WeekProposal? = null, val results: TrainingResults? = null
+    val context: TrainingContext? = null, val proposal: WeekProposal? = null, val results: TrainingResults? = null,
+    /** General multi-week plan (periodization) the agent follows week by week. */
+    val outline: PlanOutline? = null
 )
 @Serializable data class TrainingContext(
     val programs: List<TrainingProgram>, val phase: String?, val history: TrainingResults,
-    val rules: List<String>, val goals: List<String>, val measurements: List<BodyMeasurement> = emptyList()
+    val rules: List<String>, val goals: List<String>, val measurements: List<BodyMeasurement> = emptyList(),
+    /** Activated multi-week plans, one per program. */
+    val outlines: List<PlanOutline> = emptyList(),
+    /** For each plan: which week to plan next and its targets, computed by the app from programs and history. */
+    val nextWeeks: List<NextWeekBrief> = emptyList()
 )
 @Serializable data class BodyMeasurement(val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String)
 @Serializable data class WeekProposal(
@@ -59,7 +65,7 @@ object ExchangeCodec {
     fun validate(data: ExchangePackage) {
         requireValid(data.schemaVersion == 1, "Versión de intercambio no compatible. Se requiere 1.")
         id(data.importId); date(data.createdAt)
-        requireValid(listOfNotNull(data.context, data.proposal, data.results).size == 1, "Incluye exactamente un contenido: contexto, propuesta o resultados.")
+        requireValid(listOfNotNull(data.context, data.proposal, data.results, data.outline).size == 1, "Incluye exactamente un contenido: contexto, propuesta, resultados o plan.")
         when (data.type) {
             ExchangeType.TrainingContext -> {
                 val c = data.context ?: invalid("Falta el contexto.")
@@ -68,6 +74,13 @@ object ExchangeCodec {
                 results(c.history)
                 unique(c.measurements.map { it.id })
                 c.measurements.forEach { m -> id(m.id); date(m.measuredAt); note(m.metric); note(m.unit); number(m.value) }
+                c.outlines.forEach(PlanOutlines::validate)
+                requireValid(c.outlines.map { it.programId }.distinct().size == c.outlines.size, "Dos planes para el mismo programa.")
+                c.nextWeeks.forEach { b ->
+                    requireValid(c.outlines.any { it.id == b.outlineId && it.version == b.outlineVersion && it.programId == b.programId },
+                        "La próxima semana se refiere a un plan que no está en el contexto.")
+                    note(b.message); b.target?.let { t -> requireValid(t.number == b.weekNumber, "Próxima semana incoherente.") }
+                }
             }
             ExchangeType.WeekProposal -> {
                 val p = data.proposal ?: invalid("Falta la propuesta.")
@@ -77,6 +90,7 @@ object ExchangeCodec {
                 ProgramCodec.validate(TrainingProgram(p.programId, "Propuesta", listOf(TrainingBlock(p.blockId, "Bloque", listOf(p.week)))))
             }
             ExchangeType.TrainingResults -> results(data.results ?: invalid("Faltan los resultados."))
+            ExchangeType.PlanOutline -> PlanOutlines.validate(data.outline ?: invalid("Falta el plan."))
         }
     }
     private fun results(r: TrainingResults) {
