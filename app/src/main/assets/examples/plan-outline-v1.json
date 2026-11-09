@@ -1,0 +1,536 @@
+{
+  "schemaVersion": 1,
+  "type": "PlanOutline",
+  "importId": "example-plan-outline-v1",
+  "createdAt": "2026-11-07T12:00:00Z",
+  "context": null,
+  "proposal": null,
+  "results": null,
+  "outline": {
+    "id": "plan-faro-12s",
+    "version": 1,
+    "programId": "programa-faro",
+    "programName": "Programa ficticio Faro",
+    "name": "Faro 12 semanas (ficticio)",
+    "goals": [
+      "Ejemplo ficticio: recomposición con tres bloques de cuatro semanas."
+    ],
+    "rules": [
+      "Prioridad: dolor y seguridad > técnica > recuperación > adherencia > progresión.",
+      "Doble progresión: sube carga solo si todas las series llegan al máximo del rango con el RIR previsto y técnica estable.",
+      "Sin fallo en compuestos ni bisagra. Día C siempre con menor volumen y RIR 3 o más.",
+      "Molestia 3–4/10: ajustar carga, recorrido o variante; 5/10 o más: detener.",
+      "Cardio: sube velocidad o resistencia, nunca ambas; ante fatiga, baja primero la intensidad."
+    ],
+    "days": [
+      {
+        "id": "A",
+        "name": "Día A",
+        "focus": "Empuje y piernas",
+        "exercises": [
+          {
+            "exerciseId": "sentadilla-ficticia",
+            "name": "Sentadilla ficticia",
+            "sets": 3
+          },
+          {
+            "exerciseId": "press-ficticio",
+            "name": "Press ficticio",
+            "sets": 3
+          },
+          {
+            "exerciseId": "elevacion-ficticia",
+            "name": "Elevación lateral ficticia",
+            "sets": 2
+          }
+        ]
+      },
+      {
+        "id": "B",
+        "name": "Día B",
+        "focus": "Tirón y bisagra",
+        "exercises": [
+          {
+            "exerciseId": "bisagra-ficticia",
+            "name": "Bisagra ficticia",
+            "sets": 3,
+            "notes": "Sin fallo."
+          },
+          {
+            "exerciseId": "remo-ficticio",
+            "name": "Remo ficticio",
+            "sets": 3
+          },
+          {
+            "exerciseId": "curl-ficticio",
+            "name": "Curl ficticio",
+            "sets": 2
+          }
+        ]
+      },
+      {
+        "id": "C",
+        "name": "Día C",
+        "focus": "Recuperación activa, menor volumen",
+        "exercises": [
+          {
+            "exerciseId": "press-ficticio",
+            "name": "Press ficticio",
+            "sets": 2
+          },
+          {
+            "exerciseId": "plancha-ficticia",
+            "name": "Plancha ficticia",
+            "sets": 2
+          }
+        ]
+      },
+      {
+        "id": "D",
+        "name": "Día D",
+        "focus": "Cardio largo",
+        "exercises": [
+          {
+            "exerciseId": "remo-ficticio",
+            "name": "Remo ficticio",
+            "sets": 2
+          }
+        ]
+      }
+    ],
+    "blocks": [
+      {
+        "id": "faro-b1",
+        "name": "Bloque 1 — Base",
+        "focus": "Técnica y tolerancia al volumen."
+      },
+      {
+        "id": "faro-b2",
+        "name": "Bloque 2 — Desarrollo",
+        "focus": "Más carga con el mismo volumen."
+      },
+      {
+        "id": "faro-b3",
+        "name": "Bloque 3 — Intensificación",
+        "focus": "Rangos más bajos, RIR controlado."
+      }
+    ],
+    "weeks": [
+      {
+        "number": 1,
+        "blockId": "faro-b1",
+        "phase": "Base",
+        "microcycle": "Calibración",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 8,
+            "repsMax": 12,
+            "rirMin": 3,
+            "rirMax": 3
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 2,
+            "rirMax": 3
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 25,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        },
+        "notes": "Semana de calibración: cargas conservadoras; registrar todo."
+      },
+      {
+        "number": 2,
+        "blockId": "faro-b1",
+        "phase": "Base",
+        "microcycle": "Acumulación",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 8,
+            "repsMax": 12,
+            "rirMin": 2,
+            "rirMax": 3
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 1,
+            "rirMax": 3
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 30,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 3,
+        "blockId": "faro-b1",
+        "phase": "Base",
+        "microcycle": "Sobrecarga",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 8,
+            "repsMax": 12,
+            "rirMin": 1,
+            "rirMax": 2
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 0,
+            "rirMax": 2
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 35,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 4,
+        "blockId": "faro-b1",
+        "phase": "Base",
+        "microcycle": "Descarga",
+        "deload": true,
+        "targets": [
+          {
+            "label": "Todos (descarga)",
+            "sets": 2,
+            "repsMin": 8,
+            "repsMax": 12,
+            "rirMin": 3,
+            "rirMax": 4
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta",
+          "minutes": 20,
+          "sessions": 2,
+          "rpeMin": 4,
+          "rpeMax": 5
+        }
+      },
+      {
+        "number": 5,
+        "blockId": "faro-b2",
+        "phase": "Desarrollo",
+        "microcycle": "Calibración",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 6,
+            "repsMax": 10,
+            "rirMin": 3,
+            "rirMax": 3
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 2,
+            "rirMax": 3
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 25,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 6,
+        "blockId": "faro-b2",
+        "phase": "Desarrollo",
+        "microcycle": "Acumulación",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 6,
+            "repsMax": 10,
+            "rirMin": 2,
+            "rirMax": 3
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 1,
+            "rirMax": 3
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 30,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 7,
+        "blockId": "faro-b2",
+        "phase": "Desarrollo",
+        "microcycle": "Sobrecarga",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 6,
+            "repsMax": 10,
+            "rirMin": 1,
+            "rirMax": 2
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 0,
+            "rirMax": 2
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 35,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 8,
+        "blockId": "faro-b2",
+        "phase": "Desarrollo",
+        "microcycle": "Descarga",
+        "deload": true,
+        "targets": [
+          {
+            "label": "Todos (descarga)",
+            "sets": 2,
+            "repsMin": 6,
+            "repsMax": 10,
+            "rirMin": 3,
+            "rirMax": 4
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta",
+          "minutes": 20,
+          "sessions": 2,
+          "rpeMin": 4,
+          "rpeMax": 5
+        }
+      },
+      {
+        "number": 9,
+        "blockId": "faro-b3",
+        "phase": "Intensificación",
+        "microcycle": "Calibración",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 5,
+            "repsMax": 8,
+            "rirMin": 3,
+            "rirMax": 3
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 2,
+            "rirMax": 3
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 25,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 10,
+        "blockId": "faro-b3",
+        "phase": "Intensificación",
+        "microcycle": "Acumulación",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 5,
+            "repsMax": 8,
+            "rirMin": 2,
+            "rirMax": 3
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 1,
+            "rirMax": 3
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 30,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 11,
+        "blockId": "faro-b3",
+        "phase": "Intensificación",
+        "microcycle": "Sobrecarga",
+        "deload": false,
+        "targets": [
+          {
+            "label": "Compuestos",
+            "exerciseIds": [
+              "press-ficticio",
+              "remo-ficticio",
+              "sentadilla-ficticia",
+              "bisagra-ficticia"
+            ],
+            "sets": 3,
+            "repsMin": 5,
+            "repsMax": 8,
+            "rirMin": 1,
+            "rirMax": 2
+          },
+          {
+            "label": "Accesorios",
+            "sets": 2,
+            "repsMin": 10,
+            "repsMax": 15,
+            "rirMin": 0,
+            "rirMax": 2
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta o caminata inclinada",
+          "minutes": 35,
+          "sessions": 3,
+          "rpeMin": 5,
+          "rpeMax": 6
+        }
+      },
+      {
+        "number": 12,
+        "blockId": "faro-b3",
+        "phase": "Intensificación",
+        "microcycle": "Descarga",
+        "deload": true,
+        "targets": [
+          {
+            "label": "Todos (descarga)",
+            "sets": 2,
+            "repsMin": 5,
+            "repsMax": 8,
+            "rirMin": 3,
+            "rirMax": 4
+          }
+        ],
+        "cardio": {
+          "modality": "Bicicleta",
+          "minutes": 20,
+          "sessions": 2,
+          "rpeMin": 4,
+          "rpeMax": 5
+        }
+      }
+    ]
+  }
+}

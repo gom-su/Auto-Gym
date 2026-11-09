@@ -6,11 +6,12 @@ Open **Programas → Intercambio JSON**. Import a UTF-8 file or paste JSON, revi
 
 ## Contract v1
 
-Root: required `schemaVersion: 1`, `type`, stable `importId`, and ISO-8601 `createdAt` with timezone. Exactly one matching payload (`context`, `proposal`, `results`) must be present and non-null. Other payloads may be null or omitted. Types are `TrainingContext`, `WeekProposal`, `TrainingResults`.
+Root: required `schemaVersion: 1`, `type`, stable `importId`, and ISO-8601 `createdAt` with timezone. Exactly one matching payload (`context`, `proposal`, `results`, `outline`) must be present and non-null. Other payloads may be null or omitted. Types are `TrainingContext`, `WeekProposal`, `TrainingResults`, `PlanOutline`.
 
 | Payload | Supported fields |
 | --- | --- |
-| TrainingContext | `programs` (ENT-01 TrainingProgram array), nullable `phase`, `history` (TrainingResults), `rules` and `goals` (text arrays), optional `measurements` (defaults to empty) |
+| TrainingContext | `programs` (ENT-01 TrainingProgram array), nullable `phase`, `history` (TrainingResults), `rules` and `goals` (text arrays), optional `measurements` (defaults to empty), optional `outlines` (active plans) and `nextWeeks` (the app's next-week brief per plan); both default to empty, so older contexts still decode |
+| PlanOutline | multi-week plan structure; see [multi-week plans](PLAN_OUTLINE.md) |
 | Measurement | `id`, `measuredAt`, `metric`, finite nonnegative `value`, explicit `unit` (metric/unit labels are preserved without conversion) |
 | WeekProposal | `id`, positive integer `version`, `programId`, `blockId`, `source`, `week` (ENT-01 WeekPlan), `differences` and `reasons` (text arrays) |
 | TrainingResults | `sessions` array; optional nullable legacy `demo` |

@@ -107,7 +107,32 @@ enum class WorkoutEvent {
     /** Planned sessions only: omit the current set, add an extra set of the last exercise, remove an unrecorded extra. */
     SkipSet, AddSet, RemoveExtraSet,
     /** Planned sessions only (ENT-06). */
-    PauseSession, ResumeSession, AddWarmupSet
+    PauseSession, ResumeSession, AddWarmupSet,
+    /** Planned sessions only: on an exercise's first set, move all its unrecorded sets after the next exercise. */
+    PostponeExercise
+}
+
+/** Plan positions [WorkoutState.index, currentEnd) are the current exercise and [currentEnd, nextEnd) the next one. */
+data class PostponeTarget(val currentEnd: Int, val nextEnd: Int, val nextExercise: String)
+
+private fun PlannedSet.sameExercise(o: PlannedSet): Boolean = exercise == o.exercise && exerciseId == o.exerciseId
+
+/**
+ * Where postponing the current exercise would move it, or null when it is not allowed: only for a running planned
+ * session, on the first set of an exercise (nothing of it recorded yet, warm-ups included) and when another exercise follows.
+ * Only unrecorded positions move, so recorded sets and their prescriptions are never affected.
+ */
+fun WorkoutState.postponeTarget(plan: List<PlannedSet>): PostponeTarget? {
+    if (source == null || phase != Phase.ActiveSet || paused != null || index !in plan.indices || index != records.size) return null
+    val current = plan[index]
+    if (index > 0 && plan[index - 1].sameExercise(current)) return null
+    var currentEnd = index + 1
+    while (currentEnd < plan.size && plan[currentEnd].sameExercise(current)) currentEnd++
+    if (currentEnd == plan.size) return null
+    val next = plan[currentEnd]
+    var nextEnd = currentEnd + 1
+    while (nextEnd < plan.size && plan[nextEnd].sameExercise(next)) nextEnd++
+    return PostponeTarget(currentEnd, nextEnd, next.exercise)
 }
 
 /** Every command targets an exact snapshot. Old notification/overlay taps become no-ops. */

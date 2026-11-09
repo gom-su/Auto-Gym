@@ -131,6 +131,10 @@ Open **Programas > Señales de estancamiento** for alerts raised when recent com
 
 Open **Programas > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
 
+### Multi-week plans
+
+An agent turns your periodization document into a 12-week **plan**: blocks, phases, deloads, set/rep/RIR targets, cardio and the A–D day distribution. Import it in **Intercambio JSON** and activate it in **Programas > Planes de periodización**. From then on, the exported context tells the agent which week to plan next and its targets. Each week is still a proposal you approve; week 12 ends the cycle. See [multi-week plans](docs/PLAN_OUTLINE.md) and the [agent prompts](docs/AGENT_PROMPTS.md).
+
 ### Week proposal review (AG-02, AG-05, AG-06)
 
 Open **Programas > Propuestas de semana** to review week proposals imported through **Intercambio JSON**. Each one shows configurable rule results (blocks and warnings), the changes computed against the base week, and the agent's reasons. It stays pending until you approve or reject it; approval appends the week to the program without replacing anything. See [proposal review](docs/PROPOSAL_REVIEW.md).

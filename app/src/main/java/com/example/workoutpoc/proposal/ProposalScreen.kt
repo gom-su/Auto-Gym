@@ -179,6 +179,7 @@ private fun RuleEditor(rules: RuleSettings, enabled: Boolean, onSave: (RuleSetti
         SeverityRow("Series a RIR 0", edited.rirZero) { edited = edited.copy(rirZero = it) }
         SeverityRow("Ejercicio desconocido", edited.newExercise) { edited = edited.copy(newExercise = it) }
         SeverityRow("Cambio sin motivo del agente", edited.unexplainedChange) { edited = edited.copy(unexplainedChange = it) }
+        SeverityRow("Fuera de los objetivos del plan", edited.outlineTargets) { edited = edited.copy(outlineTargets = it) }
         PrimaryAction("Guardar reglas", { onSave(edited) }, enabled = enabled && edited != rules, icon = AppIcons.Check)
     }
 }

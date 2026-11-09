@@ -84,4 +84,29 @@ class DeviationDeviceTest {
         assertTrue(device.hasObject(By.textStartsWith("Nota: Nota ficticia")) ||
             UiScrollable(UiSelector().scrollable(true)).scrollIntoView(UiSelector().textStartsWith("Nota: Nota ficticia")))
     }
+
+    @Test fun postpone_on_first_set_moves_exercise_after_the_next_and_persists() {
+        // Día C: squat ×1, then press ×3. Day A (loaded by prepare) has a single exercise, so it offers no postpone.
+        assertFalse(device.hasObject(By.textStartsWith("Posponer")))
+        runBlocking {
+            val program = app.programs.library.value.programs.first { it.id == "device-test-program" }
+            app.repository.dispatch(app.repository.state.value.command(WorkoutEvent.ResetDemo))
+            val day = program.findDay("week-two", "day-two-c")!!
+            app.repository.load(day.day.toPlannedSets(), day.source)
+            app.repository.dispatch(app.repository.state.value.command(WorkoutEvent.StartWorkout))
+        }
+        click("Posponer Sentadilla ficticia (hacer antes Press ficticio)")
+        val order = listOf("set-two-press-1", "set-two-press-2", "set-two-press-3", "set-two-squat-1")
+        awaitState("Postponed") { s -> s.plan.map { it.prescriptionId } == order && s.index == 0 && s.records.isEmpty() }
+        val onDisk = runBlocking { WorkoutSerializer.readFrom(File(app.filesDir, "datastore/workout.json").inputStream()) }
+        assertEquals(app.repository.state.value, onDisk)
+        assertEquals(SetValues(30, 12, null), onDisk.values)
+
+        click("Completar serie")
+        awaitState("Press 1 recorded") { it.records.singleOrNull()?.prescriptionId == "set-two-press-1" }
+        click("Saltar descanso")
+        awaitState("Press 2 active") { it.phase == Phase.ActiveSet && it.index == 1 }
+        // The press has started, so it can no longer be postponed.
+        assertFalse(device.hasObject(By.textStartsWith("Posponer")))
+    }
 }

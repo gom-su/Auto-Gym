@@ -17,6 +17,7 @@
   - Arguments: `proposalId`, `version`, `programId`, `blockId`, `week` (WeekPlan v1), `differences`, `reasons`.
   - Checks: fields, ID format, value ranges and unit/basis pairs; the program and block must exist in the authorized context; no reuse of saved IDs; non-empty texts.
   - Agents should mention each changed exercise by name in `reasons`, so the app can attach the reason to that change (AG-07).
+- **`create_plan_outline`** and **`get_next_week_brief`:** create a multi-week plan for the user to activate, and read which week to plan next with its targets and reference records. For a program with an active plan, `create_week_proposal` only accepts the week and block the brief names. See [multi-week plans](PLAN_OUTLINE.md) and the [agent prompts](AGENT_PROMPTS.md).
 - **`list_created_proposals`:** lists the files in the outbox. Whether one was approved is only known in the app.
 
 ## Setup

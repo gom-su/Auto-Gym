@@ -15,7 +15,7 @@ Keys live in `sync-v1.json`, which is never backed up to the cloud (`allowBackup
 With a key configured, the MCP server writes each proposal as a signed envelope. Paste or import it in **Intercambio JSON**. Before anything is shown, the app verifies it:
 - **Key:** paired and not revoked.
 - **Signature:** the HMAC-SHA256 covers every field.
-- **Type:** only week proposals are accepted from outside.
+- **Type:** only week proposals and multi-week plans (`PlanOutline`) are accepted from outside.
 - **Age:** at most 7 days old and at most 5 minutes in the future.
 - **Nonce:** not used before.
 - **Content:** valid interchange v1 that matches the declared type.

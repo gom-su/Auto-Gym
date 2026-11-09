@@ -43,6 +43,8 @@ Rules run as pure Kotlin over the proposal and the saved library. The **base wee
 | Unit or load-basis change for an exercise (loads not comparable) | **Block** | Severity |
 | Sets prescribed at RIR 0 | Warning | Severity |
 | Exercise ID unknown to programs, catalog and history | Warning | Severity |
+| With an active plan: week in the plan's block, no week beyond the plan | **Block** | No |
+| With an active plan: reps, RIR, sets, exercises or deload volume off the plan week's targets; previous week without records | Warning | Severity ([details](PLAN_OUTLINE.md#plan-aware-proposal-rules)) |
 
 Each rule can be set to off, warning or block. Settings are stored in `proposals-v1.json`, and every proposal is re-evaluated with the current settings.
 

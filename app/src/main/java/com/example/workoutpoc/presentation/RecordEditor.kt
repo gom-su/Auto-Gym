@@ -94,9 +94,12 @@ fun DeviationActions(state: WorkoutState, dispatch: (WorkoutCommand) -> Unit) {
     val next = state.records.size
     val warmup = (state.phase == Phase.ActiveSet || state.phase == Phase.Resting) && next < plan.size && plan.size < MAX_PLAN_SIZE
     val extra = state.phase != Phase.Idle && plan.size < MAX_PLAN_SIZE
-    if (!removeExtra && !skip && !warmup && !extra) return
+    val postpone = state.postponeTarget(plan)
+    if (!removeExtra && !skip && !warmup && !extra && postpone == null) return
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text("Cambios sobre el plan", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (postpone != null) SecondaryAction("Posponer ${plan[state.index].exercise} (hacer antes ${postpone.nextExercise})",
+            { dispatch(state.command(WorkoutEvent.PostponeExercise)) }, icon = AppIcons.Swap)
         if (removeExtra) SecondaryAction("Quitar serie extra", { dispatch(state.command(WorkoutEvent.RemoveExtraSet)) }, icon = AppIcons.Remove)
         if (skip) SecondaryAction("Omitir serie", { dispatch(state.command(WorkoutEvent.SkipSet)) }, icon = AppIcons.ChevronRight)
         if (warmup) SecondaryAction("Añadir aproximación de ${plan[next].exercise}", { dispatch(state.command(WorkoutEvent.AddWarmupSet)) }, icon = AppIcons.Add)

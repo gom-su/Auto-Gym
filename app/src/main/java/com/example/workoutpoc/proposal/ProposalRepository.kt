@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
 import com.example.workoutpoc.exchange.ExchangeRepository
 import com.example.workoutpoc.exchange.ExchangeType
+import com.example.workoutpoc.exchange.toSessionResult
 import com.example.workoutpoc.planning.ProgramRepository
 import com.example.workoutpoc.planning.ProgramValidationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,7 +69,9 @@ class ProposalRepository(
     private val exchanges: ExchangeRepository,
     private val knownExerciseIds: suspend () -> Set<String>,
     private val now: () -> Long = System::currentTimeMillis,
-    private val sessions: suspend () -> List<com.example.workoutpoc.domain.WorkoutState> = { emptyList() }
+    private val sessions: suspend () -> List<com.example.workoutpoc.domain.WorkoutState> = { emptyList() },
+    /** Activated multi-week plans; a proposal for a planned program is checked against its plan week. */
+    private val outlines: suspend () -> List<com.example.workoutpoc.planning.PlanOutline> = { emptyList() }
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(ProposalState())
@@ -81,8 +84,11 @@ class ProposalRepository(
         val pkg = exchanges.archive.value.packages.find { it.importId == importId && it.type == ExchangeType.WeekProposal }
             ?: throw ProposalException("La propuesta no está guardada.")
         val rules = mutableState.value.rules
-        val base = ProposalRules.evaluate(pkg.proposal!!, programs.library.value, knownExerciseIds(), rules)
-        val explanations = ProposalExplain.explain(base.proposal, base.base, sessions())
+        val states = sessions()
+        val outline = outlines().find { it.programId == pkg.proposal!!.programId }
+        val base = ProposalRules.evaluate(pkg.proposal!!, programs.library.value, knownExerciseIds(), rules, outline,
+            states.distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() })
+        val explanations = ProposalExplain.explain(base.proposal, base.base, states)
         val unexplained = if (rules.unexplainedChange == Severity.OFF) emptyList() else explanations.filter { it.reason == null }.map {
             ValidationIssue("UNEXPLAINED_CHANGE", rules.unexplainedChange, "${it.kind.label} sin motivo específico del agente: ${it.summary}")
         }
@@ -102,10 +108,12 @@ class ProposalRepository(
         val p = evaluation.proposal
         otherVersionDecision(p.id, p.version)
         if (!evaluation.alreadyApplied) {
-            val program = programs.library.value.programs.single { it.id == p.programId }
-            try {
-                programs.importProgram(program.copy(blocks = program.blocks.map { if (it.id == p.blockId) it.copy(weeks = it.weeks + p.week) else it }))
-            } catch (e: ProgramValidationException) { throw ProposalException(e.message ?: "Conflicto al añadir la semana.") }
+            val program = programs.library.value.programs.find { it.id == p.programId }
+            // With an activated plan, week 1 creates the program and a block's first week creates that block.
+            val applied = ProposalRules.appliedProgram(p, program, outlines().find { it.programId == p.programId })
+                ?: throw ProposalException("El programa o el bloque de la propuesta ya no existe.")
+            try { programs.importProgram(applied) }
+            catch (e: ProgramValidationException) { throw ProposalException(e.message ?: "Conflicto al añadir la semana.") }
         }
         record(importId, evaluation, DecisionStatus.APPROVED)
     }

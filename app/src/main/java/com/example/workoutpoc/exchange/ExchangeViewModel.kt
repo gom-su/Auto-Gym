@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.workoutpoc.planning.PlanOutlines
 import com.example.workoutpoc.planning.ProgramValidationException
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.*
@@ -102,7 +103,13 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
         val results = TrainingResults(sessions, state.toDemoV1()?.let { DemoSnapshot(it) })
         val data = ExchangePackage(1, type, UUID.randomUUID().toString(), Instant.now().toString(),
             context = if (type == ExchangeType.TrainingContext) planningContext().let { (phase, goals, rules) ->
-                TrainingContext(app.programs.library.value.programs, phase, results, rules, goals) } else null,
+                app.outlines.restore()
+                val outlines = app.outlines.outlines.value.active
+                val programs = app.programs.library.value.programs
+                // The next week of each plan is computed here, deterministically, so the agent never guesses it.
+                TrainingContext(programs, phase, results, rules, goals, outlines = outlines,
+                    nextWeeks = outlines.map { o -> PlanOutlines.brief(o, programs.find { it.id == o.programId }, sessions) })
+            } else null,
             results = if (type == ExchangeType.TrainingResults) results else null)
         ExchangeCodec.encode(data)
         mutableUi.value = mutableUi.value.copy(preview = data, message = "Revisa el JSON antes de compartir. El contexto local no incluye mediciones corporales. La demo se identifica como tal.")

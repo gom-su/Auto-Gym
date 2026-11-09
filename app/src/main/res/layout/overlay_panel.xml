@@ -26,6 +26,7 @@
             <Button android:id="@+id/overlay_rir4" style="@style/OverlayControl" android:text="4+"/>
         </LinearLayout>
         <Button android:id="@+id/overlay_complete" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="8dp" android:text="Completar serie" android:textColor="#1A3700" android:textStyle="bold" android:textAllCaps="false" android:textSize="16sp" android:background="@drawable/overlay_primary_background" android:stateListAnimator="@null"/>
+        <Button android:id="@+id/overlay_postpone" style="@style/OverlayWide" android:text="Posponer ejercicio" android:visibility="gone"/>
     </LinearLayout>
     <LinearLayout android:id="@+id/overlay_rest" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
         <TextView android:id="@+id/overlay_countdown" android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center" android:textSize="36sp" android:textColor="#B4EE80"/>

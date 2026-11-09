@@ -47,7 +47,7 @@ sealed interface Verification {
 object SignedSync {
     const val VERSION = 1
     /** Only proposals may arrive from outside; they still need explicit approval in the app. */
-    val ALLOWED_TYPES = setOf(ExchangeType.WeekProposal.name)
+    val ALLOWED_TYPES = setOf(ExchangeType.WeekProposal.name, ExchangeType.PlanOutline.name)
     const val MAX_AGE_MILLIS = 7 * 86_400_000L
     const val MAX_SKEW_MILLIS = 5 * 60_000L
     private val json = Json { ignoreUnknownKeys = false }
@@ -87,7 +87,7 @@ object SignedSync {
         val expected = mac(secret, signingInput(e))
         if (!MessageDigest.isEqual(expected.toByteArray(), e.mac.lowercase().toByteArray()))
             return Verification.Rejected("Firma no válida: el contenido fue alterado o no procede de la clave emparejada.")
-        if (e.payloadType !in ALLOWED_TYPES) return Verification.Rejected("Tipo ${e.payloadType} no permitido desde fuera: solo se aceptan propuestas de semana.")
+        if (e.payloadType !in ALLOWED_TYPES) return Verification.Rejected("Tipo ${e.payloadType} no permitido desde fuera: solo se aceptan propuestas de semana y planes.")
         val issued = runCatching { Instant.parse(e.issuedAt).toEpochMilli() }.getOrNull() ?: return Verification.Rejected("Fecha de emisión no válida.")
         if (issued > nowMillis + MAX_SKEW_MILLIS) return Verification.Rejected("Fecha de emisión en el futuro.")
         if (issued < nowMillis - MAX_AGE_MILLIS) return Verification.Rejected("Envío caducado (más de 7 días).")

@@ -99,4 +99,34 @@ class PlannedSessionDeviceTest {
         find(By.res(pkg, "overlay_title").text("Descanso"), "rest shown")
         find(By.res(pkg, "close"), "close overlay").click()
     }
+
+    @Test fun overlay_postpones_the_first_set_of_an_exercise_only() {
+        device.executeShellCommand("cmd statusbar collapse")
+        app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        find(By.text("Programas"), "Programas").click()
+        scrollTo("Programa ficticio variable").click()
+        scrollTo("Semana 2").click()
+        scrollTo("Día C").click() // squat ×1, then press ×3
+        scrollTo("Entrenar este día").click()
+        awaitState("Day loaded") { it.phase == Phase.Idle && it.source?.dayId == "day-two-c" }
+        scrollTo("Iniciar — Burbuja flotante").click()
+        awaitState("Started") { it.phase == Phase.ActiveSet }
+        find(By.res(pkg, "overlay_title").text("Sentadilla ficticia"), "overlay exercise")
+        device.pressHome()
+        device.waitForIdle()
+
+        find(By.res(pkg, "overlay_postpone"), "postpone button").click()
+        awaitState("Postponed") { it.plan.first().prescriptionId == "set-two-press-1" && it.plan.last().prescriptionId == "set-two-squat-1" }
+        find(By.res(pkg, "overlay_title").text("Press ficticio"), "next exercise shown")
+        val onDisk = runBlocking { WorkoutSerializer.readFrom(File(app.filesDir, "datastore/workout.json").inputStream()) }
+        assertEquals(app.repository.state.value, onDisk)
+
+        find(By.res(pkg, "overlay_complete"), "complete").click()
+        awaitState("Press 1 recorded") { it.phase == Phase.Resting && it.records.size == 1 }
+        find(By.res(pkg, "overlay_skip"), "skip rest").click()
+        awaitState("Press 2 active") { it.phase == Phase.ActiveSet && it.index == 1 }
+        find(By.res(pkg, "overlay_title").text("Press ficticio"), "press 2 shown")
+        assertFalse("Postpone is only for an exercise's first set", device.hasObject(By.res(pkg, "overlay_postpone")))
+        find(By.res(pkg, "close"), "close overlay").click()
+    }
 }
