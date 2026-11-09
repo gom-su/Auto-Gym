@@ -203,9 +203,14 @@ object PlanOutlines {
     private fun check(valid: Boolean, message: String) { if (!valid) throw ProgramValidationException(message) }
 }
 
-/** Activated plans, one per program. A newer version of the same plan replaces it; earlier versions are kept. */
+/**
+ * Activated plans. Only one plan is active at a time: activating another program's plan sets the current one aside
+ * in [inactive], from where it can be activated again. A newer version of the same plan replaces it; earlier
+ * versions are kept in [replaced].
+ */
 @Serializable data class PlanOutlineStore(
-    val schemaVersion: Int = 1, val active: List<PlanOutline> = emptyList(), val replaced: List<PlanOutline> = emptyList()
+    val schemaVersion: Int = 1, val active: List<PlanOutline> = emptyList(), val replaced: List<PlanOutline> = emptyList(),
+    val inactive: List<PlanOutline> = emptyList()
 ) {
     fun forProgram(programId: String) = active.find { it.programId == programId }
 }
@@ -216,7 +221,7 @@ object PlanOutlineStoreSerializer : Serializer<PlanOutlineStore> {
     fun validate(s: PlanOutlineStore) {
         require(s.schemaVersion == 1) { "Versión no compatible." }
         require(s.active.map { it.programId }.distinct().size == s.active.size) { "Dos planes activos para el mismo programa." }
-        (s.active + s.replaced).forEach(PlanOutlines::validate)
+        (s.active + s.replaced + s.inactive).forEach(PlanOutlines::validate)
     }
     override suspend fun readFrom(input: InputStream): PlanOutlineStore = try {
         json.decodeFromString<PlanOutlineStore>(input.readBytes().decodeToString()).also(::validate)
@@ -246,7 +251,8 @@ class PlanOutlineRepository(private val store: DataStore<PlanOutlineStore>) {
         mutable.value = store.updateData { s ->
             val current = s.forProgram(outline.programId)
             when {
-                current == null -> s.copy(active = s.active + outline)
+                // The one active plan; any other program's plan is kept as inactive, never deleted.
+                current == null -> s.copy(active = listOf(outline), inactive = (s.inactive + s.active).filter { it != outline })
                 current == outline -> { result = ActivationResult.ALREADY_ACTIVE; s }
                 current.id != outline.id -> throw ProgramValidationException(
                     "El programa ya tiene el plan '${current.name}' (${current.id}). Publica una versión nueva de ese plan para cambiarlo.")

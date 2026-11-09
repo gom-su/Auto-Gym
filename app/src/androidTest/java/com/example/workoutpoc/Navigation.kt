@@ -34,11 +34,11 @@ fun UiDevice.openSettings() {
     gear.click(); waitForIdle()
 }
 
-/** Opens the session from the card on Hoy, whatever its state (prepared, running or finished). */
+/** Opens the session from Hoy: the running session's card, or the row of a prepared or finished one. */
 fun UiDevice.openSessionFromHoy() {
     awaitHome()
-    for (label in listOf("Volver a la sesión", "Abrir sesión", "Ver resumen")) {
-        if (hasObject(By.text(label))) { clickText(label); return }
+    for (label in listOf("Volver a la sesión", "Sesión preparada", "Ver resumen de")) {
+        if (hasObject(By.textStartsWith(label))) { clickText(label); return }
     }
     clickText("Volver a la sesión")
 }

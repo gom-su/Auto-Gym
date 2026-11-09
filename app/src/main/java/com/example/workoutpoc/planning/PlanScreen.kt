@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class OutlineStatus(val label: String, val tone: Tone) {
-    ACTIVE("Activo", Tone.Success), PENDING("Pendiente", Tone.Warning), REPLACED("Reemplazado", Tone.Info)
+    ACTIVE("Activo", Tone.Success), PENDING("Pendiente", Tone.Warning), REPLACED("Reemplazado", Tone.Info), INACTIVE("Inactivo", Tone.Info)
 }
 
 /** An imported plan (archived in Intercambio JSON) with what activating it would mean. */
@@ -45,9 +45,12 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
         val imported = app.exchanges.archive.value.packages.filter { it.type == ExchangeType.PlanOutline }
         // Active plans first, even when they were activated from an export that is no longer archived.
         val entries = (store.active.map { a -> imported.find { it.outline == a }?.importId to a } +
-            imported.filter { p -> store.active.none { it == p.outline } }.map { it.importId to it.outline!! })
+            imported.filter { p -> store.active.none { it == p.outline } }.map { it.importId to it.outline!! } +
+            // Set aside by activating another plan, even if its export is no longer archived.
+            store.inactive.filter { o -> imported.none { it.outline == o } }.map { "inactivo-${it.id}-${it.version}" to it })
             .map { (importId, o) ->
-                val status = when { o in store.active -> OutlineStatus.ACTIVE; o in store.replaced -> OutlineStatus.REPLACED; else -> OutlineStatus.PENDING }
+                val status = when { o in store.active -> OutlineStatus.ACTIVE; o in store.replaced -> OutlineStatus.REPLACED
+                    o in store.inactive -> OutlineStatus.INACTIVE; else -> OutlineStatus.PENDING }
                 OutlineEntry(importId ?: "activo-${o.id}", o, status, PlanOutlines.conflicts(o, programs.find { it.id == o.programId }))
             }
         mutableUi.value = mutableUi.value.copy(ready = true, entries = entries,
@@ -61,7 +64,7 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
         val result = app.outlines.activate(entry.outline, app.programs.library.value.programs.find { it.id == entry.outline.programId })
         refresh()
         mutableUi.value = mutableUi.value.copy(message = when (result) {
-            ActivationResult.ACTIVATED -> "Plan activado. Prepara el contexto en Intercambio JSON: incluye el plan y la próxima semana para el agente."
+            ActivationResult.ACTIVATED -> "Plan activado; es el único activo y Hoy lo sigue. Prepara el contexto en Intercambio JSON: incluye el plan y la próxima semana para el agente."
             ActivationResult.REPLACED -> "Versión ${entry.outline.version} activada. La anterior se conserva como reemplazada; las semanas guardadas no cambian."
             ActivationResult.ALREADY_ACTIVE -> "Este plan ya estaba activo. No se cambió nada."
         })
@@ -121,7 +124,7 @@ fun PlanScreen(ui: PlanUiState, onBack: () -> Unit, onRetry: () -> Unit, onSelec
             ui.briefs[o.id]?.takeIf { entry.status == OutlineStatus.ACTIVE }?.let { b ->
                 item { Banner(b.message, title = "Próxima semana", tone = if (b.status == BriefStatus.READY) Tone.Success else Tone.Info) }
             }
-            if (entry.status == OutlineStatus.PENDING) item {
+            if (entry.status == OutlineStatus.PENDING || entry.status == OutlineStatus.INACTIVE) item {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     if (entry.conflicts.isNotEmpty()) Banner(entry.conflicts.joinToString("\n") { "• $it" }, title = "No coincide con el programa guardado", tone = Tone.Error)
                     PrimaryAction("Activar plan", { onActivate(entry) }, enabled = !ui.busy && entry.conflicts.isEmpty(), icon = AppIcons.Check)

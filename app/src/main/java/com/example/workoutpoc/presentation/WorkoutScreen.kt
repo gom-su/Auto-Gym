@@ -31,7 +31,9 @@ fun WorkoutScreen(
     onNotificationSettings: () -> Unit, retry: () -> Unit,
     now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit, onBack: () -> Unit,
     archivedCount: Int = 0, onEditRecord: (RecordEdit) -> Unit = {},
-    onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {}
+    onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {},
+    /** The default logging mode in Ajustes is the floating panel: offer it first. */
+    overlayFirst: Boolean = false
 ) {
     var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
     var confirmReset by remember(state.sessionId) { mutableStateOf(false) }
@@ -59,7 +61,7 @@ fun WorkoutScreen(
                 if (!notificationEnabled) Banner("Notificaciones desactivadas. Puedes registrar aquí; para probar el modo A, habilítalas en Ajustes.",
                     tone = Tone.Warning, action = { TextButton(onClick = onNotificationSettings) { Text("Ajustes de notificaciones") } })
                 if (state.phase != Phase.Completed)
-                    ModeSection(demo, ready, compact = active, overlayGranted, onNotificationMode, onOverlayMode)
+                    ModeSection(demo, ready, compact = active, overlayGranted, onNotificationMode, onOverlayMode, overlayFirst)
                 when (state.phase) {
                     Phase.Idle -> PlanPreview(plan, demo)
                     Phase.ActiveSet -> ActiveSetCard(state, plan, demo, dispatch)
@@ -136,7 +138,7 @@ private fun SessionHeader(state: WorkoutState, plan: List<PlannedSet>, source: S
  */
 @Composable
 private fun ModeSection(demo: Boolean, ready: Boolean, compact: Boolean, overlayGranted: Boolean,
-                        onNotificationMode: () -> Unit, onOverlayMode: () -> Unit) {
+                        onNotificationMode: () -> Unit, onOverlayMode: () -> Unit, overlayFirst: Boolean) {
     val notification = if (demo) "Iniciar demo — Notificación" else "Iniciar — Notificación"
     val overlay = if (demo) "Iniciar demo — Burbuja flotante" else "Iniciar — Burbuja flotante"
     val hint = if (overlayGranted) "Panel flotante autorizado. Cambia de modo sin perder tu progreso."
@@ -149,8 +151,14 @@ private fun ModeSection(demo: Boolean, ready: Boolean, compact: Boolean, overlay
         }
         // No caption here: during a set every line pushes "Completar serie" further from reach.
     } else Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        PrimaryAction(notification, onNotificationMode, enabled = ready, icon = AppIcons.Notifications, tall = true)
-        SecondaryAction(overlay, onOverlayMode, enabled = ready, icon = AppIcons.Bubble, tall = true)
+        // The default mode from Ajustes is the primary action; the other stays one tap away.
+        if (overlayFirst) {
+            PrimaryAction(overlay, onOverlayMode, enabled = ready, icon = AppIcons.Bubble, tall = true)
+            SecondaryAction(notification, onNotificationMode, enabled = ready, icon = AppIcons.Notifications, tall = true)
+        } else {
+            PrimaryAction(notification, onNotificationMode, enabled = ready, icon = AppIcons.Notifications, tall = true)
+            SecondaryAction(overlay, onOverlayMode, enabled = ready, icon = AppIcons.Bubble, tall = true)
+        }
         SupportingText(hint, small = true)
     }
 }

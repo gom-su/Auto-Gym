@@ -40,6 +40,7 @@ class PlannedSessionDeviceTest {
         runBlocking {
             app.programs.restore()
             app.programs.importProgram(ProgramCodec.decode(text))
+            app.settings.restore(); app.settings.setLoggingMode(com.example.workoutpoc.settings.LoggingMode.NOTIFICATION)
             app.repository.restore()
             app.repository.dispatch(app.repository.state.value.command(WorkoutEvent.ResetDemo))
         }
@@ -74,10 +75,10 @@ class PlannedSessionDeviceTest {
         scrollTo("Día A").click()
         scrollTo("Entrenar este día").click()
         find(By.text("SESIÓN PLANIFICADA"), "planned session header")
-        awaitState("Day loaded") { it.phase == Phase.Idle && it.source?.dayId == "day-one-a" }
+        // Entrenar starts the day at once, in the default mode (notification); the panel is one tap away.
+        awaitState("Day started") { it.phase == Phase.ActiveSet && it.source?.dayId == "day-one-a" }
 
         scrollTo("Iniciar — Burbuja flotante").click()
-        awaitState("Started") { it.phase == Phase.ActiveSet }
         find(By.res(pkg, "overlay_title").text("Sentadilla ficticia"), "overlay exercise")
         find(By.res(pkg, "overlay_weight").text("20 kg"), "prefilled load")
         find(By.res(pkg, "overlay_reps").text("8 reps"), "prefilled reps")
@@ -108,9 +109,8 @@ class PlannedSessionDeviceTest {
         scrollTo("Semana 2").click()
         scrollTo("Día C").click() // squat ×1, then press ×3
         scrollTo("Entrenar este día").click()
-        awaitState("Day loaded") { it.phase == Phase.Idle && it.source?.dayId == "day-two-c" }
+        awaitState("Day started") { it.phase == Phase.ActiveSet && it.source?.dayId == "day-two-c" }
         scrollTo("Iniciar — Burbuja flotante").click()
-        awaitState("Started") { it.phase == Phase.ActiveSet }
         find(By.res(pkg, "overlay_title").text("Sentadilla ficticia"), "overlay exercise")
         device.pressHome()
         device.waitForIdle()

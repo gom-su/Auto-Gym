@@ -1,6 +1,6 @@
 # Recording planned days (ENT-04)
 
-Open the **Plan** tab, pick a saved program, a week and a day, then tap **Entrenar este día**. The day is loaded as the next session and the session screen opens; it shows the program, week and day, and **Iniciar — Notificación** / **Iniciar — Burbuja flotante** start it. The floating panel and the notification show the current exercise, its set number and the prefilled load and repetitions. A set without deviations is recorded with a single **Completar** tap, which is written to the session file before the UI reflects it.
+Open the **Plan** tab, pick a saved program, a week and a day, then tap **Entrenar este día**. The day is loaded as the next session, the session screen opens and the session starts in the default logging mode (**Ajustes › Registrar con**). **Hoy** offers the same with **Entrenar** for the next day. The screen shows the program, week and day; **Iniciar — Notificación** / **Iniciar — Burbuja flotante** switch modes. The floating panel and the notification show the current exercise, its set number and the prefilled load and repetitions. A set without deviations is recorded with a single **Completar** tap, which is written to the session file before the UI reflects it.
 
 The built-in demo is unchanged and remains the default whenever no planned day is loaded.
 

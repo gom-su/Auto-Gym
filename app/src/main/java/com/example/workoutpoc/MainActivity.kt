@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private val stagnationModel: com.example.workoutpoc.catalog.StagnationViewModel by viewModels()
     private val historyModel: com.example.workoutpoc.history.HistoryViewModel by viewModels()
     private val planModel: PlanViewModel by viewModels()
+    private val homeModel: com.example.workoutpoc.home.HomeViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -99,6 +100,7 @@ class MainActivity : ComponentActivity() {
                 workoutApp.safely { RestTimer(workoutApp.repository).run() }
             }
         }
+        lifecycleScope.launch { workoutApp.safely { workoutApp.settings.restore() } }
         setContent { com.example.workoutpoc.ui.theme.AutoGymTheme { Screens() } }
     }
 
@@ -146,7 +148,21 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun TabContent(nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
         when (nav.tab) {
-            Tab.Hoy -> com.example.workoutpoc.home.HomeScreen(state, ready, error, model::retry, nav::openSession) { nav.select(Tab.Plan) }
+            Tab.Hoy -> {
+                val home by homeModel.ui.collectAsStateWithLifecycle()
+                // Recomputed on arrival and whenever the session moves on (a set recorded, a session closed).
+                LaunchedEffect(state.sessionId, state.phase, state.records.size) { homeModel.refresh() }
+                com.example.workoutpoc.home.HomeScreen(state, ready, error, home, model::retry, nav::openSession,
+                    { programId, weekId, dayId -> trainDay(programId, weekId, dayId, nav) }) { link ->
+                    when (link) {
+                        com.example.workoutpoc.home.HomeLink.Plan -> nav.select(Tab.Plan)
+                        com.example.workoutpoc.home.HomeLink.Proposals -> nav.open(Destination.Proposals)
+                        com.example.workoutpoc.home.HomeLink.Questions -> nav.open(Destination.Questions)
+                        com.example.workoutpoc.home.HomeLink.Exchange -> nav.open(Destination.Exchange)
+                        com.example.workoutpoc.home.HomeLink.Body -> { nav.select(Tab.Progreso); nav.section = ProgressSection.Cuerpo }
+                    }
+                }
+            }
             Tab.Plan -> {
                 val library by programModel.library.collectAsStateWithLifecycle()
                 val ui by programModel.ui.collectAsStateWithLifecycle()
@@ -154,7 +170,7 @@ class MainActivity : ComponentActivity() {
                 ProgramScreen(library, ui, nav::back,
                     { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
-                    { program, weekId, dayId -> trainDay(program, weekId, dayId, nav) },
+                    { program, weekId, dayId -> trainDay(program.id, weekId, dayId, nav) },
                     annotations, programModel::setDeload) { nav.open(Destination.Plans) }
             }
             Tab.Progreso -> {
@@ -204,7 +220,9 @@ class MainActivity : ComponentActivity() {
             Destination.Settings -> com.example.workoutpoc.settings.SettingsScreen(nav::back, notificationEnabled, overlayGranted,
                 ::openNotificationSettings, ::openOverlaySettings, { nav.open(Destination.Migration) }, { nav.open(Destination.Exchange) },
                 // The demo is the session only while no planned session is loaded.
-                demoAvailable = state.source == null, onDemo = nav::openSession)
+                demoAvailable = state.source == null, onDemo = nav::openSession,
+                loggingMode = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode,
+                onLoggingMode = { mode -> lifecycleScope.launch { workoutApp.safely { workoutApp.settings.setLoggingMode(mode) } } })
             Destination.Plans -> {
                 val planUi by planModel.ui.collectAsStateWithLifecycle()
                 PlanScreen(planUi, nav::back, planModel::refresh, planModel::select, planModel::activate)
@@ -244,14 +262,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Loads a saved program day as the next session and opens it; a session in progress is never replaced. */
-    private fun trainDay(program: TrainingProgram, weekId: String, dayId: String, nav: AppNavigator) {
+    /**
+     * Loads a saved program day as the next session, opens it and starts it in the default logging mode (Ajustes).
+     * A session in progress is never replaced.
+     */
+    private fun trainDay(programId: String, weekId: String, dayId: String, nav: AppNavigator) {
         lifecycleScope.launch {
             workoutApp.safely {
-                val selection = program.findDay(weekId, dayId)
+                workoutApp.programs.restore()
+                val selection = workoutApp.programs.library.value.programs.find { it.id == programId }?.findDay(weekId, dayId)
                 if (selection == null) programModel.showMessage("El día ya no existe en el programa guardado.")
                 else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source)) {
-                    com.example.workoutpoc.data.LoadResult.LOADED -> { message = null; nav.openSession() }
+                    com.example.workoutpoc.data.LoadResult.LOADED -> {
+                        message = null; nav.openSession()
+                        if (workoutApp.settings.settings.value.loggingMode == com.example.workoutpoc.settings.LoggingMode.OVERLAY) startOverlay()
+                        else requestMode(WorkoutOverlayService.HIDE)
+                    }
                     com.example.workoutpoc.data.LoadResult.SESSION_IN_PROGRESS -> programModel.showMessage(
                         "Hay una sesión en curso. Termínala o ciérrala antes de cargar otro día; no se ha reemplazado.")
                 }
@@ -263,14 +289,7 @@ class MainActivity : ComponentActivity() {
     private fun SessionScreen(nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
         val archived by model.archived.collectAsStateWithLifecycle()
         WorkoutScreen(state, ready, error, notificationEnabled, overlayGranted, message, editorVisible,
-                { editorVisible = false }, { requestMode(WorkoutOverlayService.HIDE) }, {
-                    if (Settings.canDrawOverlays(this)) requestMode(WorkoutOverlayService.SHOW)
-                    else {
-                        message = "Autoriza Mostrar sobre otras aplicaciones para abrir el panel flotante."
-                        try { overlayPermission.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
-                        catch (e: RuntimeException) { Log.w("WorkoutActivity", "Ajustes de overlay no disponibles", e); message = "Este dispositivo no permite abrir los ajustes del panel flotante." }
-                    }
-                }, ::openNotificationSettings, model::retry, { clockSnapshot(this) }, ::dispatch, nav::back, archived.sessions.size, { edit ->
+                { editorVisible = false }, { requestMode(WorkoutOverlayService.HIDE) }, ::startOverlay, ::openNotificationSettings, model::retry, { clockSnapshot(this) }, ::dispatch, nav::back, archived.sessions.size, { edit ->
                     lifecycleScope.launch {
                         try {
                             if (!workoutApp.repository.edit(edit.sessionId, edit.revision, edit.index, edit.status, edit.values, edit.notes))
@@ -295,7 +314,18 @@ class MainActivity : ComponentActivity() {
                             workoutApp.repository.removeCardio(s.sessionId, s.revision, entry.id)
                         }
                     }
-                })
+                }, overlayFirst = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode ==
+                    com.example.workoutpoc.settings.LoggingMode.OVERLAY)
+    }
+
+    /** Floating panel mode; asks for the overlay permission first when it is missing (granting then opens the panel). */
+    private fun startOverlay() {
+        if (Settings.canDrawOverlays(this)) requestMode(WorkoutOverlayService.SHOW)
+        else {
+            message = "Autoriza Mostrar sobre otras aplicaciones para abrir el panel flotante."
+            try { overlayPermission.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+            catch (e: RuntimeException) { Log.w("WorkoutActivity", "Ajustes de overlay no disponibles", e); message = "Este dispositivo no permite abrir los ajustes del panel flotante." }
+        }
     }
     private fun openNotificationSettings() {
         startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))

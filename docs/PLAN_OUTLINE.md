@@ -13,7 +13,7 @@ The AI proposes, the deterministic rules validate, the user approves. That appli
 ## Cycle
 
 1. **Create the plan once.** Give the agent your periodization document and the [plan prompt](AGENT_PROMPTS.md#1-crear-el-plan-de-12-semanas). It writes a `PlanOutline`: either with the MCP tool `create_plan_outline` or as a pasted v1 JSON package.
-2. **Import and activate it.** Import the file in **Agente > Intercambio JSON** (signed envelopes are accepted too). Open **Agente > Planes de periodización**, review the weeks and day templates, and tap **Activar plan**. Activating creates no weeks and changes nothing in the program.
+2. **Import and activate it.** Import the file in **Agente > Intercambio JSON** (signed envelopes are accepted too). Open **Agente > Planes de periodización**, review the weeks and day templates, and tap **Activar plan**. Activating creates no weeks and changes nothing in the program. Only one plan is active at a time: activating another program's plan keeps the previous one as **Inactivo**, and you can activate it again later. Hoy follows the active plan.
 3. **Each week:**
    1. Export the context (**Intercambio JSON > Preparar contexto local**). Besides programs and history, it now contains `outlines` and `nextWeeks`: for each active plan, the week to plan and its targets.
    2. The agent follows the [weekly prompt](AGENT_PROMPTS.md#2-generar-la-semana-siguiente). It reads `get_next_week_brief` (or `nextWeeks` without MCP) and proposes exactly that week.
