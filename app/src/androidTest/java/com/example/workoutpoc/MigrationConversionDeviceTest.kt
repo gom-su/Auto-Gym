@@ -40,11 +40,11 @@ class MigrationConversionDeviceTest {
         }
         assertEquals(programId, MigrationConversion.convert(app.migrations.archive.value.documents.single { it.id == document.id }).program?.id)
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @Test fun reviewed_migration_becomes_a_program_week() {
-        device.clickText("Programas")
+        device.openSettings()
         device.clickText("Migrar desde Obsidian")
         val entry = device.scrollToText("Semana de conversión ficticia · 0 pendientes", contains = true)
         assertNotNull(entry)

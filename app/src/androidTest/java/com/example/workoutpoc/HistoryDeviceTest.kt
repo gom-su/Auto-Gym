@@ -44,12 +44,12 @@ class HistoryDeviceTest {
             repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @Test fun archived_session_is_listed_with_its_sets_and_edits() {
-        device.clickText("Programas")
-        device.clickText("Historial de sesiones")
+        device.openTab("Progreso")
+        device.clickText("Sesiones")
         // Newest first: the session just archived is at the top of the list.
         val title = device.wait(Until.findObject(By.textContains("Programa ficticio de historial · Semana 1 · Día A")), 10_000)
         assertNotNull(title)
@@ -83,8 +83,8 @@ class HistoryDeviceTest {
     }
 
     @Test fun csv_export_writes_the_recorded_sets_through_the_save_dialog() {
-        device.clickText("Programas")
-        device.clickText("Historial de sesiones")
+        device.openTab("Progreso")
+        device.clickText("Sesiones")
         device.clickText("Exportar CSV")
         // The save picker may open on a location that cannot hold files (e.g. Recent): choose Downloads explicitly.
         pickerTap(By.desc("Show roots"), required = false)

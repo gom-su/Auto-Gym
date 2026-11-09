@@ -1,6 +1,6 @@
 # Recording planned days (ENT-04)
 
-Open **Programas**, pick a saved program, a week and a day, then tap **Entrenar este día**. The day is loaded as the next session; the main screen shows the program, week and day, and **Iniciar — Notificación** / **Iniciar — Burbuja flotante** start it. The floating panel and the notification show the current exercise, its set number and the prefilled load and repetitions. A set without deviations is recorded with a single **Completar** tap, which is written to the session file before the UI reflects it.
+Open the **Plan** tab, pick a saved program, a week and a day, then tap **Entrenar este día**. The day is loaded as the next session and the session screen opens; it shows the program, week and day, and **Iniciar — Notificación** / **Iniciar — Burbuja flotante** start it. The floating panel and the notification show the current exercise, its set number and the prefilled load and repetitions. A set without deviations is recorded with a single **Completar** tap, which is written to the session file before the UI reflects it.
 
 The built-in demo is unchanged and remains the default whenever no planned day is loaded.
 
@@ -93,7 +93,7 @@ The v1 JSON contract is unchanged. The legacy `demo` snapshot is now a frozen `D
   - legacy snapshot restore;
   - v1 export validity and the frozen demo field set.
 - `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings (previously 67), none new in kind.
-- `PlannedSessionDeviceTest` passed in all 5 runs. The flow goes Programas → day → **Entrenar este día** → floating panel → one **Completar** tap with the overlay over the launcher. The test then reads `workout.json` from disk to check that the record and its prescription ID are already persisted.
+- `PlannedSessionDeviceTest` passed in all 5 runs. The flow goes Plan → day → **Entrenar este día** → floating panel → one **Completar** tap with the overlay over the launcher. The test then reads `workout.json` from disk to check that the record and its prescription ID are already persisted.
 - Existing device tests on this emulator are flaky, with or without this change:
   - With this change, every existing case passed at least once in combined or isolated runs, except `ExchangeDeviceTest.documentExportReimportIntoCleanStoreAndPreserveSession`.
   - That case fails the same way on unmodified `main`: its picker file does not appear. Unmodified `main` failed 2 of 6 cases in a comparable combined run.

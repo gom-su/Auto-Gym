@@ -29,7 +29,7 @@ fun WorkoutScreen(
     overlayGranted: Boolean, message: String?, editorVisible: Boolean,
     onDismissEditor: () -> Unit, onNotificationMode: () -> Unit, onOverlayMode: () -> Unit,
     onNotificationSettings: () -> Unit, retry: () -> Unit,
-    now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit, onPrograms: () -> Unit,
+    now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit, onBack: () -> Unit,
     archivedCount: Int = 0, onEditRecord: (RecordEdit) -> Unit = {},
     onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {}
 ) {
@@ -43,19 +43,9 @@ fun WorkoutScreen(
     Scaffold(topBar = {
         Column {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Icon(AppIcons.Fitness, contentDescription = null, tint = colors.primary)
-                        Text("Auto-Gym")
-                    }
-                },
-                actions = {
-                    // Always visible: the library is the way into everything beyond today's session.
-                    FilledTonalButton(onClick = onPrograms, modifier = Modifier.padding(end = Spacing.sm)) {
-                        Icon(AppIcons.Library, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(Spacing.sm)); Text("Programas")
-                    }
-                })
+                title = { Text(if (demo) "Demo" else "Sesión") },
+                // Leaving keeps the session running; Hoy shows the way back to it.
+                navigationIcon = { IconButton(onClick = onBack) { Icon(AppIcons.Back, contentDescription = "Volver a Hoy") } })
             BusyTrack(!ready)
         }
     }) { padding ->

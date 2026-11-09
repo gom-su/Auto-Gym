@@ -17,7 +17,7 @@ An exposure without a completed work set has **no value**: all sets omitted, or 
 
 Program v1 has no deload field, and deloads are never inferred from names or lighter loads.
 
-- **Marking:** open a saved program's week in **Programas** and turn on **Semana de descarga**. The whole row is the toggle and announces its state.
+- **Marking:** open a saved program's week in the **Plan** tab and turn on **Semana de descarga**. The whole row is the toggle and announces its state.
 - **Storage:** the mark is stored locally in `week-annotations-v1.json`, keyed by program and week ID. It never changes the prescription or the program contract.
 - **Display:** exposures from a marked week are drawn as hollow points on a shaded band, so a planned lighter week does not read as a regression. Their cards are labelled "· descarga". The chart's accessibility description lists every point with its date, value (or "sin dato") and deload status.
 
@@ -27,7 +27,7 @@ Program v1 has no deload field, and deloads are never inferred from names or lig
   - **Gaps and deloads:** an all-omitted session yields a gap for every metric; top load, repetitions and volume match their expected values; marking the week flags its exposures without changing any value; time order is kept.
   - **Deload marks:** they are idempotent, durable and validated (duplicates rejected without reset).
 - `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
-- `PerformanceChartDeviceTest` runs through the real UI: Programas → week → **Semana de descarga**. The mark is persisted, and the catalog chart for that exercise shows the deload description and the "· descarga" exposure card.
+- `PerformanceChartDeviceTest` runs through the real UI: Plan → week → **Semana de descarga**. The mark is persisted, and the catalog chart for that exercise shows the deload description and the "· descarga" exposure card.
 - The device-test drag helper dismisses the keyboard if a drag opened it, and the deload row is fully toggleable.
 - In a combined run of 8 device cases, all 6 analytics, proposal, catalog and session cases passed. `ProgramDeviceTest` (stale node) and `WorkoutDeviceTest` (notification RIR step) hit intermittent failures seen before this change.
 

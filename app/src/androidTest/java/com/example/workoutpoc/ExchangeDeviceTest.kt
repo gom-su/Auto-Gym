@@ -40,7 +40,7 @@ class ExchangeDeviceTest {
             measurements = listOf(BodyMeasurement("fictional-mass", "2026-10-30T12:00:00Z", "mass", 70.5, "KG"))))
         app.exchanges.save(original)
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        click("Programas"); click("Intercambio JSON")
+        device.awaitHome(); device.openTab("Agente"); click("Intercambio JSON")
         click("TrainingContext · device-privacy-context")
         click("Copiar JSON")
         assertNotNull(device.scrollToText("JSON copiado al portapapeles del sistema."))
@@ -70,7 +70,7 @@ class ExchangeDeviceTest {
         click("Preparar resultados locales")
         assertTrue(device.wait(Until.hasObject(By.text("Revisar intercambio")), 5000))
         click("Cerrar revisión")
-        click("Volver a programas"); click("Volver al entrenamiento")
+        click("Volver a Agente"); device.openTab("Hoy")
     }
     @Test fun documentExportReimportIntoCleanStoreAndPreserveSession() = runBlocking {
         device.wakeUp(); device.executeShellCommand("wm dismiss-keyguard"); device.executeShellCommand("cmd statusbar collapse")
@@ -90,7 +90,7 @@ class ExchangeDeviceTest {
         val before = app.repository.state.value
         val programs = app.programs.library.value
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        click("Programas"); click("Intercambio JSON"); click("Importar archivo de intercambio")
+        device.awaitHome(); device.openTab("Agente"); click("Intercambio JSON"); click("Importar archivo de intercambio")
         device.wait(Until.findObject(By.desc("Show roots")), 3000)?.click()
         pickerClick("Downloads"); pickerClick("ent-02-input.json")
         assertTrue(device.wait(Until.hasObject(By.text("Revisar intercambio")), 5000))
@@ -136,6 +136,6 @@ class ExchangeDeviceTest {
         assertTrue(device.wait(Until.hasObject(By.textContains("JSON incompatible")), 5000))
         val evidence = File(app.getExternalFilesDir(null), "ent-02-evidence").apply { mkdirs() }
         device.takeScreenshot(File(evidence, "last-ui.png")); device.dumpWindowHierarchy(File(evidence, "last-ui.xml"))
-        click("Volver a programas"); click("Volver al entrenamiento")
+        click("Volver a Agente"); device.openTab("Hoy")
     }
 }

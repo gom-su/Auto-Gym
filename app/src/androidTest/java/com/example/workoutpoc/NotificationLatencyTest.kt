@@ -105,6 +105,7 @@ class NotificationLatencyTest {
         device.pressBack()
         app.startActivity(Intent(app, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        device.openDemo()
         device.wait(Until.findObject(By.text("Iniciar demo — Burbuja flotante")), 8_000)!!.click()
         assertNotNull(device.wait(Until.findObject(By.res(pkg, "overlay_weight_plus")), 5_000))
         device.pressHome()
@@ -139,6 +140,7 @@ class NotificationLatencyTest {
         runBlocking { app.repository.restore(); app.repository.dispatch(app.repository.state.value.command(WorkoutEvent.ResetDemo)) }
         app.startActivity(Intent(app, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        device.openDemo()
         device.wait(Until.findObject(By.text("Iniciar demo — Notificación")), 8_000)!!.click()
         device.waitForIdle()
         device.pressHome()

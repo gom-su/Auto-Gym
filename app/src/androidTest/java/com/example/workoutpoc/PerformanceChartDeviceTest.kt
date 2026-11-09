@@ -45,7 +45,7 @@ class PerformanceChartDeviceTest {
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         // Wait for the first screen: dragging before it is drawn would drag the launcher instead.
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @After fun capture() {
@@ -55,15 +55,16 @@ class PerformanceChartDeviceTest {
     }
 
     @Test fun deload_mark_is_shown_in_the_exercise_chart() {
-        device.clickText("Programas")
+        device.openTab("Plan")
         device.clickText("Programa ficticio de gráficas")
         device.clickText("Semana 1 ·")
         device.clickText("Semana de descarga")
         val end = SystemClock.elapsedRealtime() + 6_000
         while (!app.weekAnnotations.annotations.value.isDeload(programId, "week-one") && SystemClock.elapsedRealtime() < end) SystemClock.sleep(100)
         assertTrue(app.weekAnnotations.annotations.value.isDeload(programId, "week-one"))
-        // Back would leave Programas entirely; the catalog entry is on the same screen.
-        device.clickText("Catálogo de ejercicios")
+        // The exercise charts live in Progreso › Ejercicios.
+        device.openTab("Progreso")
+        device.clickText("Ejercicios")
         device.clickText("ID squat")
         // ANA-05: the week comparison lists the deload week without comparing it.
         assertNotNull(device.scrollToText("Comparación por semana y fase"))

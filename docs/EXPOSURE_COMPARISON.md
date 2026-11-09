@@ -1,6 +1,6 @@
 # Comparison between exposures (ANA-01)
 
-Open **Programas > Catálogo de ejercicios** and select an exercise. Its history is grouped into **exposures**: one session's work on that exercise, across every week and program, matched by the stable exercise ID. Renames don't split it (ENT-08).
+Open **Progreso > Ejercicios** and select an exercise. Its history is grouped into **exposures**: one session's work on that exercise, across every week and program, matched by the stable exercise ID. Renames don't split it (ENT-08).
 
 ## What each exposure shows
 

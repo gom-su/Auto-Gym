@@ -1,6 +1,6 @@
 # Goals and adherence (ANA-04)
 
-Open **Programas > Adherencia y objetivos**.
+Open **Progreso > Adherencia**.
 
 ## Four separate categories
 

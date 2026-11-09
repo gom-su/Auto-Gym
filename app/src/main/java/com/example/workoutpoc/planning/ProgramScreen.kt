@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -22,12 +21,10 @@ import com.example.workoutpoc.ui.theme.tabular
 @Composable
 fun ProgramScreen(
     library: ProgramLibrary, ui: ProgramUiState, onBack: () -> Unit, onFile: () -> Unit,
-    onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit, onExchange: () -> Unit,
-    onMigration: () -> Unit, onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> },
-    onCatalog: () -> Unit = {}, onProposals: () -> Unit = {},
+    onText: (String) -> Unit, onSave: () -> Unit, onCancel: () -> Unit, onRetry: () -> Unit,
+    onTrainDay: (TrainingProgram, String, String) -> Unit = { _, _, _ -> },
     annotations: WeekAnnotations = WeekAnnotations(), onDeload: (String, String, Boolean) -> Unit = { _, _, _ -> },
-    onBody: () -> Unit = {}, onAdherence: () -> Unit = {}, onQuestions: () -> Unit = {}, onStagnation: () -> Unit = {},
-    onHistory: () -> Unit = {}, onPlans: () -> Unit = {}
+    onPlans: () -> Unit = {}
 ) {
     var text by remember { mutableStateOf("") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -42,23 +39,12 @@ fun ProgramScreen(
     val level = listOf(selectedId, weekId, dayId, ui.preview?.id)
     var shownLevel by rememberSaveable { mutableStateOf(level.toString()) }
     LaunchedEffect(level) {
-        // Item 0 is the tool grid; what follows it is the current level of the library.
+        // Item 0 is the plans row; what follows it is the current level of the library.
         if (shownLevel != level.toString()) { shownLevel = level.toString(); listState.scrollToItem(1) }
     }
     AppScreen("Programas", "Volver al entrenamiento", onBack, busy = ui.busy, message = ui.message, listState = listState) {
-        // A compact grid grouped by purpose, so the program library stays close to the top of the screen.
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                ToolGroup("Planificación con IA", listOf(
-                    Triple("Planes de periodización", AppIcons.Calendar, onPlans),
-                    Triple("Propuestas de semana", AppIcons.Bolt, onProposals), Triple("Preguntas de planificación", AppIcons.Question, onQuestions),
-                    Triple("Intercambio JSON", AppIcons.Swap, onExchange)))
-                ToolGroup("Datos y análisis", listOf(
-                    Triple("Historial de sesiones", AppIcons.History, onHistory), Triple("Catálogo de ejercicios", AppIcons.List, onCatalog),
-                    Triple("Adherencia y objetivos", AppIcons.Target, onAdherence), Triple("Señales de estancamiento", AppIcons.Trend, onStagnation),
-                    Triple("Peso y composición corporal", AppIcons.Scale, onBody), Triple("Migrar desde Obsidian", AppIcons.Upload, onMigration)))
-            }
-        }
+        // Item 0 is the way to the multi-week plan; what follows it is the current level of the library.
+        item { NavRow("Planes de periodización", onPlans, icon = AppIcons.Calendar, supporting = "El ciclo de varias semanas y su semana actual") }
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar biblioteca", onRetry, enabled = !ui.busy) }
         if (ui.preview != null) {
             item { SectionHeader("Revisar importación", supporting = "Revisa las semanas antes de guardar. Importar conserva la planificación; no inicia ni activa un entrenamiento.") }
@@ -197,30 +183,4 @@ private fun LoadUnit.label() = when (this) {
 private fun LoadBasis.label() = when (this) {
     LoadBasis.TOTAL -> "total"; LoadBasis.PER_SIDE -> "por lado"; LoadBasis.PER_HAND -> "por mano"
     LoadBasis.BODYWEIGHT -> "peso corporal"; LoadBasis.MACHINE_SETTING -> "configuración de máquina"
-}
-
-/** Labelled group of tool tiles, three per row with equal heights. */
-@Composable
-private fun ToolGroup(title: String, entries: List<Triple<String, ImageVector, () -> Unit>>) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Eyebrow(title.uppercase())
-        entries.chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                row.forEach { (label, icon, action) -> ToolTile(label, icon, action, Modifier.weight(1f).fillMaxHeight()) }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolTile(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier) {
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = 88.dp), shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.md), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            IconBadge(icon, size = 36.dp)
-            Text(label, style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 3)
-        }
-    }
 }

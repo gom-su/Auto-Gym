@@ -17,7 +17,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import com.example.workoutpoc.planning.*
 import androidx.core.app.NotificationManagerCompat
@@ -30,6 +29,18 @@ import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.overlay.WorkoutOverlayService
 import com.example.workoutpoc.presentation.*
 import com.example.workoutpoc.timer.*
+import com.example.workoutpoc.navigation.*
+import com.example.workoutpoc.ui.LocalBackLabel
+import com.example.workoutpoc.ui.LocalTabRoot
+import com.example.workoutpoc.ui.TabRoot
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -91,135 +102,167 @@ class MainActivity : ComponentActivity() {
         setContent { com.example.workoutpoc.ui.theme.AutoGymTheme { Screens() } }
     }
 
-    /** Destination switch. Each flag is saveable; the system Back closes the topmost open screen. */
+    /**
+     * Bottom tabs plus the screens opened over them. The system Back closes the top screen first, then returns to Hoy,
+     * then leaves the app. Each tab and screen keeps its own saved state (scroll, drill-down) while away.
+     */
     @Composable
     private fun Screens() {
-            var showPrograms by rememberSaveable { mutableStateOf(false) }
-            var showExchange by rememberSaveable { mutableStateOf(false) }
-            var showMigration by rememberSaveable { mutableStateOf(false) }
-            var showCatalog by rememberSaveable { mutableStateOf(false) }
-            var showProposals by rememberSaveable { mutableStateOf(false) }
-            var showBody by rememberSaveable { mutableStateOf(false) }
-            var showAdherence by rememberSaveable { mutableStateOf(false) }
-            var showQuestions by rememberSaveable { mutableStateOf(false) }
-            var showStagnation by rememberSaveable { mutableStateOf(false) }
-            var showHistory by rememberSaveable { mutableStateOf(false) }
-            var showPlans by rememberSaveable { mutableStateOf(false) }
-            BackHandler(showPlans) { showPlans = false }
-            if (showPlans) {
+        val nav = rememberAppNavigator()
+        val saved = rememberSaveableStateHolder()
+        val state by model.state.collectAsStateWithLifecycle()
+        val ready by model.ready.collectAsStateWithLifecycle()
+        val error by model.error.collectAsStateWithLifecycle()
+        // The notification's Edit opens the quick editor, which lives on the session screen.
+        LaunchedEffect(editorVisible) { if (editorVisible && nav.top != Destination.Session) nav.openSession() }
+        BackHandler(nav.canGoBack) { nav.back() }
+        val top = nav.top
+        if (top != null) {
+            LaunchedEffect(top) {
+                when (top) {
+                    Destination.Plans -> planModel.refresh(); Destination.Proposals -> proposalModel.refresh()
+                    Destination.Questions -> questionsModel.refresh(); else -> Unit
+                }
+            }
+            CompositionLocalProvider(LocalBackLabel provides nav.backLabel()) {
+                saved.SaveableStateProvider("screen-${top.name}") { DestinationScreen(top, nav, state, ready, error) }
+            }
+            return
+        }
+        val root = remember(nav.tab, nav.section) {
+            TabRoot(nav.tab.label, actions = { SettingsAction { nav.open(Destination.Settings) } },
+                header = if (nav.tab == Tab.Progreso) ({ ProgressSections(nav.section) { nav.section = it } }) else null)
+        }
+        Scaffold(bottomBar = { AppBottomBar(nav.tab, nav::select) }, contentWindowInsets = WindowInsets(0)) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
+                CompositionLocalProvider(LocalTabRoot provides root) {
+                    val key = if (nav.tab == Tab.Progreso) "tab-Progreso-${nav.section.name}" else "tab-${nav.tab.name}"
+                    saved.SaveableStateProvider(key) { TabContent(nav, state, ready, error) }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun TabContent(nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
+        when (nav.tab) {
+            Tab.Hoy -> com.example.workoutpoc.home.HomeScreen(state, ready, error, model::retry, nav::openSession) { nav.select(Tab.Plan) }
+            Tab.Plan -> {
+                val library by programModel.library.collectAsStateWithLifecycle()
+                val ui by programModel.ui.collectAsStateWithLifecycle()
+                val annotations by programModel.annotations.collectAsStateWithLifecycle()
+                ProgramScreen(library, ui, nav::back,
+                    { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
+                    { program, weekId, dayId -> trainDay(program, weekId, dayId, nav) },
+                    annotations, programModel::setDeload) { nav.open(Destination.Plans) }
+            }
+            Tab.Progreso -> {
+                LaunchedEffect(nav.section) {
+                    when (nav.section) {
+                        ProgressSection.Ejercicios -> catalogModel.refresh(); ProgressSection.Sesiones -> historyModel.refresh()
+                        ProgressSection.Adherencia -> adherenceModel.refresh(); ProgressSection.Cuerpo -> bodyModel.refresh()
+                        ProgressSection.Estancamiento -> stagnationModel.refresh()
+                    }
+                }
+                when (nav.section) {
+                    ProgressSection.Ejercicios -> {
+                        val catalog by catalogModel.catalog.collectAsStateWithLifecycle()
+                        val catalogUi by catalogModel.ui.collectAsStateWithLifecycle()
+                        com.example.workoutpoc.catalog.CatalogScreen(catalog, catalogUi, nav::back,
+                            catalogModel::refresh, catalogModel::save, catalogModel.annotations.collectAsStateWithLifecycle().value)
+                    }
+                    ProgressSection.Sesiones -> {
+                        val historyUi by historyModel.ui.collectAsStateWithLifecycle()
+                        com.example.workoutpoc.history.HistoryScreen(historyUi, nav::back, historyModel::refresh,
+                            { historyModel.prepareCsv { name -> historyDestination.launch(name) } })
+                    }
+                    ProgressSection.Adherencia -> {
+                        val adherenceUi by adherenceModel.ui.collectAsStateWithLifecycle()
+                        AdherenceScreen(adherenceUi, nav::back, adherenceModel::refresh, adherenceModel::setNotPerformed, adherenceModel::saveGoals)
+                    }
+                    ProgressSection.Cuerpo -> {
+                        val log by bodyModel.log.collectAsStateWithLifecycle()
+                        val bodyUi by bodyModel.ui.collectAsStateWithLifecycle()
+                        com.example.workoutpoc.body.BodyScreen(log, bodyUi, nav::back, bodyModel::refresh, bodyModel::add, bodyModel::remove)
+                    }
+                    ProgressSection.Estancamiento -> {
+                        val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
+                        com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, nav::back, stagnationModel::refresh, stagnationModel::setSettings)
+                    }
+                }
+            }
+            Tab.Agente -> com.example.workoutpoc.agent.AgentScreen({ nav.open(Destination.Plans) }, { nav.open(Destination.Questions) },
+                { nav.open(Destination.Proposals) }, { nav.open(Destination.Exchange) })
+        }
+    }
+
+    @Composable
+    private fun DestinationScreen(top: Destination, nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
+        when (top) {
+            Destination.Session -> SessionScreen(nav, state, ready, error)
+            Destination.Settings -> com.example.workoutpoc.settings.SettingsScreen(nav::back, notificationEnabled, overlayGranted,
+                ::openNotificationSettings, ::openOverlaySettings, { nav.open(Destination.Migration) }, { nav.open(Destination.Exchange) },
+                // The demo is the session only while no planned session is loaded.
+                demoAvailable = state.source == null, onDemo = nav::openSession)
+            Destination.Plans -> {
                 val planUi by planModel.ui.collectAsStateWithLifecycle()
-                PlanScreen(planUi, { showPlans = false }, planModel::refresh, planModel::select, planModel::activate)
-                return
+                PlanScreen(planUi, nav::back, planModel::refresh, planModel::select, planModel::activate)
             }
-            BackHandler(showHistory) { showHistory = false }
-            if (showHistory) {
-                val historyUi by historyModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.history.HistoryScreen(historyUi, { showHistory = false }, historyModel::refresh,
-                    { historyModel.prepareCsv { name -> historyDestination.launch(name) } })
-                return
-            }
-            BackHandler(showStagnation) { showStagnation = false }
-            if (showStagnation) {
-                val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, { showStagnation = false }, stagnationModel::refresh, stagnationModel::setSettings)
-                return
-            }
-            BackHandler(showQuestions) { showQuestions = false }
-            if (showQuestions) {
+            Destination.Questions -> {
                 val questionsUi by questionsModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.questions.QuestionsScreen(questionsUi, { showQuestions = false }, questionsModel::refresh,
+                com.example.workoutpoc.questions.QuestionsScreen(questionsUi, nav::back, questionsModel::refresh,
                     questionsModel::answer, questionsModel::reopen)
-                return
             }
-            BackHandler(showAdherence) { showAdherence = false }
-            if (showAdherence) {
-                val adherenceUi by adherenceModel.ui.collectAsStateWithLifecycle()
-                AdherenceScreen(adherenceUi, { showAdherence = false }, adherenceModel::refresh, adherenceModel::setNotPerformed, adherenceModel::saveGoals)
-                return
-            }
-            BackHandler(showBody) { showBody = false }
-            if (showBody) {
-                val log by bodyModel.log.collectAsStateWithLifecycle()
-                val bodyUi by bodyModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.body.BodyScreen(log, bodyUi, { showBody = false }, bodyModel::refresh, bodyModel::add, bodyModel::remove)
-                return
-            }
-            BackHandler(showProposals) { showProposals = false }
-            if (showProposals) {
+            Destination.Proposals -> {
                 val proposalState by proposalModel.state.collectAsStateWithLifecycle()
                 val proposalUi by proposalModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { showProposals = false; programModel.restore() },
+                com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { nav.back(); programModel.restore() },
                     proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
                     proposalModel::addExpectation, proposalModel::setManualOutcome)
-                return
             }
-            BackHandler(showCatalog) { showCatalog = false }
-            if (showCatalog) {
-                val catalog by catalogModel.catalog.collectAsStateWithLifecycle()
-                val catalogUi by catalogModel.ui.collectAsStateWithLifecycle()
-                com.example.workoutpoc.catalog.CatalogScreen(catalog, catalogUi, { showCatalog = false },
-                    catalogModel::refresh, catalogModel::save, catalogModel.annotations.collectAsStateWithLifecycle().value)
-                return
-            }
-            BackHandler(showMigration) { showMigration = false }
-            if (showMigration) {
+            Destination.Migration -> {
                 val archive by migrationModel.archive.collectAsStateWithLifecycle()
                 val migrationUi by migrationModel.ui.collectAsStateWithLifecycle()
-                MigrationScreen(archive, migrationUi, { showMigration = false },
+                MigrationScreen(archive, migrationUi, nav::back,
                     // Providers disagree on Markdown MIME types (including null). Validate bytes, not the picker label.
                     { migrationFile.launch(arrayOf("*/*")) },
                     migrationModel::previewText, migrationModel::save, migrationModel::cancel,
                     migrationModel::select, migrationModel::restore, migrationModel::acknowledge, migrationModel::convert)
-                return
             }
-            BackHandler(showExchange) { showExchange = false }
-            if (showExchange) {
+            Destination.Exchange -> {
                 val archive by exchangeModel.archive.collectAsStateWithLifecycle()
                 val exchangeUi by exchangeModel.ui.collectAsStateWithLifecycle()
-                ExchangeScreen(archive, exchangeUi, { showExchange = false },
+                ExchangeScreen(archive, exchangeUi, nav::back,
                     { exchangeFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     exchangeModel::previewText, exchangeModel::save, exchangeModel::cancel,
                     exchangeModel::restore, exchangeModel::select, exchangeModel::generate,
                     { include -> if (exchangeModel.stageExport(include)) exchangeDestination.launch("auto-gym-interchange-v1.json") },
                     exchangeModel::copy, exchangeModel.syncState.collectAsStateWithLifecycle().value,
                     exchangeModel::pair, exchangeModel::revoke, exchangeModel::copyKey)
-                return
             }
-            BackHandler(showPrograms) { showPrograms = false }
-            if (showPrograms) {
-                val library by programModel.library.collectAsStateWithLifecycle()
-                val ui by programModel.ui.collectAsStateWithLifecycle()
-                val annotations by programModel.annotations.collectAsStateWithLifecycle()
-                ProgramScreen(library, ui, { showPrograms = false },
-                    { programFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
-                    programModel::previewText, programModel::save, programModel::cancelPreview, programModel::restore,
-                    { showExchange = true }, { showMigration = true }, { program, weekId, dayId ->
-                        lifecycleScope.launch {
-                            workoutApp.safely {
-                                val selection = program.findDay(weekId, dayId)
-                                if (selection == null) programModel.showMessage("El día ya no existe en el programa guardado.")
-                                else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source)) {
-                                    com.example.workoutpoc.data.LoadResult.LOADED -> {
-                                        message = null
-                                        showPrograms = false
-                                    }
-                                    com.example.workoutpoc.data.LoadResult.SESSION_IN_PROGRESS -> programModel.showMessage(
-                                        "Hay una sesión en curso. Termínala o ciérrala antes de cargar otro día; no se ha reemplazado.")
-                                }
-                            }
-                        }
-                    }, { catalogModel.refresh(); showCatalog = true }, { proposalModel.refresh(); showProposals = true },
-                    annotations, programModel::setDeload, { bodyModel.refresh(); showBody = true },
-                    { adherenceModel.refresh(); showAdherence = true }, { questionsModel.refresh(); showQuestions = true },
-                    { stagnationModel.refresh(); showStagnation = true }, { historyModel.refresh(); showHistory = true },
-                    { planModel.refresh(); showPlans = true })
-                return
+        }
+    }
+
+    /** Loads a saved program day as the next session and opens it; a session in progress is never replaced. */
+    private fun trainDay(program: TrainingProgram, weekId: String, dayId: String, nav: AppNavigator) {
+        lifecycleScope.launch {
+            workoutApp.safely {
+                val selection = program.findDay(weekId, dayId)
+                if (selection == null) programModel.showMessage("El día ya no existe en el programa guardado.")
+                else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source)) {
+                    com.example.workoutpoc.data.LoadResult.LOADED -> { message = null; nav.openSession() }
+                    com.example.workoutpoc.data.LoadResult.SESSION_IN_PROGRESS -> programModel.showMessage(
+                        "Hay una sesión en curso. Termínala o ciérrala antes de cargar otro día; no se ha reemplazado.")
+                }
             }
-            val state by model.state.collectAsStateWithLifecycle()
-            val ready by model.ready.collectAsStateWithLifecycle()
-            val error by model.error.collectAsStateWithLifecycle()
-            val archived by model.archived.collectAsStateWithLifecycle()
-            WorkoutScreen(state, ready, error, notificationEnabled, overlayGranted, message, editorVisible,
+        }
+    }
+
+    @Composable
+    private fun SessionScreen(nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
+        val archived by model.archived.collectAsStateWithLifecycle()
+        WorkoutScreen(state, ready, error, notificationEnabled, overlayGranted, message, editorVisible,
                 { editorVisible = false }, { requestMode(WorkoutOverlayService.HIDE) }, {
                     if (Settings.canDrawOverlays(this)) requestMode(WorkoutOverlayService.SHOW)
                     else {
@@ -227,9 +270,7 @@ class MainActivity : ComponentActivity() {
                         try { overlayPermission.launch(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
                         catch (e: RuntimeException) { Log.w("WorkoutActivity", "Ajustes de overlay no disponibles", e); message = "Este dispositivo no permite abrir los ajustes del panel flotante." }
                     }
-                }, {
-                    startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
-                }, model::retry, { clockSnapshot(this) }, ::dispatch, { showPrograms = true }, archived.sessions.size, { edit ->
+                }, ::openNotificationSettings, model::retry, { clockSnapshot(this) }, ::dispatch, nav::back, archived.sessions.size, { edit ->
                     lifecycleScope.launch {
                         try {
                             if (!workoutApp.repository.edit(edit.sessionId, edit.revision, edit.index, edit.status, edit.values, edit.notes))
@@ -256,6 +297,16 @@ class MainActivity : ComponentActivity() {
                     }
                 })
     }
+    private fun openNotificationSettings() {
+        startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+    }
+
+    /** From Ajustes only: unlike the session's bubble button, granting here does not start a workout. */
+    private fun openOverlaySettings() {
+        try { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+        catch (e: RuntimeException) { Log.w("WorkoutActivity", "Ajustes de overlay no disponibles", e) }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

@@ -4,9 +4,9 @@ The AI proposes, the deterministic rules validate, and the user decides. Nothing
 
 ## Cycle without MCP (AG-06)
 
-1. **Programas > Intercambio JSON > Preparar contexto local**: copy or export the v1 `TrainingContext` (programs, archived sessions as typed results) for an external agent.
+1. **Agente > Intercambio JSON > Preparar contexto local**: copy or export the v1 `TrainingContext` (programs, archived sessions as typed results) for an external agent.
 2. The agent returns a v1 `WeekProposal` package. Paste or import it in **Intercambio JSON** and save it. Saving only archives it: the program is unchanged.
-3. **Programas > Propuestas de semana**: every saved proposal is listed with its status. A proposal stays **Pendiente de tu decisión** until you explicitly approve or reject it (AG-02).
+3. **Agente > Propuestas de semana**: every saved proposal is listed with its status. A proposal stays **Pendiente de tu decisión** until you explicitly approve or reject it (AG-02).
 4. Open it to see:
    - the rule results (blocks and warnings);
    - the computed changes against the base week;
@@ -16,7 +16,7 @@ The AI proposes, the deterministic rules validate, and the user decides. Nothing
 
 ## Focused planning questions (AG-01)
 
-**Programas > Preguntas de planificación** lists the gaps that matter for planning:
+**Agente > Preguntas de planificación** lists the gaps that matter for planning:
 - the current goal and phase;
 - injuries or restrictions;
 - availability;

@@ -1,6 +1,6 @@
 # Session history CSV
 
-**Programas > Historial de sesiones > Exportar CSV** writes every recorded session to a file you choose with the system save dialog. Nothing leaves the device otherwise: the app has no network permission (decision 0005).
+**Progreso > Sesiones > Exportar CSV** writes every recorded session to a file you choose with the system save dialog. Nothing leaves the device otherwise: the app has no network permission (decision 0005).
 
 ## Format
 

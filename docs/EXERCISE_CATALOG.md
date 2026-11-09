@@ -1,6 +1,6 @@
 # Exercise catalog (ENT-08)
 
-Open **Programas > Catálogo de ejercicios**. Each exercise is identified by its stable `exerciseId`, the same ID that program prescriptions, recorded sets and exported results already carry. The visible name is only a label.
+Open **Progreso > Ejercicios**. Each exercise is identified by its stable `exerciseId`, the same ID that program prescriptions, recorded sets and exported results already carry. The visible name is only a label.
 
 ## Behavior
 
@@ -29,7 +29,7 @@ Open **Programas > Catálogo de ejercicios**. Each exercise is identified by its
   - no attribution across IDs or to the demo;
   - invalid entries and a corrupt file.
 - `assembleDebug` passes. `lintDebug`: 0 errors, 65 warnings.
-- `CatalogDeviceTest` runs through the real screens: an archived synthetic session, then Programas → Catálogo → rename → save. It checks the persisted catalog file and that the history list on the same screen still shows the set, labelled with its recorded name.
+- `CatalogDeviceTest` runs through the real screens: an archived synthetic session, then Progreso → Ejercicios → rename → save. It checks the persisted catalog file and that the history list on the same screen still shows the set, labelled with its recorded name.
 - Device test robustness:
   - My device tests now share one scroll helper that searches both directions in the tallest scrollable container.
   - Two existing assertions now wait or scroll instead of assuming the layout: `WorkoutDeviceTest` reading the overlay after closing the shade, and `ProgramDeviceTest` with more navigation entries above the fold.

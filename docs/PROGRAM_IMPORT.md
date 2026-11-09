@@ -4,7 +4,7 @@ Implemented scope: independent variable programs, blocks, weeks, days, exercises
 
 ## Try it
 
-1. Open **Programas** from the workout screen.
+1. Open the **Plan** tab.
 2. Copy the fictitious [example](../app/src/main/assets/examples/variable-program-v1.json) to the phone's Downloads directory, then choose **Seleccionar archivo JSON**. Alternatively paste its contents and press **Revisar JSON**.
 3. In **Revisar importación**, inspect **Semana 1** (2 days, one exercise per day, 2/1 sets) and **Semana 2** (1 day, two exercises, 1/3 sets). A second block includes a third week to check block separation. Exercise identity `squat` repeats with distinct prescriptions.
 4. Press **Guardar programa**, open the saved program and inspect the same weeks and days. **Cancelar importación** saves nothing.
@@ -53,7 +53,7 @@ Conflicts are listed by path, for example `Semana 'Semana 1' / Día A / Sentadil
 
 ## Target-phone acceptance
 
-Run the steps above on the target Samsung/One UI device, verify readable content with its display/font settings, file picker cancellation, invalid JSON feedback, preview/cancel/save, all hierarchy associations, rotation, offline use and force-stop restoration. Also confirm opening/closing **Programas** during a demo session leaves its records intact. Emulator automation cannot close this physical-device requirement.
+Run the steps above on the target Samsung/One UI device, verify readable content with its display/font settings, file picker cancellation, invalid JSON feedback, preview/cancel/save, all hierarchy associations, rotation, offline use and force-stop restoration. Also confirm switching tabs during a demo session leaves its records intact. Emulator automation cannot close this physical-device requirement.
 
 ## Verified on 2026-10-30
 

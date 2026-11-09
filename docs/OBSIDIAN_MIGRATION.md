@@ -1,6 +1,6 @@
 # Obsidian migration archive (ENT-03)
 
-Open **Programas → Migrar desde Obsidian**. Select a UTF-8 Markdown file or paste a week, inspect its structure, days, exercises, cardio, notes and warnings, then explicitly save. **Texto original con líneas** shows every original line. **Advertencias** allows individual warnings to be marked seen or left pending; seeing a warning never resolves its meaning. Saved migrations can be reopened and their review updated offline.
+Open **Ajustes → Migrar desde Obsidian**. Select a UTF-8 Markdown file or paste a week, inspect its structure, days, exercises, cardio, notes and warnings, then explicitly save. **Texto original con líneas** shows every original line. **Advertencias** allows individual warnings to be marked seen or left pending; seeing a warning never resolves its meaning. Saved migrations can be reopened and their review updated offline.
 
 This delivery archives migration data. It does not add programs to the library, create executable workout history, approve proposals or activate sessions. Correct interpretations by editing the Markdown and importing it again. There is no in-app interpretation editor or migration export in this delivery.
 

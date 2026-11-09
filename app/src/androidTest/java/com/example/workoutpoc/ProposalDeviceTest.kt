@@ -54,7 +54,7 @@ class ProposalDeviceTest {
     }
 
     @Test fun export_import_validate_and_explicitly_approve() {
-        click("Programas")
+        device.awaitHome(); device.openTab("Agente")
         click("Intercambio JSON")
         device.setFieldText(proposalJson())
         click("Revisar intercambio")

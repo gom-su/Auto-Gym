@@ -1,6 +1,6 @@
 # Stagnation signals (INT-03)
 
-Open **Programas > Señales de estancamiento**.
+Open **Progreso > Estancamiento**.
 
 ## Rule
 

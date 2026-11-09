@@ -1,6 +1,6 @@
 # Body weight and composition (ANA-03)
 
-Open **Programas > Peso y composición corporal**.
+Open **Progreso > Cuerpo**.
 
 ## Recording
 

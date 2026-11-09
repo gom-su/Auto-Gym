@@ -47,7 +47,7 @@ class MigrationDeviceTest {
         device.executeShellCommand("wm dismiss-keyguard")
         device.executeShellCommand("cmd statusbar collapse")
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        click("Programas"); click("Migrar desde Obsidian")
+        device.awaitHome(); device.openSettings(); click("Migrar desde Obsidian")
     }
     private fun pick(name: String) {
         click("Seleccionar archivo Markdown")

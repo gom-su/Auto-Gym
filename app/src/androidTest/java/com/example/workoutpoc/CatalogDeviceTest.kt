@@ -52,8 +52,8 @@ class CatalogDeviceTest {
     @Test fun rename_keeps_history_by_id() {
         val historyBefore = exerciseHistory("squat", app.repository.archived.value.sessions).size
         assertTrue(historyBefore >= 1)
-        click("Programas")
-        click("Catálogo de ejercicios")
+        device.awaitHome(); device.openTab("Progreso")
+        device.clickText("Ejercicios")
         click("ID squat")
         val field = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)
         assertNotNull(field); field!!.text = newName
