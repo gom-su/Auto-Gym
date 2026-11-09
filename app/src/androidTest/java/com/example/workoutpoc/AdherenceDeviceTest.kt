@@ -35,12 +35,12 @@ class AdherenceDeviceTest {
             app.weekAnnotations.setGoals(Goals())
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @Test fun not_performed_is_explicit_and_goals_persist() {
-        device.clickText("Programas")
-        device.clickText("Adherencia y objetivos")
+        device.openTab("Progreso")
+        device.clickText("Adherencia")
         device.scrollToText("Programa ficticio de adherencia · Semana 3 adherencia")
         device.clickText("Marcar Semana 3 adherencia · Día A como no realizado")
         val end = SystemClock.elapsedRealtime() + 6_000

@@ -42,11 +42,11 @@ class EvaluationDeviceTest {
             app.proposals.restore(); app.proposals.approve(importId)
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @Test fun expected_result_is_recorded_and_pending() {
-        device.clickText("Programas")
+        device.openTab("Agente")
         device.clickText("Propuestas de semana")
         device.clickText("proposal-eval-$suffix v1")
         device.scrollToText("Evaluación posterior")

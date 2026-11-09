@@ -2,7 +2,7 @@
 
 Auto-Gym is a personal Android training application built with Kotlin. The current implementation includes an offline workout notification/floating-panel proof of concept and a variable-program library. Full history, complete portable plan exchange, analytics, and agent-assisted planning are planned work.
 
-ENT-01 adds a **Programas** library: import a variable program from JSON or pasted text, review its blocks/weeks/days/sets, explicitly save it and browse it offline. See the [contract, fictitious fixture and acceptance steps](docs/PROGRAM_IMPORT.md). The workout notification/overlay still records the fixed demo; imported programs do not activate a week. Physical-device acceptance was waived by the user; evidence is emulator-only.
+ENT-01 adds a program library, today the **Plan** tab: import a variable program from JSON or pasted text, review its blocks/weeks/days/sets, explicitly save it and browse it offline. See the [contract, fictitious fixture and acceptance steps](docs/PROGRAM_IMPORT.md). The workout notification/overlay still records the fixed demo; imported programs do not activate a week. Physical-device acceptance was waived by the user; evidence is emulator-only.
 
 Track work in the [GitHub Project](https://github.com/users/gom-su/projects/1). See the [roadmap](ROADMAP.md), [design system](docs/DESIGN_SYSTEM.md), [product definition](docs/product/PRODUCT_DEFINITION.md), [backlog](docs/product/BACKLOG.md), and [current implementation gaps](docs/product/IMPLEMENTATION_GAPS.md). The repository is licensed under [MPL-2.0](LICENSE).
 
@@ -43,11 +43,15 @@ In the development environment, a local JDK and SDK were prepared in `.tools/jdk
 
 Do not start a second instance of the same AVD while it is running. With multiple devices, use `adb -s SERIAL ...` and `ANDROID_SERIAL` for Gradle. Android Studio is optional for CLI development; the IDE was not installed in this environment.
 
+## Navigation
+
+The app opens on **Hoy**, which shows the session you prepared or are running, or the way to pick a day in **Plan**. A bottom bar switches between **Hoy**, **Plan** (programs, multi-week plans, import), **Progreso** (Ejercicios, Sesiones, Adherencia, Cuerpo, Estancamiento) and **Agente** (Intercambio JSON, questions, proposals, plans). The session opens full screen; Back returns to Hoy and the session keeps running. The gear on every tab opens **Ajustes**: notification and floating-panel permissions, Obsidian migration, the exchange archive and the demo.
+
 ## Try the demo
 
 The app's current interface is in Spanish. The instructions below include the exact button labels.
 
-1. Tap **Start demo — Notification** (`Iniciar demo — Notificación`) and grant notification permission on Android 13+. If you deny it, you can still log sets in the Activity; mode A requires enabling notifications in Settings. The interactive workout channel (`Entrenamiento interactivo`) may also be disabled separately.
+1. Open **Ajustes** (the gear on any tab) > **Abrir demo**, then tap **Start demo — Notification** (`Iniciar demo — Notificación`) and grant notification permission on Android 13+. If you deny it, you can still log sets in the Activity; mode A requires enabling notifications in Settings. The interactive workout channel (`Entrenamiento interactivo`) may also be disabled separately.
 2. Open another app, then open the notification shade and expand the notification. Adjust weight in 2.5 kg steps, repetitions one at a time, and RIR from 0 to 4+. These controls use RemoteViews and do not open the Activity.
 3. Set 32.5 kg, 7 reps, and RIR 1, then tap **Complete set** (`Completar serie`). The same notification switches to rest, with a countdown, **+10 s**, and **Skip rest** (`Saltar descanso`). The next set of the same exercise proposes the last recorded weight; reps and RIR return to their planned values.
 4. **Edit** (`Editar`) in the compact notification directly opens a bottom sheet in the Activity. If the device manufacturer clips the expanded notification layout, use this sheet or the overlay for the same adjustments.
@@ -97,23 +101,23 @@ Unit tests cover values and limits, set recording, monotonic rest timing, exerci
 
 ### JSON interchange (ENT-02)
 
-Open **Programas > Intercambio JSON** to review, save, copy and import/export versioned context, week proposals and results. Exchanges are archived without approving proposals or modifying programs or the active session. Includes synthetic examples, schema versions, explicit units, measurement privacy and conflict rejection. See the [contract and verification](docs/JSON_EXCHANGE.md). Re-importing a saved program is idempotent: identical packages change nothing, new weeks are appended without duplicates, and conflicts are listed by path before anything is saved (ENT-09, [rules](docs/PROGRAM_IMPORT.md#re-import-and-merge-rules-ent-09)).
+Open **Agente > Intercambio JSON** to review, save, copy and import/export versioned context, week proposals and results. Exchanges are archived without approving proposals or modifying programs or the active session. Includes synthetic examples, schema versions, explicit units, measurement privacy and conflict rejection. See the [contract and verification](docs/JSON_EXCHANGE.md). Re-importing a saved program is idempotent: identical packages change nothing, new weeks are appended without duplicates, and conflicts are listed by path before anything is saved (ENT-09, [rules](docs/PROGRAM_IMPORT.md#re-import-and-merge-rules-ent-09)).
 
 ### Planned-day recording (ENT-04)
 
-Open **Programas**, choose a saved program day and tap **Entrenar este día**, then start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions support warm-up sets, pausing and resuming (rest resumes exactly), cardio entries and partial sessions (ENT-06). They also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). Everything is stored offline and every confirmed set survives a forced close (ENT-07, [decision 0005](docs/architecture/decisions/0005-offline-persistence.md)). See [planned recording](docs/PLANNED_RECORDING.md).
+Open the **Plan** tab, choose a saved program day and tap **Entrenar este día**; the session opens. Start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions support warm-up sets, pausing and resuming (rest resumes exactly), cardio entries and partial sessions (ENT-06). They also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). Everything is stored offline and every confirmed set survives a forced close (ENT-07, [decision 0005](docs/architecture/decisions/0005-offline-persistence.md)). See [planned recording](docs/PLANNED_RECORDING.md).
 
 ### Session history
 
-Open **Programas > Historial de sesiones** for every recorded session, newest first: date, program, week and day, status (completed, partial or not performed, never assumed), active time, and completed, omitted, unreached, extra and warm-up sets plus cardio. Filter by program to see only its sessions, with totals for what is listed. Tap a session to see each set's load, reps and RIR, notes, and every earlier version of an edited set. The screen only reads; it never changes recorded data. **Exportar CSV** saves the whole history through the system save dialog (one row per set or cardio entry; columns in [session history CSV](docs/SESSION_HISTORY_CSV.md)).
+Open **Progreso > Sesiones** for every recorded session, newest first: date, program, week and day, status (completed, partial or not performed, never assumed), active time, and completed, omitted, unreached, extra and warm-up sets plus cardio. Filter by program to see only its sessions, with totals for what is listed. Tap a session to see each set's load, reps and RIR, notes, and every earlier version of an edited set. The screen only reads; it never changes recorded data. **Exportar CSV** saves the whole history through the system save dialog (one row per set or cardio entry; columns in [session history CSV](docs/SESSION_HISTORY_CSV.md)).
 
 ### Goals and adherence (ANA-04)
 
-Open **Programas > Adherencia y objetivos** to see every planned day as completed, partial, not performed or without record (never assumed), with completed, omitted and unreached sets, and optional weekly session and cardio goals. See [adherence](docs/ADHERENCE.md).
+Open **Progreso > Adherencia** to see every planned day as completed, partial, not performed or without record (never assumed), with completed, omitted and unreached sets, and optional weekly session and cardio goals. See [adherence](docs/ADHERENCE.md).
 
 ### Body weight and composition (ANA-03)
 
-Open **Programas > Peso y composición corporal** to record dated measurements with their unit and method. Trends are drawn per method and unit; when different methods (e.g. bioimpedance and DEXA) or units exist for a metric, they stay separate and a warning says they are not directly comparable. See [measurements](docs/BODY_MEASUREMENTS.md).
+Open **Progreso > Cuerpo** to record dated measurements with their unit and method. Trends are drawn per method and unit; when different methods (e.g. bioimpedance and DEXA) or units exist for a metric, they stay separate and a warning says they are not directly comparable. See [measurements](docs/BODY_MEASUREMENTS.md).
 
 ### MCP server (INT-01)
 
@@ -125,24 +129,24 @@ Pair the MCP server with a key generated in **Intercambio JSON > Envíos firmado
 
 ### Stagnation signals (INT-03)
 
-Open **Programas > Señales de estancamiento** for alerts raised when recent comparable exposures of an exercise stop improving on its previous best. Each alert states its period, the data used, its limitations and a checkable explanation; without enough evidence, no alert is raised. See [signals](docs/STAGNATION_SIGNALS.md).
+Open **Progreso > Estancamiento** for alerts raised when recent comparable exposures of an exercise stop improving on its previous best. Each alert states its period, the data used, its limitations and a checkable explanation; without enough evidence, no alert is raised. See [signals](docs/STAGNATION_SIGNALS.md).
 
 ### Planning questions (AG-01)
 
-Open **Programas > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
+Open **Agente > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
 
 ### Multi-week plans
 
-An agent turns your periodization document into a 12-week **plan**: blocks, phases, deloads, set/rep/RIR targets, cardio and the A–D day distribution. Import it in **Intercambio JSON** and activate it in **Programas > Planes de periodización**. From then on, the exported context tells the agent which week to plan next and its targets. Each week is still a proposal you approve; week 12 ends the cycle. See [multi-week plans](docs/PLAN_OUTLINE.md) and the [agent prompts](docs/AGENT_PROMPTS.md).
+An agent turns your periodization document into a 12-week **plan**: blocks, phases, deloads, set/rep/RIR targets, cardio and the A–D day distribution. Import it in **Intercambio JSON** and activate it in **Agente > Planes de periodización**. From then on, the exported context tells the agent which week to plan next and its targets. Each week is still a proposal you approve; week 12 ends the cycle. See [multi-week plans](docs/PLAN_OUTLINE.md) and the [agent prompts](docs/AGENT_PROMPTS.md).
 
 ### Week proposal review (AG-02, AG-05, AG-06)
 
-Open **Programas > Propuestas de semana** to review week proposals imported through **Intercambio JSON**. Each one shows configurable rule results (blocks and warnings), the changes computed against the base week, and the agent's reasons. It stays pending until you approve or reject it; approval appends the week to the program without replacing anything. See [proposal review](docs/PROPOSAL_REVIEW.md).
+Open **Agente > Propuestas de semana** to review week proposals imported through **Intercambio JSON**. Each one shows configurable rule results (blocks and warnings), the changes computed against the base week, and the agent's reasons. It stays pending until you approve or reject it; approval appends the week to the program without replacing anything. See [proposal review](docs/PROPOSAL_REVIEW.md).
 
 ### Exercise catalog (ENT-08)
 
-Open **Programas > Catálogo de ejercicios** to rename exercises, describe their movement, variant, equipment, usual load basis and machine setup, and see each exercise's history. Identity is the stable exercise ID, so renaming never breaks history and non-equivalent variants stay distinct. See [catalog](docs/EXERCISE_CATALOG.md). Each exercise's history is shown as comparable exposures across weeks and programs, grouped by unit and load basis so units are never mixed (ANA-01, [details](docs/EXPOSURE_COMPARISON.md)). Charts of load, reps, volume and RIR leave omitted sessions as gaps and show weeks you mark as deload distinctly (ANA-02, [charts](docs/PERFORMANCE_CHARTS.md)). Weeks can be compared by program and block (phase); deload weeks are listed but never treated as regressions (ANA-05, [phase comparison](docs/PHASE_COMPARISON.md)).
+Open **Progreso > Ejercicios** to rename exercises, describe their movement, variant, equipment, usual load basis and machine setup, and see each exercise's history. Identity is the stable exercise ID, so renaming never breaks history and non-equivalent variants stay distinct. See [catalog](docs/EXERCISE_CATALOG.md). Each exercise's history is shown as comparable exposures across weeks and programs, grouped by unit and load basis so units are never mixed (ANA-01, [details](docs/EXPOSURE_COMPARISON.md)). Charts of load, reps, volume and RIR leave omitted sessions as gaps and show weeks you mark as deload distinctly (ANA-02, [charts](docs/PERFORMANCE_CHARTS.md)). Weeks can be compared by program and block (phase); deload weeks are listed but never treated as regressions (ANA-05, [phase comparison](docs/PHASE_COMPARISON.md)).
 
 ### Obsidian migration (ENT-03)
 
-Open **Programas > Migrar desde Obsidian** to import a Workout v3 Markdown week, review separate objectives/results, notes and ambiguity warnings, and explicitly save an offline migration archive. Original text and source lines are retained; seen warnings remain unresolved data. Reimports preserve saved review without duplicates. A reviewed migration can then be converted into a program week (**Convertir en programa**): only exact values become prescriptions, and everything not converted is listed first. Recorded results are not turned into history. See the [contract, synthetic examples and verification](docs/OBSIDIAN_MIGRATION.md).
+Open **Ajustes > Migrar desde Obsidian** to import a Workout v3 Markdown week, review separate objectives/results, notes and ambiguity warnings, and explicitly save an offline migration archive. Original text and source lines are retained; seen warnings remain unresolved data. Reimports preserve saved review without duplicates. A reviewed migration can then be converted into a program week (**Convertir en programa**): only exact values become prescriptions, and everything not converted is listed first. Recorded results are not turned into history. See the [contract, synthetic examples and verification](docs/OBSIDIAN_MIGRATION.md).

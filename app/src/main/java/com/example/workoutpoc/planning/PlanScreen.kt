@@ -95,7 +95,7 @@ fun PlanScreen(ui: PlanUiState, onBack: () -> Unit, onRetry: () -> Unit, onSelec
     BackHandler(entry != null && !ui.busy) { onSelect(null) }
     AppScreen("Planes de periodización", if (entry != null) "Ver todos los planes" else "Volver a Programas",
         { if (entry != null) onSelect(null) else onBack() }, backEnabled = !ui.busy, busy = ui.busy, message = ui.message,
-        listState = rememberViewListState(ui.selected)) {
+        listState = rememberViewListState(ui.selected), drillUp = entry != null) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar planes", onRetry, enabled = !ui.busy) }
         if (entry == null) {
             item {

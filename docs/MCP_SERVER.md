@@ -6,7 +6,7 @@
 
 | Capability | How it is limited |
 | --- | --- |
-| Read | Exactly one file, passed with `--context`. It must be a v1 `TrainingContext` package that you exported and reviewed in the app: **Programas > Intercambio JSON > Preparar contexto local > Exportar**. Body measurements are only in it if you ticked them. The file is never modified, and no other path is readable through the server. |
+| Read | Exactly one file, passed with `--context`. It must be a v1 `TrainingContext` package that you exported and reviewed in the app: **Agente > Intercambio JSON > Preparar contexto local > Exportar**. Body measurements are only in it if you ticked them. The file is never modified, and no other path is readable through the server. |
 | Write | Only new files in the `--outbox` directory, one v1 `WeekProposal` package per proposal. Each is written atomically (temporary file + rename) under a fresh `mcp-…` import ID. |
 | Approve / activate | Not possible. There is no such tool, and an unknown tool name returns an error. Proposals are imported in the app (**Intercambio JSON**) and stay **Pendiente de tu decisión** in **Propuestas de semana**. There, the deterministic rules (AG-05) and your explicit decision (AG-02) apply. |
 

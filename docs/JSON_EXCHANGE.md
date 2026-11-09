@@ -1,6 +1,6 @@
 # JSON interchange (ENT-02)
 
-Open **Programas → Intercambio JSON**. Import a UTF-8 file or paste JSON, review its complete content, then explicitly save. Saved entries can be selected, copied or exported through Android's document picker. Canceling review or a picker does not import anything. Errors offer retry; a failed destination write can leave an incomplete destination file and never reports success.
+Open **Agente → Intercambio JSON** (also in **Ajustes**). Import a UTF-8 file or paste JSON, review its complete content, then explicitly save. Saved entries can be selected, copied or exported through Android's document picker. Canceling review or a picker does not import anything. Errors offer retry; a failed destination write can leave an incomplete destination file and never reports success.
 
 **Preparar contexto local** includes all saved programs and the available demo snapshot. **Preparar resultados locales** includes that demo snapshot alone. No historical sessions, phase, rules, goals or measurements are invented: unavailable collections are empty and phase is null. Both actions prepare a review, without saving or sharing automatically. Review the content before choosing a destination or copying to the system clipboard.
 

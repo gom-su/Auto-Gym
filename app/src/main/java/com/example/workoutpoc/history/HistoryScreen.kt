@@ -99,7 +99,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
     val session = ui.sessions.find { it.sessionId == selected }
     BackHandler(session != null) { selected = null }
     AppScreen("Historial de sesiones", if (session != null) "Ver todas las sesiones" else "Volver a Programas",
-        { if (session != null) selected = null else onBack() }, busy = ui.busy, message = ui.message, listState = rememberViewListState(session?.sessionId)) {
+        { if (session != null) selected = null else onBack() }, busy = ui.busy, message = ui.message, listState = rememberViewListState(session?.sessionId), drillUp = session != null) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar", onRetry, enabled = !ui.busy) }
         if (session == null) {
             if (ui.ready && ui.sessions.isEmpty()) item { EmptyState("Aún no hay sesiones registradas.", icon = AppIcons.History) }

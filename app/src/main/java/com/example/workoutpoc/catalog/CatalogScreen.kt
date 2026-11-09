@@ -37,7 +37,7 @@ fun CatalogScreen(catalog: ExerciseCatalog, ui: CatalogUiState, onBack: () -> Un
     BackHandler(selected != null && !ui.busy) { selectedId = null }
     AppScreen("Catálogo de ejercicios", if (selected != null) "Ver todos los ejercicios" else "Volver a Programas",
         { if (selected != null) selectedId = null else onBack() }, backEnabled = !ui.busy, busy = ui.busy, message = ui.message,
-        listState = rememberViewListState(selected?.id)) {
+        listState = rememberViewListState(selected?.id), drillUp = selected != null) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar catálogo", onRetry, enabled = !ui.busy) }
         if (selected == null) {
             item { SupportingText("Cada ejercicio tiene un ID estable. Cambiar su nombre no altera su historial; variantes con distinto equipo o configuración son ejercicios distintos.") }

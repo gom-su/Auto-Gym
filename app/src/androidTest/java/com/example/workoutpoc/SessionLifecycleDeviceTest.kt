@@ -42,6 +42,7 @@ class SessionLifecycleDeviceTest {
             app.repository.dispatch(app.repository.state.value.command(WorkoutEvent.StartWorkout))
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        device.openSessionFromHoy()
     }
 
     private fun scrollTo(text: String): UiObject2 = device.scrollToText(text)

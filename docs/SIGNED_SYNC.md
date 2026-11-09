@@ -4,7 +4,7 @@ The design and its rationale are in [decision 0008](architecture/decisions/0008-
 
 ## Pairing
 
-In **Programas > Intercambio JSON > Envíos firmados (MCP)**, tap **Generar clave de emparejamiento**:
+In **Agente > Intercambio JSON > Envíos firmados (MCP)**, tap **Generar clave de emparejamiento**:
 - **Copiar clave** puts `agk1.<keyId>.<secret>` on the clipboard, flagged as sensitive. Give it to the MCP server with `--sign-key` or `AUTO_GYM_SIGN_KEY`.
 - **Revocar** blocks all further deliveries signed with that key.
 

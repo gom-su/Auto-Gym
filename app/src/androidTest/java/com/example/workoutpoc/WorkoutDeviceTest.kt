@@ -35,6 +35,7 @@ class WorkoutDeviceTest {
     private fun launch() {
         device.executeShellCommand("cmd statusbar collapse")
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        device.openDemo()
         assertNotNull(device.wait(Until.findObject(By.text("Iniciar demo — Notificación")), 8_000))
     }
 
@@ -202,9 +203,11 @@ class WorkoutDeviceTest {
         launch()
         assertEquals(2, app.repository.state.value.records.size)
         val beforeLibrary = app.repository.state.value
-        button("Programas")
-        button("Volver al entrenamiento")
-        assertEquals("Library navigation must preserve the active session", beforeLibrary, app.repository.state.value)
+        button("Volver a Hoy")
+        device.openTab("Plan")
+        device.openTab("Hoy")
+        button("Volver a la sesión")
+        assertEquals("Tab navigation must preserve the active session", beforeLibrary, app.repository.state.value)
         button("Iniciar demo — Burbuja flotante")
         repeat(5) { offset ->
             control("overlay_complete")

@@ -30,7 +30,7 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
     BackHandler(ui.selected != null && !ui.busy) { onSelect(null) }
     AppScreen("Propuestas de semana", if (ui.selected != null) "Ver todas las propuestas" else "Volver a Programas",
         { if (ui.selected != null) onSelect(null) else onBack() }, backEnabled = !ui.busy, busy = ui.busy, message = ui.message,
-        listState = rememberViewListState(ui.selected)) {
+        listState = rememberViewListState(ui.selected), drillUp = ui.selected != null) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar propuestas", onRetry, enabled = !ui.busy) }
         if (ui.selected == null) {
             item { SupportingText("La IA propone, las reglas validan y tú decides. Importa propuestas en Intercambio JSON; ninguna se aplica sin tu aprobación.") }

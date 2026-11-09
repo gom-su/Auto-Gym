@@ -36,7 +36,7 @@ class ExchangeFreshInstallTest {
         }
         device.wakeUp(); device.executeShellCommand("wm dismiss-keyguard"); device.executeShellCommand("cmd statusbar collapse")
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        click("Programas"); click("Intercambio JSON"); click("Importar archivo de intercambio")
+        device.awaitHome(); device.openTab("Agente"); click("Intercambio JSON"); click("Importar archivo de intercambio")
         device.wait(Until.findObject(By.desc("Show roots")), 3000)?.click()
         click("Downloads"); click(fileName!!)
         click("Guardar intercambio")

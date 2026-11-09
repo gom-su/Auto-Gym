@@ -78,7 +78,7 @@ class ProgramDeviceTest {
         device.executeShellCommand("am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/ent-01-device.json")
         android.os.SystemClock.sleep(1_000)
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        click("Programas")
+        device.awaitHome(); device.openTab("Plan")
         click("Seleccionar archivo JSON")
         val roots = device.wait(Until.findObject(By.desc("Show roots")), 5_000)
         if (roots != null) roots.click()
@@ -127,7 +127,7 @@ class ProgramDeviceTest {
         click("Revisar JSON")
         click("Guardar programa")
         assertTrue(device.wait(Until.hasObject(By.textContains("ya estaba importado")), 5_000))
-        click("Volver al entrenamiento")
-        assertTrue(device.wait(Until.hasObject(By.text("Iniciar demo — Notificación")), 5_000))
+        device.openTab("Hoy")
+        assertTrue(device.wait(Until.hasObject(By.desc("Ajustes")), 5_000))
     }
 }

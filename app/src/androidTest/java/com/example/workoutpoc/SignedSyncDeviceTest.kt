@@ -32,7 +32,7 @@ class SignedSyncDeviceTest {
         device.executeShellCommand("wm dismiss-keyguard")
         runBlocking { app.sync.restore(); app.exchanges.restore() }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     private fun envelopeFor(keyId: String, secret: String): String {
@@ -52,7 +52,7 @@ class SignedSyncDeviceTest {
     }
 
     @Test fun pair_accept_once_and_reject_replay() {
-        device.clickText("Programas")
+        device.openTab("Agente")
         device.clickText("Intercambio JSON")
         val before = app.sync.state.value.keys.size
         device.clickText("Generar clave de emparejamiento")

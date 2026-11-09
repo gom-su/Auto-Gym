@@ -14,7 +14,7 @@ Program v1 has no phase field, so a program's **blocks** act as its phases. Filt
 
 - Only completed work sets count. Warm-ups and omitted sets never become zeros.
 - Each week is compared with the **previous comparable week**: same unit and basis, inside the current filter, and not a deload. The row shows top-load and volume changes and names the week it is compared with.
-- **Deload weeks** are those you marked in Programas (ANA-02). They are listed, labelled "descarga" and never compared, so a planned reduction is not reported as a regression. The next normal week is compared with the last normal week before the deload.
+- **Deload weeks** are those you marked in the Plan tab (ANA-02). They are listed, labelled "descarga" and never compared, so a planned reduction is not reported as a regression. The next normal week is compared with the last normal week before the deload.
 - The first comparable week under a filter says so instead of showing a change.
 
 ## Verification (2026-11-06, API 36 emulator)

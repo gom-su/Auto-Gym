@@ -42,12 +42,12 @@ class StagnationDeviceTest {
             repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @Test fun insufficient_evidence_is_reported_with_its_reason() {
-        device.clickText("Programas")
-        device.clickText("Señales de estancamiento")
+        device.openTab("Progreso")
+        device.clickText("Estancamiento")
         assertNotNull(device.scrollToText("Alertas ("))
         assertNotNull(device.scrollToText("Sin datos suficientes ("))
         assertNotNull(device.scrollToText("se necesitan", contains = true))

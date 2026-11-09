@@ -31,9 +31,23 @@ import com.example.workoutpoc.ui.theme.tabular
 val MaxContentWidth: Dp = 720.dp
 
 /**
+ * Set by a bottom-navigation tab that shows an existing screen as its root: the screen then takes the tab's
+ * [title], shows no Up arrow (a tab root has nowhere to go up to), adds the tab's [actions] (the Ajustes gear) and
+ * lists the tab's [header] (for example its section chips) as its first item.
+ */
+class TabRoot(val title: String, val actions: @Composable RowScope.() -> Unit = {}, val header: (@Composable () -> Unit)? = null)
+
+val LocalTabRoot = staticCompositionLocalOf<TabRoot?> { null }
+
+/** Where leaving the current screen goes ("Volver a Agente"), set by the navigation; overrides a screen's own label. */
+val LocalBackLabel = staticCompositionLocalOf<String?> { null }
+
+/**
  * Standard secondary screen: a top app bar with an Up arrow and the screen title, a thin progress track under it
  * while [busy], and a lazy list of content with consistent gutters. The arrow is announced as [backLabel], which
  * names where it goes ("Volver a Programas"), so the destination is explicit for screen-reader users too.
+ * Inside a [TabRoot] the screen is a tab's root instead (see there). [drillUp] means the arrow currently climbs
+ * inside the screen (a detail back to its list) rather than leaving it, so it is shown even on a tab root.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,19 +55,22 @@ fun AppScreen(
     title: String, backLabel: String, onBack: () -> Unit, backEnabled: Boolean = true, busy: Boolean = false,
     message: String? = null,
     actions: @Composable RowScope.() -> Unit = {}, listState: LazyListState = rememberLazyListState(),
+    drillUp: Boolean = false,
     content: LazyListScope.() -> Unit
 ) {
+    val root = LocalTabRoot.current
+    val upLabel = if (drillUp) backLabel else LocalBackLabel.current ?: backLabel
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() }) },
+                    title = { Text(root?.title ?: title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() }) },
                     navigationIcon = {
-                        IconButton(onClick = onBack, enabled = backEnabled) { Icon(AppIcons.Back, contentDescription = backLabel) }
+                        if (root == null || drillUp) IconButton(onClick = onBack, enabled = backEnabled) { Icon(AppIcons.Back, contentDescription = upLabel) }
                     },
-                    actions = actions, scrollBehavior = scroll,
+                    actions = { actions(); root?.actions?.invoke(this) }, scrollBehavior = scroll,
                     colors = TopAppBarDefaults.topAppBarColors(scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer)
                 )
                 BusyTrack(busy)
@@ -65,8 +82,12 @@ fun AppScreen(
             LazyColumn(
                 Modifier.widthIn(max = MaxContentWidth).fillMaxSize(), state = listState,
                 contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.sm, bottom = Spacing.xxl),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md), content = content
-            )
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                // A detail (one exercise, one session) shows only itself; its Up arrow leads back to the list and header.
+                if (!drillUp) root?.header?.let { header -> item(key = "tab-header") { header() } }
+                content()
+            }
         }
     }
 }

@@ -26,11 +26,11 @@ class QuestionsDeviceTest {
         device.executeShellCommand("wm dismiss-keyguard")
         runBlocking { app.planningAnswers.restore(); listOf("goal", "phase", "restrictions", "availability").forEach { app.planningAnswers.clear(it) } }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @Test fun answer_and_unavailable_are_recorded_and_exported() {
-        device.clickText("Programas")
+        device.openTab("Agente")
         device.clickText("Preguntas de planificación")
         // Each question card is a column: act on the field and buttons inside the card that holds the question text.
         fun card(question: String): UiObject2 = device.scrollToText(question).parent

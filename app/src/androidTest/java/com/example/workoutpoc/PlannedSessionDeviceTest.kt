@@ -68,7 +68,7 @@ class PlannedSessionDeviceTest {
     @Test fun planned_day_set_is_recorded_from_overlay_with_one_tap_and_persisted() {
         device.executeShellCommand("cmd statusbar collapse")
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
-        find(By.text("Programas"), "Programas").click()
+        device.awaitHome(); device.openTab("Plan")
         scrollTo("Programa ficticio variable").click()
         scrollTo("Semana 1").click()
         scrollTo("Día A").click()
@@ -103,7 +103,7 @@ class PlannedSessionDeviceTest {
     @Test fun overlay_postpones_the_first_set_of_an_exercise_only() {
         device.executeShellCommand("cmd statusbar collapse")
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
-        find(By.text("Programas"), "Programas").click()
+        device.awaitHome(); device.openTab("Plan")
         scrollTo("Programa ficticio variable").click()
         scrollTo("Semana 2").click()
         scrollTo("Día C").click() // squat ×1, then press ×3

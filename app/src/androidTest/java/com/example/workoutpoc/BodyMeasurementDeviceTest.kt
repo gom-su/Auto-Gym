@@ -33,7 +33,7 @@ class BodyMeasurementDeviceTest {
         }
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         // Wait for the first screen: dragging before it is drawn would drag the launcher instead.
-        assertNotNull(device.wait(Until.findObject(By.text("Programas")), 10_000))
+        device.awaitHome()
     }
 
     @After fun capture() {
@@ -43,8 +43,8 @@ class BodyMeasurementDeviceTest {
     }
 
     @Test fun different_method_is_a_separate_series_with_a_warning() {
-        device.clickText("Programas")
-        device.clickText("Peso y composición corporal")
+        device.openTab("Progreso")
+        device.clickText("Cuerpo")
         device.clickText("Grasa corporal")
         val value = device.wait(Until.findObject(By.clazz("android.widget.EditText")), 5_000)
         assertNotNull(value); value!!.text = "19,5"
