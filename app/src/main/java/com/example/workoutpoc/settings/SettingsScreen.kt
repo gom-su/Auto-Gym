@@ -8,10 +8,17 @@ import com.example.workoutpoc.ui.*
 fun SettingsScreen(
     onBack: () -> Unit, notificationEnabled: Boolean, overlayGranted: Boolean,
     onNotificationSettings: () -> Unit, onOverlaySettings: () -> Unit,
-    onMigration: () -> Unit, onExchange: () -> Unit, demoAvailable: Boolean, onDemo: () -> Unit
+    onMigration: () -> Unit, onExchange: () -> Unit, demoAvailable: Boolean, onDemo: () -> Unit,
+    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {}
 ) {
     AppScreen("Ajustes", "Volver", onBack) {
         item { SectionHeader("Registro") }
+        item {
+            ContentCard {
+                SegmentedChoice("Registrar con", LoggingMode.entries, loggingMode, { it.label }, onLoggingMode)
+                SupportingText("Entrenar empieza la sesión en este modo. Durante la sesión puedes cambiar al otro.", small = true)
+            }
+        }
         item { NavRow("Notificaciones", onNotificationSettings, icon = AppIcons.Notifications,
             supporting = if (notificationEnabled) "Activadas: registra series desde la notificación"
                 else "Desactivadas: la sesión solo se registra en la aplicación") }

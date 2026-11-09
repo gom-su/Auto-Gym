@@ -42,6 +42,11 @@ class WorkoutApplication : Application() {
             com.example.workoutpoc.planning.PlanOutlineStoreSerializer,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("plan-outlines-v1.json") })
     }
+    val settings: com.example.workoutpoc.settings.AppSettingsRepository by lazy {
+        com.example.workoutpoc.settings.AppSettingsRepository(DataStoreFactory.create(
+            com.example.workoutpoc.settings.AppSettingsSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("app-settings-v1.json") })
+    }
     val weekAnnotations: com.example.workoutpoc.planning.WeekAnnotationRepository by lazy {
         com.example.workoutpoc.planning.WeekAnnotationRepository(DataStoreFactory.create(
             com.example.workoutpoc.planning.WeekAnnotationsSerializer,

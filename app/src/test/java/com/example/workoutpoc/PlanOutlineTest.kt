@@ -194,6 +194,20 @@ class PlanOutlineTest {
         assertEquals("Faro v2", outlines.outlines.value.forProgram(outline.programId)!!.name)
     }
 
+    @Test fun `only one plan is active and the others are kept as inactive`() = runTest {
+        val outlines = PlanOutlineRepository(store(folder.newFolder().resolve("outlines.json"), backgroundScope, PlanOutlineStoreSerializer))
+        outlines.restore()
+        val other = outline.copy(id = "otro-plan", programId = "otro-programa", programName = "Otro programa")
+        assertEquals(ActivationResult.ACTIVATED, outlines.activate(outline, null))
+        assertEquals(ActivationResult.ACTIVATED, outlines.activate(other, null))
+        assertEquals(listOf(other), outlines.outlines.value.active)
+        assertEquals(listOf(outline), outlines.outlines.value.inactive)
+        // Activating it again swaps them back; nothing is lost.
+        assertEquals(ActivationResult.ACTIVATED, outlines.activate(outline, null))
+        assertEquals(listOf(outline), outlines.outlines.value.active)
+        assertEquals(listOf(other), outlines.outlines.value.inactive)
+    }
+
     @Test fun `plan written by the MCP server decodes in the app`() {
         val pkg = ExchangeCodec.decode(File("../mcp/examples/plan-outline-from-mcp.json").readText())
         assertEquals(ExchangeType.PlanOutline, pkg.type)
