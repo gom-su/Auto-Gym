@@ -39,7 +39,9 @@ import java.time.Instant
 @Serializable data class SessionResult(
     val id: String, val sessionPlanId: String?, val status: PerformanceStatus,
     val startedAt: String?, val endedAt: String?, val notes: String?,
-    val sets: List<SetResult>, val cardio: List<CardioResult>
+    val sets: List<SetResult>, val cardio: List<CardioResult>,
+    /** Day IDs are only unique within a program; retain the cycle identity when exporting local history. */
+    val programId: String? = null
 )
 @Serializable data class SetResult(
     val id: String, val prescriptionId: String?, val exerciseId: String,
@@ -107,7 +109,7 @@ object ExchangeCodec {
     private fun results(r: TrainingResults) {
         unique(r.sessions.map { it.id })
         r.sessions.forEach { s ->
-            id(s.id); s.sessionPlanId?.let(::id); s.startedAt?.let(::date); s.endedAt?.let(::date); s.notes?.let(::note)
+            id(s.id); s.sessionPlanId?.let(::id); s.programId?.let(::id); s.startedAt?.let(::date); s.endedAt?.let(::date); s.notes?.let(::note)
             if (s.startedAt != null && s.endedAt != null) requireValid(Instant.parse(s.startedAt) <= Instant.parse(s.endedAt), "Fechas de sesión invertidas.")
             unique(s.sets.map { it.id } + s.cardio.map { it.id })
             s.sets.forEach { set ->

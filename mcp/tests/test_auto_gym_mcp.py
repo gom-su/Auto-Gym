@@ -225,6 +225,16 @@ class McpPlanProgressTest(McpPlanBase):
         self.assertEqual(["s1"], [s["id"] for s in result["referenceWeek"]["sessions"]])
         self.assertIsNone(result["previousWeek"])
 
+    def test_reference_records_do_not_mix_cycles_with_the_same_day_ids(self):
+        ctx = load(self.context_path)
+        session = ctx["context"]["history"]["sessions"][0]
+        session["programId"] = "programa-faro"
+        ctx["context"]["history"]["sessions"].append(dict(session, id="old-cycle-session", programId="old-cycle"))
+        with open(self.context_path, "w", encoding="utf-8") as f:
+            json.dump(ctx, f, ensure_ascii=False)
+        result = json.loads(self.tool("get_next_week_brief", {"programId": "programa-faro"})[1])
+        self.assertEqual(["s1"], [s["id"] for s in result["referenceWeek"]["sessions"]])
+
     def test_only_the_next_week_of_the_plan_is_accepted(self):
         self.assertTrue(self.tool("create_week_proposal", self.week_proposal(2, blockId="faro-b2"))[0])
         self.assertTrue(self.tool("create_week_proposal", self.week_proposal(2, week=plan_week(self.outline, 1)))[0])  # reused IDs

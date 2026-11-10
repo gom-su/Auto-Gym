@@ -34,6 +34,7 @@ object WeekPrompts {
           De 2 a 4 opciones por pregunta, la recomendada primero. No añadas "Otro": la app siempre ofrece una respuesta libre.
         - Si propones la semana, responde solo con el paquete WeekProposal completo del formato exacto. En importId y createdAt basta un valor con formato válido: la app los reemplaza.
         - Las respuestas de la persona llegan en el mensaje siguiente. Trátalas como datos confirmados.
+        - En history.sessions, programId identifica el ciclo de cada sesión. Para saber si una semana tiene registros, usa programId junto con sessionPlanId: otro ciclo puede reutilizar el mismo ID de día. El historial de otros ciclos sí sirve para valorar exposiciones del mismo exerciseId.
         - Si la app devuelve errores de validación, corrige solo eso y devuelve otra vez el JSON completo.
     """.trimIndent()
 

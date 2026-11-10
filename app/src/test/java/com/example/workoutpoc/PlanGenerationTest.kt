@@ -94,5 +94,14 @@ class PlanGenerationTest {
         assertFalse(state.copy(cycleReady = true, busy = true).canGenerate)
         assertFalse(state.copy(cycleReady = true, key = ApiKeyStatus()).canGenerate)
         assertFalse(state.copy(cycleReady = true, questions = listOf(AgentQuestion(text = "¿Cambio?", options = listOf("Sí", "No")))).canGenerate)
+        val skippedFinalWeek = state.copy(cycleReady = true, brief = state.brief!!.copy(status = BriefStatus.ALREADY_PLANNED))
+        assertTrue(skippedFinalWeek.newCycle)
+        assertTrue(skippedFinalWeek.canGenerate)
+    }
+
+    @Test fun `explicitly not-performed final days can close a cycle without fabricated sessions`() = runTest {
+        val previous = context.copy(nextWeeks = context.nextWeeks.map { it.copy(status = BriefStatus.ALREADY_PLANNED) })
+        val result = PlanGeneration(Chat(AgentReply(pkg())), previous, cycleComplete = true).start("{}", "2026-11-10", null)
+        assertTrue(result is GenerationStep.Proposal)
     }
 }

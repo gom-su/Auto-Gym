@@ -334,7 +334,8 @@ class Server:
         _check(brief is not None, "El contexto no incluye la próxima semana del plan; vuelve a exportarlo desde la app.")
         program = next((p for p in context.get("programs", []) if p.get("id") == a["programId"]), None)
         weeks = [w for b in (program or {}).get("blocks", []) for w in b["weeks"]]
-        sessions = context.get("history", {}).get("sessions", [])
+        sessions = [s for s in context.get("history", {}).get("sessions", [])
+                    if s.get("programId") in (None, a["programId"])]
 
         def recorded(week):
             if week is None:

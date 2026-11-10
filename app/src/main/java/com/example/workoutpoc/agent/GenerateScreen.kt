@@ -56,12 +56,12 @@ fun GenerateScreen(
         } else if (brief != null) item {
             ContentCard {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text(brief.weekNumber?.let { "Semana $it de ${brief.totalWeeks}" } ?: "Ciclo terminado", Modifier.weight(1f),
+                    Text(if (ui.cycleReady) "Ciclo terminado" else brief.weekNumber?.let { "Semana $it de ${brief.totalWeeks}" } ?: "Última semana", Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium)
-                    when (brief.status) {
+                    if (ui.cycleReady) StatusPill("Ciclo completo", Tone.Info) else when (brief.status) {
                         BriefStatus.READY -> StatusPill(if (brief.target?.deload == true) "Descarga" else "Lista", Tone.Success)
                         BriefStatus.ALREADY_PLANNED -> StatusPill("Ya planificada", Tone.Info)
-                        BriefStatus.CYCLE_COMPLETE -> StatusPill("Ciclo completo", Tone.Info)
+                        BriefStatus.CYCLE_COMPLETE -> StatusPill("En curso", Tone.Info)
                     }
                 }
                 ui.outline?.let { SupportingText(it.name, small = true) }

@@ -170,7 +170,7 @@ object PlanOutlines {
 
     fun brief(o: PlanOutline, program: TrainingProgram?, sessions: List<SessionResult>): NextWeekBrief {
         val weeks = programWeeks(program)
-        val withData = sessions.filter(::hasRealData)
+        val withData = sessions.filter { (it.programId == null || it.programId == o.programId) && hasRealData(it) }
         val reference = weeks.indices.lastOrNull { i -> weeks[i].second.days.any { d -> withData.any { it.sessionPlanId == d.id } } }
         val refWeek = reference?.let { weeks[it].second }
         val refSessions = refWeek?.let { w -> withData.filter { s -> w.days.any { it.id == s.sessionPlanId } } }.orEmpty()

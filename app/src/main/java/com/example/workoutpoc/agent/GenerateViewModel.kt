@@ -40,7 +40,7 @@ data class GenerateUiState(
     /** All days of the final week have records or an explicit not-performed mark. */
     val cycleReady: Boolean = false
 ) {
-    val newCycle get() = brief?.status == BriefStatus.CYCLE_COMPLETE
+    val newCycle get() = cycleReady || brief?.status == BriefStatus.CYCLE_COMPLETE
     val canGenerate get() = ready && !busy && key.present && questions == null &&
         (brief?.status == BriefStatus.READY || (newCycle && cycleReady))
 }
@@ -82,13 +82,12 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         // Building and encoding the whole history is kept off the main thread.
         val (data, contextJson) = withContext(Dispatchers.Default) { app.localExchange(ExchangeType.TrainingContext).let { it to compact.encodeToString(it) } }
         val brief = data.context!!.nextWeeks.firstOrNull() ?: throw AgentException("No hay plan activo. Activa uno en Planes de periodización.")
-        val newCycle = brief.status == BriefStatus.CYCLE_COMPLETE
-        if (newCycle) {
-            app.weekAnnotations.restore()
-            val states = (app.repository.archived.value.sessions + app.repository.state.value).distinctBy { it.sessionId }
-            if (!HomePlanner.summary(data.context!!.programs, data.context!!.outlines, states, app.weekAnnotations.annotations.value).cycleComplete)
-                throw AgentException("Termina de registrar los días de la última semana antes de generar el nuevo plan.")
-        } else if (brief.status != BriefStatus.READY) throw AgentException(brief.message)
+        app.weekAnnotations.restore()
+        val states = (app.repository.archived.value.sessions + app.repository.state.value).distinctBy { it.sessionId }
+        val newCycle = HomePlanner.summary(data.context!!.programs, data.context!!.outlines, states, app.weekAnnotations.annotations.value).cycleComplete
+        if (!newCycle && brief.status == BriefStatus.CYCLE_COMPLETE)
+            throw AgentException("Termina de registrar los días de la última semana antes de generar el nuevo plan.")
+        if (!newCycle && brief.status != BriefStatus.READY) throw AgentException(brief.message)
         app.proposals.restore(); app.exchanges.restore()
         val taken = (app.exchanges.archive.value.packages.mapNotNull { it.proposal }.map { it.id to it.version } +
             app.proposals.state.value.decisions.map { it.proposalId to it.version }).toSet()
@@ -98,7 +97,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         val userNote = note.trim().take(MAX_NOTE).ifBlank { null }
         if (newCycle) {
             val archived = app.exchanges.archive.value.packages.mapNotNull { it.outline }
-            val started = PlanGeneration(opened, data.context!!, archived)
+            val started = PlanGeneration(opened, data.context!!, archived, cycleComplete = newCycle)
             planGeneration = started
             show(started.start(contextJson, LocalDate.now().toString(), userNote))
         } else {

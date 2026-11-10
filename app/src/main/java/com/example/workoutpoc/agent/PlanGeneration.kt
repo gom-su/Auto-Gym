@@ -33,7 +33,9 @@ class PlanGeneration(
     chat: AgentChat, private val context: TrainingContext,
     archived: List<PlanOutline> = emptyList(),
     newImportId: () -> String = { UUID.randomUUID().toString() },
-    now: () -> String = { Instant.now().toString() }
+    now: () -> String = { Instant.now().toString() },
+    /** The app also knows explicit not-performed marks, which are not fabricated as training sessions. */
+    private val cycleComplete: Boolean = context.nextWeeks.any { it.status == BriefStatus.CYCLE_COMPLETE }
 ) {
     private val known = context.outlines + context.previousOutlines + archived
     private val conversation = GenerationConversation(chat, "PlanOutline") { pkg ->
@@ -50,7 +52,7 @@ class PlanGeneration(
     }
 
     suspend fun start(contextJson: String, today: String, note: String?): GenerationStep {
-        if (context.nextWeeks.none { it.status == BriefStatus.CYCLE_COMPLETE })
+        if (!cycleComplete)
             throw AgentException("Termina el ciclo activo antes de generar un nuevo plan de 12 semanas. El primer plan se importa manualmente.")
         return conversation.start(PlanPrompts.request(contextJson, today, note))
     }

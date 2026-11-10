@@ -46,6 +46,25 @@ class PlanOutlineTest {
     }
     private fun library(p: TrainingProgram?) = ProgramLibrary(1, listOfNotNull(p))
 
+    @Test fun `another cycle with the same day IDs cannot advance the brief or satisfy proposal evidence`() {
+        val program = ProposalRules.appliedProgram(proposal(1), null, outline)!!
+        val foreign = trained(week(1)).map { it.copy(id = "old-${it.id}", programId = "previous-cycle") }
+        val brief = PlanOutlines.brief(outline, program, foreign)
+        assertEquals(BriefStatus.ALREADY_PLANNED, brief.status)
+        assertEquals(1, brief.weekNumber)
+        assertNull(brief.referenceWeekNumber)
+        assertTrue(brief.referenceSessionIds.isEmpty())
+        val rejected = ProposalRules.evaluate(proposal(2), library(program), emptySet(), RuleSettings(), outline, foreign)
+        assertTrue(rejected.issues.any { it.code == "OUTLINE_NO_DATA" })
+        val current = trained(week(1)).map { it.copy(programId = outline.programId) }
+        val ready = PlanOutlines.brief(outline, program, foreign + current)
+        assertEquals(BriefStatus.READY, ready.status)
+        assertEquals(2, ready.weekNumber)
+        assertEquals(current.map { it.id }, ready.referenceSessionIds)
+        assertFalse(ProposalRules.evaluate(proposal(2), library(program), emptySet(), RuleSettings(), outline, foreign + current)
+            .issues.any { it.code == "OUTLINE_NO_DATA" })
+    }
+
     @Test fun `fixture is a valid 12-week plan with deloads at 4, 8 and 12`() {
         assertEquals(ExchangeType.PlanOutline, ExchangeCodec.decode(fixture).type)
         assertEquals(12, outline.weeks.size)

@@ -224,6 +224,7 @@ class RecordingTest {
         val result = repo.state.value.toSessionResult()!!
         assertEquals(PerformanceStatus.PARTIAL, result.status); assertNull(result.endedAt)
         assertEquals("day-two-c", result.sessionPlanId)
+        assertEquals(repo.state.value.source!!.programId, result.programId)
         assertEquals(listOf("set-two-squat-1", "set-two-press-1", "set-two-press-2"), result.sets.map { it.prescriptionId })
         assertEquals(PrescribedLoad(0.0, LoadUnit.KG, LoadBasis.PER_SIDE), result.sets[0].load)
         assertTrue(result.sets[0].notes!!.contains("4 o más"))
