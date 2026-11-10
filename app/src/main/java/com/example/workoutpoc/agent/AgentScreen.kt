@@ -14,13 +14,13 @@ import com.example.workoutpoc.ui.theme.Spacing
 private data class Step(val title: String, val status: String, val tone: Tone, val detail: String, val action: String, val onClick: () -> Unit)
 
 /**
- * The Agente tab: the weekly cycle as four steps (send context, answer questions, import the proposal, review it),
+ * The Agente tab: in-app generation with the user's Claude key first, then the weekly cycle as four steps (send context, answer questions, import the proposal, review it),
  * each with its state derived from your data, then the tools behind them. The agent proposes, the rules validate,
  * you approve; the MCP server and manual JSON are equal paths through the same steps.
  */
 @Composable
 fun AgentScreen(home: HomeUiState, onPlans: () -> Unit, onQuestions: () -> Unit, onProposals: () -> Unit,
-                onExchange: () -> Unit, onImport: () -> Unit) {
+                onExchange: () -> Unit, onImport: () -> Unit, onGenerate: () -> Unit) {
     val summary = home.summary
     val week = summary?.week
     val toPlan = summary?.weekToPlan
@@ -44,7 +44,14 @@ fun AgentScreen(home: HomeUiState, onPlans: () -> Unit, onQuestions: () -> Unit,
     AppScreen("Agente", "", {}, busy = !home.ready) {
         item { SupportingText("El agente propone, las reglas validan y tú apruebas. Nada cambia en tus programas sin tu aprobación.") }
         summary?.outline?.let { o -> item { SupportingText("Plan activo: ${o.name} · ${o.weeks.size} semanas", small = true) } }
-        item { SectionHeader("Ciclo semanal") }
+        item {
+            ContentCard {
+                Text("Con Claude, desde la app", style = MaterialTheme.typography.titleMedium)
+                SupportingText("Con tu llave API, la app envía el contexto, recibe la propuesta y la deja pendiente de tu aprobación.", small = true)
+                PrimaryAction("Generar siguiente semana", onGenerate, icon = AppIcons.Bolt)
+            }
+        }
+        item { SectionHeader("Ciclo semanal", supporting = "Con un agente externo: servidor MCP o JSON a mano.") }
         steps.forEachIndexed { i, step ->
             item {
                 ContentCard {

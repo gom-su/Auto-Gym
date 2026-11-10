@@ -67,6 +67,10 @@ class WorkoutApplication : Application() {
             com.example.workoutpoc.sync.SyncStateSerializer,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("sync-v1.json") })
     }
+    /** The Claude API key for in-app week generation, encrypted with the Android Keystore (decision 0009). */
+    val apiKey: com.example.workoutpoc.agent.ApiKeyRepository by lazy {
+        com.example.workoutpoc.agent.ApiKeyRepository(com.example.workoutpoc.agent.KeystoreApiKeyVault(this))
+    }
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val error: MutableStateFlow<String?> = MutableStateFlow(null)
     val programs: ProgramRepository by lazy {

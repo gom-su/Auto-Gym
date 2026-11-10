@@ -10,7 +10,7 @@ The demo uses fixed synthetic workout data. Keep real workout records, body meas
 
 ## Current prototype
 
-A native, self-contained, offline Android demo: 3 exercises, 7 sets, and 10-second rest periods. Built with Kotlin, Compose Material 3, RemoteViews, WindowManager, StateFlow, and DataStore. No backend, Internet access, or sensor permissions.
+A native, self-contained, offline Android demo: 3 exercises, 7 sets, and 10-second rest periods. Built with Kotlin, Compose Material 3, RemoteViews, WindowManager, StateFlow, and DataStore. No backend and no sensor permissions; the only network use is the optional in-app agent described below.
 
 Version 1.0.1 adds foreground-priority notification actions, a shared publisher that avoids duplicate updates, and a control-latency test. Diagnosis and Samsung validation limitations: [docs/NOTIFICATION_LATENCY.md](docs/NOTIFICATION_LATENCY.md).
 
@@ -45,7 +45,7 @@ Do not start a second instance of the same AVD while it is running. With multipl
 
 ## Navigation
 
-The app opens on **Hoy**. It suggests the next day of the current week, in order (A → B → C → D), and **Entrenar** starts it at once in your default logging mode (**Ajustes › Registrar con**: notification or floating panel). The week strip shows each day's status and picks another day. A running session takes over the card (**Volver a la sesión**). **Pendiente** lists what waits for you: proposals to review, unanswered agent questions, the next week to request when every saved week has records, and a measurement reminder after 30 days without one. **Esta semana** shows sessions and cardio against your goals. The current program is the one with the active plan (only one plan is active at a time), otherwise the program of your latest session. A bottom bar switches between **Hoy**, **Plan** (programs, multi-week plans, and one **Importar** for every kind of file: programs, agent files and Obsidian weeks each open in their own review), **Progreso** (Ejercicios with stagnation badges, Sesiones, Adherencia, Cuerpo) and **Agente** (the weekly cycle as four steps: send context, answer questions, import the proposal, review and approve; each shows its current state, with the MCP server and manual JSON as equal paths). The session opens full screen; Back returns to Hoy and the session keeps running. The gear on every tab opens **Ajustes**: notification and floating-panel permissions, Obsidian migration, the exchange archive and the demo.
+The app opens on **Hoy**. It suggests the next day of the current week, in order (A → B → C → D), and **Entrenar** starts it at once in your default logging mode (**Ajustes › Registrar con**: notification or floating panel). The week strip shows each day's status and picks another day. A running session takes over the card (**Volver a la sesión**). **Pendiente** lists what waits for you: proposals to review, unanswered agent questions, the next week to request when every saved week has records, and a measurement reminder after 30 days without one. **Esta semana** shows sessions and cardio against your goals. The current program is the one with the active plan (only one plan is active at a time), otherwise the program of your latest session. A bottom bar switches between **Hoy**, **Plan** (programs, multi-week plans, and one **Importar** for every kind of file: programs, agent files and Obsidian weeks each open in their own review), **Progreso** (Ejercicios with stagnation badges, Sesiones, Adherencia, Cuerpo) and **Agente** (**Generar siguiente semana** with your own Claude API key, then the weekly cycle with an external agent as four steps: send context, answer questions, import the proposal, review and approve; each shows its current state, with the MCP server and manual JSON as equal paths). The session opens full screen; Back returns to Hoy and the session keeps running. The gear on every tab opens **Ajustes**: notification and floating-panel permissions, Obsidian migration, the exchange archive and the demo.
 
 ## Try the demo
 
@@ -118,6 +118,10 @@ Open **Progreso > Adherencia** to see every planned day as completed, partial, n
 ### Body weight and composition (ANA-03)
 
 Open **Progreso > Cuerpo** to record dated measurements with their unit and method. Trends are drawn per method and unit; when different methods (e.g. bioimpedance and DEXA) or units exist for a metric, they stay separate and a warning says they are not directly comparable. See [measurements](docs/BODY_MEASUREMENTS.md).
+
+### In-app agent
+
+With your own Claude API key, **Agente > Generar siguiente semana** sends the local context to the Claude API and archives the answer as a pending week proposal: one button instead of exporting, asking an external agent and importing. The key is stored encrypted on the device; Claude's questions are answered on the same screen; a reply the app cannot validate is never saved; you still approve the week in **Propuestas de semana**. Recording and review keep working offline. See [in-app agent](docs/IN_APP_AGENT.md) and [decision 0009](docs/architecture/decisions/0009-in-app-agent.md).
 
 ### MCP server (INT-01)
 

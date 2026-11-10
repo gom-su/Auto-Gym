@@ -31,13 +31,19 @@ class OfflinePersistenceTest {
             override suspend fun writeTo(t: T, sink: BufferedSink) { serializer.writeTo(t, sink.outputStream()) }
         }) { file.absolutePath.toPath() }, scope = scope)
 
-    @Test fun `app declares no network permission so recording cannot depend on connectivity`() {
+    @Test fun `only the in-app agent uses the network so recording cannot depend on connectivity`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         val permissions = Regex("uses-permission[^>]*android:name=\"([^\"]+)\"").findAll(manifest).map { it.groupValues[1] }.toSet()
-        assertTrue(permissions.isNotEmpty())
-        listOf("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE", "android.permission.ACCESS_WIFI_STATE")
+        // INTERNET exists for week generation on request (decision 0009); nothing observes or waits for connectivity.
+        assertTrue("android.permission.INTERNET" in permissions)
+        listOf("android.permission.ACCESS_NETWORK_STATE", "android.permission.ACCESS_WIFI_STATE")
             .forEach { assertFalse("$it must not be requested", it in permissions) }
         assertTrue("Cloud backup must stay disabled for local-only data", manifest.contains("android:allowBackup=\"false\""))
+        // Network code lives in the agent package only: recording, storage and review never reference it.
+        val network = Regex("com[.]anthropic|okhttp3|java[.]net[.]|HttpURLConnection|HttpsURLConnection")
+        val offenders = File("src/main/java").walkTopDown().filter { it.isFile && it.extension == "kt" }
+            .filter { "/agent/" !in it.invariantSeparatorsPath && network.containsMatchIn(it.readText()) }.map { it.name }.toList()
+        assertEquals("Network code outside the agent package", emptyList<String>(), offenders)
     }
 
     @Test fun `a corrupt session file is reported and never overwritten or reset`() = runTest {
