@@ -5,6 +5,8 @@ Two prompts for an external agent, with the Auto-Gym MCP server or with JSON pas
 1. **Crear el programa**, once per cycle: the agent turns your periodization document into a `PlanOutline` (the 12-week structure). Import it (**Plan › Importar**, or **Agente › Importar su propuesta**) and activate it in **Planes de periodización**.
 2. **Semana a semana**, every week: export the context (**Agente › Preparar contexto**), give it to the agent, then import its `WeekProposal` and approve it in **Propuestas de semana**. Approving **week 1 creates the program** in Plan, and the first week of each block creates that block.
 
+The app can also run the weekly prompt itself with your Claude API key (**Agente › Generar siguiente semana**); it sends prompt 2 exactly as written here ([in-app agent](IN_APP_AGENT.md)).
+
 The app checks everything the agent sends; nothing is saved until you approve it. The JSON examples in both prompts are validated by `AgentPromptExamplesTest`, so they always match what the app accepts. See [multi-week plans](PLAN_OUTLINE.md) and [proposal review](PROPOSAL_REVIEW.md).
 
 ## 1. Crear el programa (plan de varias semanas)

@@ -9,7 +9,7 @@ fun SettingsScreen(
     onBack: () -> Unit, notificationEnabled: Boolean, overlayGranted: Boolean,
     onNotificationSettings: () -> Unit, onOverlaySettings: () -> Unit,
     onMigration: () -> Unit, onExchange: () -> Unit, demoAvailable: Boolean, onDemo: () -> Unit,
-    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {}
+    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {}, onAgentKey: () -> Unit = {}
 ) {
     AppScreen("Ajustes", "Volver", onBack) {
         item { SectionHeader("Registro") }
@@ -25,6 +25,9 @@ fun SettingsScreen(
         item { NavRow("Panel flotante", onOverlaySettings, icon = AppIcons.Bubble,
             supporting = if (overlayGranted) "Autorizado para mostrarse sobre otras aplicaciones"
                 else "Sin permiso para mostrarse sobre otras aplicaciones") }
+        item { SectionHeader("Agente") }
+        item { NavRow("Llave API de Claude", onAgentKey, icon = AppIcons.Key,
+            supporting = "Para generar la semana siguiente desde la app") }
         item { SectionHeader("Datos") }
         item { NavRow("Migrar desde Obsidian", onMigration, icon = AppIcons.Upload,
             supporting = "Importa y convierte tus semanas de Markdown") }

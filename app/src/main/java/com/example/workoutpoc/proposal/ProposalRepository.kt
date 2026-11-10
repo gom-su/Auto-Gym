@@ -85,15 +85,26 @@ class ProposalRepository(
             ?: throw ProposalException("La propuesta no está guardada.")
         val rules = mutableState.value.rules
         val states = sessions()
-        val outline = outlines().find { it.programId == pkg.proposal!!.programId }
-        val base = ProposalRules.evaluate(pkg.proposal!!, programs.library.value, knownExerciseIds(), rules, outline,
-            states.distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() })
+        val base = applyRules(pkg.proposal!!, states)
         val explanations = ProposalExplain.explain(base.proposal, base.base, states)
         val unexplained = if (rules.unexplainedChange == Severity.OFF) emptyList() else explanations.filter { it.reason == null }.map {
             ValidationIssue("UNEXPLAINED_CHANGE", rules.unexplainedChange, "${it.kind.label} sin motivo específico del agente: ${it.summary}")
         }
         return base.copy(issues = base.issues + unexplained, explanations = explanations)
     }
+
+    /**
+     * The same rules for a proposal that is not saved yet (one the in-app agent just returned), so a proposal with
+     * blocking issues can be sent back for correction instead of being archived. Explanations are not computed.
+     */
+    suspend fun check(proposal: com.example.workoutpoc.exchange.WeekProposal): ProposalEvaluation {
+        programs.restore()
+        return applyRules(proposal, sessions())
+    }
+
+    private suspend fun applyRules(proposal: com.example.workoutpoc.exchange.WeekProposal, states: List<com.example.workoutpoc.domain.WorkoutState>) =
+        ProposalRules.evaluate(proposal, programs.library.value, knownExerciseIds(), mutableState.value.rules,
+            outlines().find { it.programId == proposal.programId }, states.distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() })
 
     fun decisionFor(importId: String): ProposalDecision? = mutableState.value.decisions.find { it.importId == importId }
 

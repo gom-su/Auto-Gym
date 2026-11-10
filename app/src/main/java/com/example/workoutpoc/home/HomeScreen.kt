@@ -26,7 +26,7 @@ import com.example.workoutpoc.ui.*
 import com.example.workoutpoc.ui.theme.Spacing
 
 /** Where Hoy's rows lead; MainActivity maps each to a tab or screen. */
-enum class HomeLink { Plan, Proposals, Questions, Exchange, Body }
+enum class HomeLink { Plan, Proposals, Questions, Exchange, Body, Generate }
 
 /**
  * The Hoy tab: what to do now. A loaded or running session comes first. Otherwise the next day of the current week,
@@ -74,8 +74,9 @@ fun HomeScreen(
                 if (toPlan != null && (home.summary.outline != null || home.summary.program != null)) {
                     Eyebrow("SEMANA $toPlan")
                     Text("Semana $toPlan sin planificar", style = MaterialTheme.typography.titleLarge)
-                    SupportingText("Todas las semanas guardadas tienen registros. Prepara el contexto y pide la semana $toPlan al agente.")
-                    PrimaryAction("Preparar contexto para el agente", { onLink(HomeLink.Exchange) }, icon = AppIcons.Agent)
+                    SupportingText("Todas las semanas guardadas tienen registros. Genera la semana $toPlan aquí, o prepara el contexto para un agente externo.")
+                    PrimaryAction("Generar siguiente semana", { onLink(HomeLink.Generate) }, icon = AppIcons.Agent)
+                    QuietAction("Preparar contexto para un agente externo", { onLink(HomeLink.Exchange) }, icon = AppIcons.Swap, fill = true)
                 } else {
                     Text("Aún no hay programa", style = MaterialTheme.typography.titleLarge)
                     SupportingText("Importa un programa en Plan, o activa un plan de varias semanas y pide la semana 1 al agente.")
@@ -88,7 +89,7 @@ fun HomeScreen(
             if (home.pendingProposals > 0) add(Triple(plural(home.pendingProposals, "propuesta por revisar", "propuestas por revisar"), AppIcons.Bolt, HomeLink.Proposals))
             if (home.openQuestions > 0) add(Triple(plural(home.openQuestions, "pregunta del agente sin responder", "preguntas del agente sin responder"), AppIcons.Question, HomeLink.Questions))
             if (!loaded && week == null && home.summary?.weekToPlan != null && home.summary.program != null)
-                add(Triple("Enviar contexto al agente para la semana ${home.summary.weekToPlan}", AppIcons.Swap, HomeLink.Exchange))
+                add(Triple("Generar la semana ${home.summary.weekToPlan} con el agente", AppIcons.Agent, HomeLink.Generate))
             val days = home.daysSinceMeasurement
             if (home.ready && (days == null || days >= MEASUREMENT_REMINDER_DAYS))
                 add(Triple(if (days == null) "Registra tu primera medición corporal" else "Toca medir: última medición hace $days días", AppIcons.Scale, HomeLink.Body))

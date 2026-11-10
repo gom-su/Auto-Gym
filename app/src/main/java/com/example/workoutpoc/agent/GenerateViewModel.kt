@@ -1,0 +1,155 @@
+package com.example.workoutpoc.agent
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.workoutpoc.exchange.ExchangeCodec
+import com.example.workoutpoc.exchange.ExchangeType
+import com.example.workoutpoc.exchange.localExchange
+import com.example.workoutpoc.planning.BriefStatus
+import com.example.workoutpoc.planning.NextWeekBrief
+import com.example.workoutpoc.planning.PlanOutline
+import com.example.workoutpoc.workoutApp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import java.time.LocalDate
+
+data class GenerateUiState(
+    val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
+    val key: ApiKeyStatus = ApiKeyStatus(),
+    /** The active plan and the week the app says comes next; null without an active plan. */
+    val outline: PlanOutline? = null, val brief: NextWeekBrief? = null,
+    /** Saved proposals of this program still waiting for a decision. */
+    val pending: Int = 0,
+    /** A call to the model is in flight. */
+    val generating: Boolean = false,
+    /** Questions the model asked; the generation continues when they are answered. */
+    val questions: List<AgentQuestion>? = null,
+    /** Week number of the proposal this screen just saved. */
+    val savedWeek: Int? = null
+) {
+    val canGenerate get() = ready && !busy && key.present && brief?.status == BriefStatus.READY && questions == null
+}
+
+/**
+ * "Generar siguiente semana": sends the local context to Claude with the user's key and archives the answer as a
+ * pending proposal. It never approves: the review and the decision stay in Propuestas de semana.
+ */
+class GenerateViewModel(application: Application) : AndroidViewModel(application) {
+    private val app = application.workoutApp
+    private val mutableUi = MutableStateFlow(GenerateUiState())
+    val ui = mutableUi.asStateFlow()
+    /** Replaced in tests; production talks to the Claude API. */
+    var chats: AgentChatFactory = ClaudeChatFactory()
+    private var job: Job? = null
+    private var chat: AgentChat? = null
+    private var generation: WeekGeneration? = null
+    private var week: Int? = null
+
+    init { refresh() }
+
+    fun refresh() = operation { load() }
+
+    fun saveKey(raw: String) = operation {
+        app.apiKey.save(raw)
+        mutableUi.value = mutableUi.value.copy(key = app.apiKey.status.value, message = "Llave guardada en este dispositivo, cifrada.")
+    }
+
+    fun clearKey() = operation {
+        app.apiKey.clear()
+        mutableUi.value = mutableUi.value.copy(key = app.apiKey.status.value, message = "Llave eliminada de este dispositivo.")
+    }
+
+    fun generate(note: String) = operation(generating = true) {
+        discard()
+        mutableUi.value = mutableUi.value.copy(savedWeek = null, questions = null)
+        val key = app.apiKey.key() ?: throw AgentException("Guarda primero tu llave API de Claude.")
+        val data = app.localExchange(ExchangeType.TrainingContext)
+        val brief = data.context!!.nextWeeks.firstOrNull() ?: throw AgentException("No hay plan activo. Activa uno en Planes de periodización.")
+        if (brief.status != BriefStatus.READY) throw AgentException(brief.message)
+        app.proposals.restore(); app.exchanges.restore()
+        val taken = (app.exchanges.archive.value.packages.mapNotNull { it.proposal }.map { it.id to it.version } +
+            app.proposals.state.value.decisions.map { it.proposalId to it.version }).toSet()
+        val weekly = withContext(Dispatchers.IO) { app.assets.open(PROMPT_ASSET).use { it.readBytes().decodeToString() } }
+        val opened = chats.open(key, WeekPrompts.system(weekly))
+        chat = opened; week = brief.weekNumber
+        val started = WeekGeneration(opened, brief, taken, { p -> app.proposals.check(p).blocking.map { it.message } })
+        generation = started
+        show(started.start(compact.encodeToString(data), LocalDate.now().toString(), note.trim().take(MAX_NOTE).ifBlank { null }))
+    }
+
+    /** [answers] are in the order of the questions shown. */
+    fun answer(answers: List<String>) = operation(generating = true) {
+        val questions = mutableUi.value.questions ?: return@operation
+        val running = generation ?: throw AgentException("La generación ya no está activa. Vuelve a generar.")
+        if (answers.size != questions.size || answers.any { it.isBlank() }) throw AgentException("Responde todas las preguntas.")
+        show(running.answer(questions.zip(answers.map { it.trim().take(MAX_NOTE) })))
+    }
+
+    fun cancel() {
+        job?.cancel()
+        discard()
+        mutableUi.value = mutableUi.value.copy(busy = false, generating = false, questions = null, message = "Generación cancelada. No se guardó nada.")
+    }
+
+    private suspend fun show(step: GenerationStep) {
+        when (step) {
+            is GenerationStep.Questions -> mutableUi.value = mutableUi.value.copy(questions = step.questions,
+                message = "Claude necesita tus respuestas antes de proponer la semana.")
+            is GenerationStep.Proposal -> {
+                app.exchanges.save(step.pkg)
+                val saved = week
+                discard(); load()
+                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = saved,
+                    message = "Propuesta de la semana $saved guardada. Queda pendiente de tu aprobación.")
+            }
+        }
+    }
+
+    private suspend fun load() {
+        // An unreadable key is reported, and the rest of the screen still loads so it can be replaced.
+        val keyProblem = try { app.apiKey.restore(); null } catch (e: AgentException) { e.message }
+        val context = app.localExchange(ExchangeType.TrainingContext).context!!
+        val outline = context.outlines.firstOrNull()
+        app.proposals.restore(); app.exchanges.restore()
+        val decided = app.proposals.state.value.decisions.map { it.importId }.toSet()
+        mutableUi.value = mutableUi.value.copy(ready = true, key = app.apiKey.status.value, outline = outline,
+            brief = context.nextWeeks.find { it.programId == outline?.programId },
+            pending = app.exchanges.archive.value.packages.count { it.proposal?.programId == outline?.programId && outline != null && it.importId !in decided },
+            message = keyProblem ?: mutableUi.value.message)
+    }
+
+    private fun discard() {
+        try { chat?.close() } catch (_: Exception) { }
+        chat = null; generation = null; week = null
+    }
+
+    override fun onCleared() { discard() }
+
+    private fun operation(generating: Boolean = false, block: suspend () -> Unit) {
+        if (ui.value.busy) return
+        mutableUi.value = mutableUi.value.copy(busy = true, generating = generating, message = null)
+        job = viewModelScope.launch {
+            try { block() }
+            catch (e: CancellationException) { throw e }
+            // AgentException, and validation and proposal errors, are already worded for the user.
+            catch (e: AgentException) { mutableUi.value = mutableUi.value.copy(message = e.message) }
+            catch (e: IllegalArgumentException) { mutableUi.value = mutableUi.value.copy(message = e.message) }
+            catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo completar la generación. Tus datos se conservan. Reintenta.") }
+            finally { mutableUi.value = mutableUi.value.copy(busy = false, generating = false) }
+        }
+    }
+
+    private companion object {
+        const val PROMPT_ASSET = "prompts/week-proposal.txt"
+        const val MAX_NOTE = 2000
+        /** The same content as an export, without the indentation: about half the tokens. */
+        val compact = Json(ExchangeCodec.json) { prettyPrint = false }
+    }
+}
