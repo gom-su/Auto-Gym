@@ -27,9 +27,17 @@ fun GenerateScreen(
 ) {
     var note by rememberSaveable { mutableStateOf("") }
     val brief = ui.brief
-    AppScreen("Generar siguiente semana", "Volver a Agente", onBack, backEnabled = !ui.generating, busy = ui.busy, message = ui.message) {
+    val newCycle = ui.newCycle
+    AppScreen(if (newCycle) "Nuevo plan de 12 semanas" else "Generar siguiente semana", "Volver a Agente", onBack, backEnabled = !ui.generating, busy = ui.busy, message = ui.message) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar", onRetry, enabled = true) }
-        item { SupportingText("La app envía tu contexto a Claude con tu llave API y guarda la respuesta como propuesta pendiente. Nada cambia en tu programa hasta que la apruebes.") }
+        item { SupportingText("La app envía tu historial de entrenamiento, planes y mediciones corporales a Claude con tu llave API. Revisas y apruebas el resultado antes de usarlo.") }
+        ui.savedPlan?.let { name -> item {
+            ContentCard {
+                Text("Nuevo plan guardado", style = MaterialTheme.typography.titleMedium)
+                SupportingText("$name · 12 semanas. El ciclo anterior y sus resultados se conservan.", small = true)
+                PrimaryAction("Revisar y activar plan", onPlans, icon = AppIcons.Calendar)
+            }
+        } }
         ui.savedWeek?.let { saved ->
             item {
                 ContentCard {
@@ -41,7 +49,7 @@ fun GenerateScreen(
         }
         if (!ui.key.present) keySection(ui, onSaveKey, onClearKey)
 
-        item { SectionHeader("Semana a generar") }
+        item { SectionHeader(if (newCycle) "Siguiente ciclo" else "Semana a generar") }
         if (ui.ready && ui.outline == null) {
             item { EmptyState("No hay plan activo. Importa tu plan de varias semanas y actívalo; el botón genera cada semana a partir de él.") }
             item { TonalAction("Ver planes de periodización", onPlans, icon = AppIcons.Calendar) }
@@ -58,6 +66,9 @@ fun GenerateScreen(
                 }
                 ui.outline?.let { SupportingText(it.name, small = true) }
                 Text(brief.message, style = MaterialTheme.typography.bodyMedium)
+                if (brief.weekNumber == brief.totalWeeks || brief.referenceWeekNumber == brief.totalWeeks)
+                    SupportingText(if (ui.cycleReady) "El ciclo terminó. Debes generar un nuevo plan de 12 semanas."
+                        else "Esta es la última semana. Termina de registrar sus días y genera un nuevo plan de 12 semanas.")
                 if (ui.pending > 0) SupportingText((if (ui.pending == 1) "Hay 1 propuesta pendiente" else "Hay ${ui.pending} propuestas pendientes") +
                     " de este programa. Decídela antes de generar otra.", small = true)
             }
@@ -68,21 +79,21 @@ fun GenerateScreen(
             item { SectionHeader("Preguntas de Claude", supporting = "Tus respuestas se envían y la generación continúa.") }
             item(key = "questions") { QuestionsForm(questions, enabled = !ui.busy, onAnswer, onCancel) }
             if (ui.generating) item { SupportingText("Consultando a Claude con tus respuestas. Deja la app abierta.") }
-        } else if (brief?.status == BriefStatus.READY) {
+        } else if (brief?.status == BriefStatus.READY || (newCycle && ui.cycleReady)) {
             item {
                 OutlinedTextField(note, { if (it.length <= 2000) note = it }, Modifier.fillMaxWidth(), enabled = !ui.busy, minLines = 2,
-                    label = { Text("Nota para esta semana (opcional)") },
-                    supportingText = { Text("Molestias, sueño, cambios de horario o tu peso promedio. Se envía tal cual.") })
+                    label = { Text(if (newCycle) "Objetivos o cambios para el nuevo ciclo (opcional)" else "Nota para esta semana (opcional)") },
+                    supportingText = { Text("Molestias, sueño o cambios de horario. Las mediciones de Progreso → Cuerpo ya se incluyen.") })
             }
             item {
-                PrimaryAction("Generar semana ${brief.weekNumber}", { onGenerate(note) }, enabled = ui.canGenerate, icon = AppIcons.Agent, tall = true)
+                PrimaryAction(if (newCycle) "Generar nuevo plan de 12 semanas" else "Generar semana ${brief?.weekNumber}", { onGenerate(note) }, enabled = ui.canGenerate, icon = AppIcons.Agent, tall = true)
             }
             if (ui.generating) {
                 item { SupportingText("Consultando a Claude. Suele tardar entre uno y tres minutos; deja la app abierta.") }
                 item { SecondaryAction("Cancelar", onCancel) }
             } else item {
                 SupportingText("Se envían a la API de Claude (Anthropic) tus programas, tus sesiones registradas, el plan activo y tus respuestas de planificación. " +
-                    "No se envían mediciones corporales. Cada generación se cobra a tu cuenta de la API.", small = true)
+                    "También se envían tus mediciones corporales con fecha, unidad y método para planificar semanas y ciclos. Cada generación se cobra a tu cuenta de la API.", small = true)
             }
         }
         if (ui.key.present) keySection(ui, onSaveKey, onClearKey)

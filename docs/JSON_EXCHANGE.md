@@ -2,7 +2,7 @@
 
 Open **Agente → Intercambio JSON** (also in **Ajustes**). Import a UTF-8 file or paste JSON, review its complete content, then explicitly save. Saved entries can be selected, copied or exported through Android's document picker. Canceling review or a picker does not import anything. Errors offer retry; a failed destination write can leave an incomplete destination file and never reports success.
 
-**Preparar contexto local** includes all saved programs and the available demo snapshot. **Preparar resultados locales** includes that demo snapshot alone. No historical sessions, phase, rules, goals or measurements are invented: unavailable collections are empty and phase is null. Both actions prepare a review, without saving or sharing automatically. Review the content before choosing a destination or copying to the system clipboard.
+**Preparar contexto local** includes saved programs, typed session history, active and previous cycle outlines, next-week briefs, planning answers and dated local measurements with their method and unit. **Preparar resultados locales** includes recorded session results and the available demo snapshot. Missing data is never invented. Both actions prepare a review, without saving or sharing automatically. Review the content before choosing a destination or copying to the system clipboard.
 
 ## Contract v1
 
@@ -10,9 +10,9 @@ Root: required `schemaVersion: 1`, `type`, stable `importId`, and ISO-8601 `crea
 
 | Payload | Supported fields |
 | --- | --- |
-| TrainingContext | `programs` (ENT-01 TrainingProgram array), nullable `phase`, `history` (TrainingResults), `rules` and `goals` (text arrays), optional `measurements` (defaults to empty), optional `outlines` (active plans) and `nextWeeks` (the app's next-week brief per plan); both default to empty, so older contexts still decode |
+| TrainingContext | `programs` (ENT-01 TrainingProgram array), nullable `phase`, `history` (TrainingResults), `rules` and `goals` (text arrays), optional `measurements` (defaults to empty), optional `outlines` (active plans), `previousOutlines` (inactive/replaced cycle structures) and `nextWeeks` (the app's next-week brief per plan); all optional collections default to empty, so older contexts still decode |
 | PlanOutline | multi-week plan structure; see [multi-week plans](PLAN_OUTLINE.md) |
-| Measurement | `id`, `measuredAt`, `metric`, finite nonnegative `value`, explicit `unit` (metric/unit labels are preserved without conversion) |
+| Measurement | `id`, `measuredAt`, `metric`, finite nonnegative `value`, explicit `unit`; optional nullable `method`, `label`, `fasted`, `timeOfDay`, `device`, `notes` (metric/unit labels and measurement provenance are preserved without conversion) |
 | WeekProposal | `id`, positive integer `version`, `programId`, `blockId`, `source`, `week` (ENT-01 WeekPlan), `differences` and `reasons` (text arrays) |
 | TrainingResults | `sessions` array; optional nullable legacy `demo` |
 | SessionResult | `id`, nullable `sessionPlanId`, `status`, nullable `startedAt`/`endedAt`/`notes`, `sets`, `cardio` |
@@ -32,7 +32,7 @@ Strict policy: unknown fields, enum values, types, versions or missing required 
 
 `exchanges-v1.json` is an independent versioned DataStore archive. Each save is atomic. Same importId and equal supported content is a no-op; changed content under an existing ID fails without replacement. Archive content is validated on restoration; corrupt/future archives report an error and are never reset to empty. Neither `workout.json` nor `programs-v1.json` is replaced by an imported exchange. Cross-package updates, activation, proposal approval and relational history are separate requirements.
 
-Local context generation contains no body measurements. Re-exporting imported context excludes measurements by default and requires the explicit checkbox to include them. A redacted export receives a deterministic derived importId because its content changed; repeated redacted exports retain the same identity. Saving the reviewed original preserves all fields, including measurements; redaction applies only to copying/exporting. Copying sends content to the Android system clipboard. Keep real files and personal measurements outside public evidence.
+Local context generation includes body measurements with their provenance. Copying/exporting local or imported context excludes measurements by default and requires the explicit checkbox to include them. In-app weekly and cycle generation include them, as stated beside the generation action. A redacted export receives a deterministic derived importId because its content changed; repeated redacted exports retain the same identity. Saving the reviewed original preserves all fields, including measurements; redaction applies only to copying/exporting. Copying sends content to the Android system clipboard. Keep real files and personal measurements outside public evidence.
 
 ## Synthetic examples and acceptance
 

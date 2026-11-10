@@ -19,9 +19,15 @@ import java.time.Instant
     /** Activated multi-week plans, one per program. */
     val outlines: List<PlanOutline> = emptyList(),
     /** For each plan: which week to plan next and its targets, computed by the app from programs and history. */
-    val nextWeeks: List<NextWeekBrief> = emptyList()
+    val nextWeeks: List<NextWeekBrief> = emptyList(),
+    /** Earlier cycles retained for planning the next one; never treated as active plans. */
+    val previousOutlines: List<PlanOutline> = emptyList()
 )
-@Serializable data class BodyMeasurement(val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String)
+@Serializable data class BodyMeasurement(
+    val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String,
+    val method: String? = null, val label: String? = null, val fasted: Boolean? = null,
+    val timeOfDay: String? = null, val device: String? = null, val notes: String? = null
+)
 @Serializable data class WeekProposal(
     val id: String, val version: Int, val programId: String, val blockId: String,
     val source: String, val week: WeekPlan, val differences: List<String>, val reasons: List<String>
@@ -73,8 +79,13 @@ object ExchangeCodec {
                 c.phase?.let(::note); c.rules.forEach(::note); c.goals.forEach(::note)
                 results(c.history)
                 unique(c.measurements.map { it.id })
-                c.measurements.forEach { m -> id(m.id); date(m.measuredAt); note(m.metric); note(m.unit); number(m.value) }
+                c.measurements.forEach { m ->
+                    id(m.id); date(m.measuredAt); note(m.metric); note(m.unit); number(m.value)
+                    listOfNotNull(m.method, m.label, m.timeOfDay, m.device, m.notes).forEach(::note)
+                    requireValid(m.unit != "PERCENT" || m.value <= 100, "Un porcentaje no puede superar 100.")
+                }
                 c.outlines.forEach(PlanOutlines::validate)
+                c.previousOutlines.forEach(PlanOutlines::validate)
                 requireValid(c.outlines.map { it.programId }.distinct().size == c.outlines.size, "Dos planes para el mismo programa.")
                 c.nextWeeks.forEach { b ->
                     requireValid(c.outlines.any { it.id == b.outlineId && it.version == b.outlineVersion && it.programId == b.programId },

@@ -94,7 +94,7 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
     }
     fun generate(type: ExchangeType) = operation {
         val data = app.localExchange(type)
-        mutableUi.value = mutableUi.value.copy(preview = data, message = "Revisa el JSON antes de compartir. El contexto local no incluye mediciones corporales. La demo se identifica como tal.")
+        mutableUi.value = mutableUi.value.copy(preview = data, message = "Revisa el JSON antes de compartir. El contexto incluye tus mediciones corporales con fecha y método; elige si las incluyes al copiar o exportar. La demo se identifica como tal.")
     }
 
     fun stageExport(includeMeasurements: Boolean): Boolean {

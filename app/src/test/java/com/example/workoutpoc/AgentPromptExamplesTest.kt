@@ -17,7 +17,7 @@ import java.io.File
  */
 class AgentPromptExamplesTest {
     private val examples = Regex("```json\\n(.*?)\\n```", RegexOption.DOT_MATCHES_ALL)
-        .findAll(File("../docs/AGENT_PROMPTS.md").readText()).map { it.groupValues[1] }.toList()
+        .findAll(File("../docs/AGENT_PROMPTS.md").readText().replace("\r\n", "\n")).map { it.groupValues[1] }.toList()
 
     @Test fun `both prompt examples are accepted by the app`() {
         assertEquals("One plan example and one week example", 2, examples.size)

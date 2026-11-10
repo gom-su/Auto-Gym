@@ -12,13 +12,13 @@ The AI proposes, the deterministic rules validate, the user approves. That appli
 
 ## Cycle
 
-1. **Create the plan once.** Give the agent your periodization document and the [plan prompt](AGENT_PROMPTS.md#1-crear-el-programa-plan-de-varias-semanas). It writes a `PlanOutline`: either with the MCP tool `create_plan_outline` or as a pasted v1 JSON package.
+1. **Import the first plan manually.** Give the agent your periodization document and the [plan prompt](AGENT_PROMPTS.md#1-crear-el-programa-plan-de-varias-semanas). It writes a `PlanOutline`: either with the MCP tool `create_plan_outline` or as a pasted v1 JSON package.
 2. **Import and activate it.** Import the file in **Agente > Intercambio JSON** (signed envelopes are accepted too). Open **Agente > Planes de periodización**, review the weeks and day templates, and tap **Activar plan**. Activating creates no weeks and changes nothing in the program. Only one plan is active at a time: activating another program's plan keeps the previous one as **Inactivo**, and you can activate it again later. Hoy follows the active plan.
 3. **Each week** (or tap **Agente > Generar siguiente semana** to do steps 1 and 2 inside the app with your Claude API key; see [in-app agent](IN_APP_AGENT.md)):
    1. Export the context (**Intercambio JSON > Preparar contexto local**). Besides programs and history, it now contains `outlines` and `nextWeeks`: for each active plan, the week to plan and its targets.
    2. The agent follows the [weekly prompt](AGENT_PROMPTS.md#2-semana-a-semana). It reads `get_next_week_brief` (or `nextWeeks` without MCP) and proposes exactly that week.
    3. Review and approve it in **Propuestas de semana**. Approving week 1 creates the program. Approving a block's first week creates that block.
-4. After week 12 has real records, the brief says `CYCLE_COMPLETE`. No week 13 is accepted; the cycle needs an evaluation, and a new cycle needs a new plan.
+4. During the last week, **Hoy** and **Agente** warn that a new plan is needed. The brief stops at `CYCLE_COMPLETE` once the final week has real records; no week 13 is accepted. After all final-week days have records or explicit not-performed marks and no session is running, use **Generar nuevo plan de 12 semanas**. The agent evaluates history and body measurements, asks questions when needed and saves a new `PlanOutline` for explicit review/activation. A new program ID preserves the old cycle. See [in-app agent](IN_APP_AGENT.md).
 
 ## Week numbering and the next-week brief
 

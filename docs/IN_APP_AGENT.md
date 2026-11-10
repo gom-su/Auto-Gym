@@ -1,6 +1,6 @@
-# In-app agent: Generar siguiente semana
+# In-app agent: weeks and the next 12-week cycle
 
-The app can ask Claude for the next week of the active plan with your own API key. The result is a pending proposal: you still review and approve it in **Propuestas de semana**. Design and rationale: [decision 0009](architecture/decisions/0009-in-app-agent.md).
+Import and activate the first 12-week plan manually. From then on, the app can ask Claude for each week and for the next 12-week cycle with your own API key. The result is a pending proposal: you still review and approve it in **Propuestas de semana**. Design and rationale: [decision 0009](architecture/decisions/0009-in-app-agent.md).
 
 ## Set up the key
 
@@ -11,7 +11,7 @@ The key is stored encrypted on the device (Android Keystore) and shown only as i
 
 ## Generate a week
 
-You need an active plan (**Agente › Planes de periodización**). The plan itself is still created outside the app from your periodization document and imported ([plans](PLAN_OUTLINE.md)).
+You need an active plan (**Agente › Planes de periodización**). Only the initial plan is created outside the app from your periodization document and imported ([plans](PLAN_OUTLINE.md)).
 
 1. Open **Generar siguiente semana** from **Agente**, or from **Hoy** when every saved week has records.
 2. **Semana a generar** shows what the app computed: the week number, its block, whether it is a deload, the reference week and its days without records. The button is available only when that week can be planned; if the week is already in the program or the cycle is complete, the card says so.
@@ -20,19 +20,27 @@ You need an active plan (**Agente › Planes de periodización**). The plan itse
 5. If Claude needs something decisive, its questions appear with options (the recommended one first) and a free answer. **Enviar respuestas** continues the same request. It can ask at most twice.
 6. When the proposal arrives, **Revisar y aprobar** opens **Propuestas de semana**. Approving it adds the week to the program, as with any imported proposal.
 
+## Finish a cycle and generate the next plan
+
+**Hoy** and **Agente** warn during the final week that a new 12-week plan is needed. Finishing the cycle never offers a week 13. After every day of the final week has a record (or an explicit not-performed mark), and no final-week session is running, **Generar nuevo plan de 12 semanas** becomes available. The cycle must also have real training data, as required by the existing brief.
+
+The request uses `prompts/next-cycle.txt`, the previous cycle's structure, saved training history and body measurements. Claude may ask questions, with the same two-round limit. The app accepts only a validated `PlanOutline` with exactly 12 weeks, version 1, a new plan ID and a new program ID. Known archived IDs cannot be reused. An invalid response gets one correction attempt.
+
+The plan is saved for review in **Planes de periodización** and is never activated automatically. Review and activate it explicitly. Old programs, sessions, plans and measurements remain available. A newly activated cycle starts with week 1; that program is created when its first week proposal is approved. The initial setup still requires manual import.
+
 ## What is sent, and where
 
 To the Claude API (Anthropic), over HTTPS, only when you tap the button:
 
 - the weekly prompt of [AGENT_PROMPTS.md](AGENT_PROMPTS.md#2-semana-a-semana) plus a short in-app mode;
-- the same context you can export in **Intercambio JSON**: saved programs, recorded sessions, the active plan with its next-week brief, and your planning answers;
+- the local context: saved programs, recorded sessions, the active plan and earlier cycle outlines, the next-week brief, planning answers, and dated body measurements including unit, method and optional measurement conditions;
 - your note for the week and your answers to Claude's questions.
 
-Body measurements are not sent. Nothing is sent in the background.
+Measurements recorded in **Progreso > Cuerpo** are included in both weekly and next-cycle requests. Muscle mass and lean mass stay distinct; the prompt compares only matching metrics, units and methods. Nothing is sent in the background. Manual copy/file export still uses the existing measurements checkbox.
 
 ## What the app accepts
 
-- Only a `WeekProposal` for the program and block the app's own brief names.
+- For weekly generation: only a `WeekProposal` for the program and block the app's own brief names. For the next cycle: only a new 12-week `PlanOutline`, as above.
 - It must decode with the strict v1 codec (unknown fields are rejected) and pass the proposal rules without blocking issues. Warnings are kept for your review.
 - A reply that fails is sent back once with the reasons. A second failure, a refusal or a reply cut at the output limit ends the generation with nothing saved.
 - The app sets the proposal's `importId`, time and `source` (`Claude en la app`). If you reject a proposal and generate again, the new one takes the next version.
@@ -57,3 +65,7 @@ Requests use `claude-opus-5-5` at high effort, streamed. The cost of one generat
   - the SDK runs on Android end to end against a local TLS stand-in: request, streamed reply and a second turn replaying the first.
 - By hand on the same emulator: the screen opens from **Agente**, a synthetic key is saved and shown as its last four characters, and **Quitar llave** removes it.
 - Not done: a request to the real API (no real key was used), a whole generation driven through the screen, and physical-device testing.
+
+## Follow-up implementation (2026-11-10)
+
+Added final-week and cycle-end notices, next-cycle generation, a separate muscle-mass metric, and measurement context with provenance. The conversational protocol is shared by weekly and cycle generation. New unit coverage checks cycle identity/length, question continuation, invalid and truncated responses, measurement serialization and legacy compatibility, final-week notices and switching to an unpopulated new cycle. Validation: unit suite 186 tests, 0 failures, 1 skipped; `:app:assembleDebug` and `:app:lintDebug` pass (0 lint errors, 72 warnings); the MCP Python suite passes 13/13. No emulator or physical device was connected for this follow-up, and no real API key was used. The new UI flow therefore remains unverified on a device.

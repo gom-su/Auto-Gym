@@ -187,7 +187,7 @@ object PlanOutlines {
         val (inBlock, blockSize) = target?.let { weekInBlock(o, it.number) } ?: (null to null)
         val total = o.weeks.size
         val message = when (status) {
-            BriefStatus.CYCLE_COMPLETE -> "La semana $total, la última del plan, tiene registros: el ciclo terminó. No se planifica una semana ${total + 1}; toca evaluar el ciclo."
+            BriefStatus.CYCLE_COMPLETE -> "La semana $total es la última del plan y ya tiene registros. No se planifica una semana ${total + 1}. Al terminar sus días, genera un nuevo plan de 12 semanas con el historial del ciclo."
             BriefStatus.ALREADY_PLANNED -> "La semana $next ya está en el programa (${weeks[next - 1].second.name}). Regístrala antes de planificar la siguiente."
             BriefStatus.READY -> (if (refNumber == null) "Sin registros reales todavía: se planifica la semana 1."
                 else "Referencia: semana $refNumber (${refWeek!!.name}). Se planifica la semana $next.") +
