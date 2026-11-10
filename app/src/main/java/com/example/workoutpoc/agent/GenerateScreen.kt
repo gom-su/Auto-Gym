@@ -2,7 +2,6 @@ package com.example.workoutpoc.agent
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -12,8 +11,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.workoutpoc.planning.BriefStatus
 import com.example.workoutpoc.ui.*
@@ -95,27 +92,7 @@ fun GenerateScreen(
 /** First on the screen while there is no key (nothing works without it); last once it is saved. */
 private fun androidx.compose.foundation.lazy.LazyListScope.keySection(ui: GenerateUiState, onSaveKey: (String) -> Unit, onClearKey: () -> Unit) {
     item { SectionHeader("Llave API de Claude") }
-    item(key = "api-key") {
-        ContentCard {
-            if (ui.key.present) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Llave guardada", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    StatusPill("termina en ${ui.key.hint}", Tone.Success)
-                }
-                SupportingText("Cifrada en este dispositivo. No se incluye en exportaciones ni copias de seguridad.", small = true)
-                QuietAction("Quitar llave", onClearKey, enabled = !ui.busy, icon = AppIcons.Delete, destructive = true)
-            } else {
-                // Kept out of saved state on purpose: the key is never written anywhere but its encrypted file.
-                var draft by remember { mutableStateOf("") }
-                SupportingText("Crea una llave en la consola de Claude (platform.claude.com, API keys) y pégala aquí. " +
-                    "Se guarda cifrada en este dispositivo y solo se usa para generar tus semanas.", small = true)
-                OutlinedTextField(draft, { draft = it }, Modifier.fillMaxWidth(), singleLine = true, enabled = !ui.busy,
-                    label = { Text("Llave API") }, visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false))
-                TonalAction("Guardar llave", { onSaveKey(draft) }, enabled = !ui.busy && draft.isNotBlank(), icon = AppIcons.Key)
-            }
-        }
-    }
+    item(key = "api-key") { ApiKeyCard(ui.key, enabled = !ui.busy, onSaveKey, onClearKey) }
 }
 
 /** One card per question: the model's options, the recommended one first, plus a free answer. */
