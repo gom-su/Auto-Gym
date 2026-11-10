@@ -5,7 +5,7 @@ The app can ask Claude for the next week of the active plan with your own API ke
 ## Set up the key
 
 1. Create an API key in the Claude console (platform.claude.com, **API keys**). It is billed to that account, separately from a Claude subscription.
-2. In the app, open **Agente › Generar siguiente semana** (or **Ajustes › Llave API de Claude**), paste it and tap **Guardar llave**.
+2. In the app, open **Ajustes** (the gear). Under **Agente** there is a blank **Llave API** field: paste the key and tap **Guardar llave**. The field stays there, blank, to replace the key later (**Reemplazar llave**). The same field appears in **Agente › Generar siguiente semana** while no key is saved.
 
 The key is stored encrypted on the device (Android Keystore) and shown only as its last four characters. It is not included in exports or backups. **Quitar llave** deletes it; uninstalling the app does too. The pairing key of **Envíos firmados** is a different thing and is refused here.
 

@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
                 when (top) {
                     Destination.Plans -> planModel.refresh(); Destination.Proposals -> proposalModel.refresh()
                     Destination.Questions -> questionsModel.refresh(); Destination.Stagnation -> stagnationModel.refresh()
-                    Destination.Generate -> generateModel.refresh(); else -> Unit
+                    Destination.Generate, Destination.Settings -> generateModel.refresh(); else -> Unit
                 }
             }
             CompositionLocalProvider(LocalBackLabel provides nav.backLabel()) {
@@ -233,13 +233,17 @@ class MainActivity : ComponentActivity() {
     private fun DestinationScreen(top: Destination, nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
         when (top) {
             Destination.Session -> SessionScreen(nav, state, ready, error)
-            Destination.Settings -> com.example.workoutpoc.settings.SettingsScreen(nav::back, notificationEnabled, overlayGranted,
+            Destination.Settings -> {
+              val keyUi by generateModel.ui.collectAsStateWithLifecycle()
+              com.example.workoutpoc.settings.SettingsScreen(nav::back, notificationEnabled, overlayGranted,
                 ::openNotificationSettings, ::openOverlaySettings, { nav.open(Destination.Migration) }, { nav.open(Destination.Exchange) },
                 // The demo is the session only while no planned session is loaded.
                 demoAvailable = state.source == null, onDemo = nav::openSession,
                 loggingMode = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode,
                 onLoggingMode = { mode -> lifecycleScope.launch { workoutApp.safely { workoutApp.settings.setLoggingMode(mode) } } },
-                onAgentKey = { nav.open(Destination.Generate) })
+                apiKey = keyUi.key, keyBusy = keyUi.busy, keyMessage = keyUi.message,
+                onSaveKey = generateModel::saveKey, onClearKey = generateModel::clearKey, onGenerate = { nav.open(Destination.Generate) })
+            }
             Destination.Stagnation -> {
                 val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, nav::back, stagnationModel::refresh, stagnationModel::setSettings)
