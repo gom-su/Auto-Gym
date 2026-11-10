@@ -22,8 +22,16 @@ data class HomeSummary(
     val week: CurrentWeek?,
     /** Every saved week has records: the next week has to come from the agent (plan week number when known). */
     val weekToPlan: Int?,
-    val outline: PlanOutline?
-)
+    val outline: PlanOutline?,
+    val cycleComplete: Boolean = false
+) {
+    val lastWeek get() = outline != null && week?.number == outline.weeks.size
+    val cycleNotice: String? get() = when {
+        cycleComplete -> "Terminaste el ciclo de ${outline!!.weeks.size} semanas. Genera un nuevo plan de 12 semanas con tu historial y mediciones corporales."
+        lastWeek -> "Esta es la última semana de tu plan (${outline!!.weeks.size} de ${outline.weeks.size}). Al terminar, debes generar un nuevo plan de 12 semanas."
+        else -> null
+    }
+}
 
 object HomePlanner {
     /**
@@ -31,7 +39,8 @@ object HomePlanner {
      * session; otherwise the most recently saved program.
      */
     fun currentProgram(programs: List<TrainingProgram>, active: List<PlanOutline>, sessions: List<WorkoutState>): TrainingProgram? {
-        active.firstNotNullOfOrNull { o -> programs.find { it.id == o.programId } }?.let { return it }
+        // A newly activated cycle has no program until week 1 is approved. Never fall back to the old cycle.
+        active.firstOrNull()?.let { o -> return programs.find { it.id == o.programId } }
         val recent = sessions.filter { it.source != null }.maxByOrNull { it.startedAtMillis ?: 0L }?.source?.programId
         return programs.find { it.id == recent } ?: programs.lastOrNull()
     }
@@ -53,10 +62,13 @@ object HomePlanner {
         val last = weeks.indexOfLast { (_, w) -> byWeek[w.id]?.days?.any(::recorded) == true }
         val index = when {
             last < 0 -> 0
-            byWeek[weeks[last].second.id]?.days?.all(::recorded) == true -> last + 1
+            byWeek[weeks[last].second.id]?.days?.all { recorded(it) && !it.inProgress } == true -> last + 1
             else -> last
         }
-        if (index >= weeks.size) return HomeSummary(program, null, weeks.size + 1, outline)
+        if (index >= weeks.size) {
+            val complete = outline != null && weeks.size >= outline.weeks.size
+            return HomeSummary(program, null, if (complete) null else weeks.size + 1, outline, complete)
+        }
         val (block, week) = weeks[index]
         val days = byWeek[week.id]?.days.orEmpty()
         val planDeload = outline?.weeks?.find { it.number == index + 1 }?.deload == true

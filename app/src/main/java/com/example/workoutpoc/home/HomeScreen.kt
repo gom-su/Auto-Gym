@@ -47,6 +47,9 @@ fun HomeScreen(
     AppScreen("Hoy", "", {}, busy = !ready || !home.ready) {
         error?.let { item { Banner(it, tone = Tone.Error, action = { TextButton(onClick = onRetry) { Text("Reintentar") } }) } }
         if (home.failed) item { Banner("No se pudo leer el resumen de hoy. Tus datos se conservan.", tone = Tone.Error) }
+        home.summary?.cycleNotice?.let { notice -> item {
+            Banner(notice, title = if (home.summary.cycleComplete) "Ciclo terminado" else "Última semana", tone = Tone.Warning)
+        } }
         if (loaded) item { SessionCard(state, ready, onSession) }
         else when {
             state.phase == Phase.Completed -> item { NavRow("Ver resumen de ${source?.dayName ?: "la demo"}", onSession, icon = AppIcons.CheckCircle,
@@ -71,7 +74,11 @@ fun HomeScreen(
         } else if (!loaded && home.ready) item {
             val toPlan = home.summary?.weekToPlan
             ContentCard {
-                if (toPlan != null && (home.summary.outline != null || home.summary.program != null)) {
+                if (home.summary?.cycleComplete == true) {
+                    Text("Genera tu siguiente plan de 12 semanas", style = MaterialTheme.typography.titleLarge)
+                    SupportingText("El agente evalúa el ciclo anterior con tus entrenamientos y mediciones. Puedes responder sus preguntas y revisar el plan antes de activarlo.")
+                    PrimaryAction("Generar nuevo plan de 12 semanas", { onLink(HomeLink.Generate) }, icon = AppIcons.Agent)
+                } else if (toPlan != null && (home.summary.outline != null || home.summary.program != null)) {
                     Eyebrow("SEMANA $toPlan")
                     Text("Semana $toPlan sin planificar", style = MaterialTheme.typography.titleLarge)
                     // In-app generation follows the active plan; a program without one still goes through an external agent.
@@ -92,6 +99,8 @@ fun HomeScreen(
         }
         if (week != null) item { WeekStrip(week.days, shown?.id, week.next?.id, enabled = !loaded) { chosen = it } }
         val pending = buildList {
+            if (home.summary?.cycleComplete == true)
+                add(Triple("Generar nuevo plan de 12 semanas", AppIcons.Agent, HomeLink.Generate))
             if (home.pendingProposals > 0) add(Triple(plural(home.pendingProposals, "propuesta por revisar", "propuestas por revisar"), AppIcons.Bolt, HomeLink.Proposals))
             if (home.openQuestions > 0) add(Triple(plural(home.openQuestions, "pregunta del agente sin responder", "preguntas del agente sin responder"), AppIcons.Question, HomeLink.Questions))
             if (!loaded && week == null && home.summary?.weekToPlan != null && home.summary.program != null)

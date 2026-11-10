@@ -108,7 +108,8 @@ object ProposalRules {
                 }
             }
         }
-        val base = if (plan != null) outlineChecks(proposal, program, plan, alreadyApplied, sessions, settings, ::add)
+        val base = if (plan != null) outlineChecks(proposal, program, plan, alreadyApplied,
+            sessions.filter { it.programId == null || it.programId == proposal.programId }, settings, ::add)
             else block?.weeks?.lastOrNull { it.id != week.id }
         val proposed = week.summary()
         week.days.flatMap { it.exercises }.flatMap { e -> e.sets.filter { it.rir == 0 }.map { e.name } }.distinct().forEach {

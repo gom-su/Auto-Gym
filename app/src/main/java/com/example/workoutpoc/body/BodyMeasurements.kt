@@ -18,6 +18,7 @@ import java.io.OutputStream
     BODY_MASS("Peso corporal", listOf(MeasureUnit.KG, MeasureUnit.LB)),
     BODY_FAT("Grasa corporal", listOf(MeasureUnit.PERCENT)),
     LEAN_MASS("Masa magra", listOf(MeasureUnit.KG, MeasureUnit.LB)),
+    MUSCLE_MASS("Masa muscular", listOf(MeasureUnit.KG, MeasureUnit.LB, MeasureUnit.PERCENT)),
     WAIST("Cintura", listOf(MeasureUnit.CM, MeasureUnit.IN)),
     OTHER("Otra medida", MeasureUnit.entries)
 }

@@ -6,7 +6,7 @@ Open **Progreso > Cuerpo**.
 
 Each measurement stores:
 - its date;
-- its metric: body weight, body fat, lean mass, waist, or another named measure;
+- its metric: body weight, body fat, lean mass, muscle mass, waist, or another named measure;
 - its value and unit, limited to units valid for that metric;
 - the **method** used. It is mandatory: scale, bioimpedance, DEXA, caliper, tape or other.
 
@@ -27,7 +27,9 @@ Form state survives scrolling. Lazy-list items drop plain remembered state when 
 
 ## Interchange
 
-Interchange v1 `TrainingContext.measurements` has no method field. Local measurements are therefore not added to exported context yet; doing so would drop the method. The export screen keeps stating that local context includes no body measurements.
+Local context includes all recorded measurements, retaining date, metric, value, unit, method and optional conditions, device and notes. Muscle mass (`MUSCLE_MASS`, kg/lb/%) is separate from lean mass (`LEAN_MASS`, kg/lb). Both weekly and next-12-week-plan generation receive these measurements. The prompts compare matching metrics, units and methods and do not invent missing data.
+
+Interchange v1 now accepts optional `method`, `label`, `fasted`, `timeOfDay`, `device` and `notes` fields; old contexts without them still decode with null values. Manual copying/exporting retains the explicit measurements checkbox, off by default. In-app generation includes measurements and explains this on its screen.
 
 ## Verification (2026-11-06, API 36 emulator)
 

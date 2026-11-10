@@ -69,4 +69,46 @@ class HomePlannerTest {
         assertEquals(program.id, HomePlanner.currentProgram(listOf(program, other), emptyList(), r.sessions())!!.id)
         assertEquals(other.id, HomePlanner.currentProgram(listOf(program, other), emptyList(), emptyList())!!.id)
     }
+
+    private fun outline() = com.example.workoutpoc.exchange.ExchangeCodec.decode(
+        java.io.File("src/main/assets/examples/plan-outline-v1.json").readText()).outline!!.let { o ->
+        o.copy(programId = program.id, weeks = o.weeks.take(3), blocks = o.blocks.take(1))
+    }
+
+    @Test fun `last week warns before completion and a finished cycle never asks for week thirteen`() = runTest {
+        val r = repo()
+        r.train("week-one", "day-one-a"); r.train("week-one", "day-one-b"); r.train("week-two", "day-two-c")
+        val o = outline()
+        val last = HomePlanner.summary(listOf(program), listOf(o), r.sessions(), WeekAnnotations())
+        assertTrue(last.lastWeek)
+        assertTrue(last.cycleNotice!!.contains("última semana"))
+        assertFalse(last.cycleComplete)
+        r.train("week-three", "day-three-a")
+        val done = HomePlanner.summary(listOf(program), listOf(o), r.sessions(), WeekAnnotations())
+        assertTrue(done.cycleComplete)
+        assertNull(done.weekToPlan)
+        assertTrue(done.cycleNotice!!.contains("nuevo plan de 12 semanas"))
+    }
+
+    @Test fun `a running final session does not close the cycle`() = runTest {
+        val r = repo()
+        r.train("week-one", "day-one-a"); r.train("week-one", "day-one-b"); r.train("week-two", "day-two-c")
+        val d = program.findDay("week-three", "day-three-a")!!
+        r.load(d.day.toPlannedSets(), d.source); r.go(WorkoutEvent.StartWorkout); r.go(WorkoutEvent.CompleteSet)
+        val s = HomePlanner.summary(listOf(program), listOf(outline()), r.sessions(), WeekAnnotations())
+        assertFalse(s.cycleComplete)
+        assertTrue(s.lastWeek)
+    }
+
+    @Test fun `activating a new cycle does not send Hoy back to the old program`() = runTest {
+        val o = outline().copy(id = "next-outline", programId = "next-program")
+        val r = repo()
+        r.train("week-one", "day-one-a")
+        val s = HomePlanner.summary(listOf(program), listOf(o), r.sessions(), WeekAnnotations())
+        assertNull(s.program)
+        assertNull(s.week)
+        assertFalse(s.cycleComplete)
+        assertEquals(1, s.weekToPlan)
+        assertEquals(o, s.outline)
+    }
 }

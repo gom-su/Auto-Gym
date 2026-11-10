@@ -60,6 +60,7 @@ fun BodyScreen(log: MeasurementLog, ui: BodyUiState, onBack: () -> Unit, onRetry
                onAdd: (BodyMeasurement) -> Unit, onRemove: (String) -> Unit) {
     val groups = remember(log) { trends(log) }
     AppScreen("Peso y composición corporal", "Volver a Programas", onBack, backEnabled = !ui.busy, busy = ui.busy, message = ui.message) {
+        item { SupportingText("Estas mediciones se incluyen al generar semanas y nuevos planes de 12 semanas con tu agente de IA. Registra el método para comparar datos equivalentes.") }
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar mediciones", onRetry, enabled = !ui.busy) }
         item { ContentCard { MeasurementForm(enabled = ui.ready && !ui.busy, onAdd) } }
         item { SectionHeader("Tendencias") }

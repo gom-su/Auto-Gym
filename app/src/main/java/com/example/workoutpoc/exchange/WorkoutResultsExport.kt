@@ -72,7 +72,7 @@ fun WorkoutState.toSessionResult(): SessionResult? {
         )
     }
     return SessionResult(
-        id = sessionId, sessionPlanId = src.dayId,
+        id = sessionId, sessionPlanId = src.dayId, programId = src.programId,
         status = if (finished && !endedEarly && records.size == plan.size && records.all { it.status == SetStatus.COMPLETED })
             PerformanceStatus.COMPLETED else PerformanceStatus.PARTIAL,
         startedAt = iso(startedAtMillis), endedAt = if (finished) iso(endedAtMillis) else null,

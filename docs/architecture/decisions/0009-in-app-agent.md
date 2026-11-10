@@ -32,3 +32,11 @@ Request shape: model `claude-opus-5-5`, effort `high`, streamed, up to 64,000 ou
 ## Verification
 
 See [in-app agent](../../IN_APP_AGENT.md#verification).
+
+## Follow-up: cycle continuity and measurements (2026-11-10)
+
+The user clarified that only the first 12-week plan is imported manually. The final week must warn that a new plan is needed. After its days are recorded and no session remains in progress, the in-app agent can generate the next 12-week plan from accumulated history, ask questions and archive it for explicit review/activation. The new cycle must use new plan/program IDs; the prior cycle remains intact. No week 13 is generated.
+
+This supersedes the measurement exclusion in item 4: weekly and cycle requests now include local dated body measurements with units, method and optional provenance. The body section adds muscle mass separately from lean mass. Manual JSON sharing still uses the existing opt-in checkbox. Context retains inactive/replaced outlines separately from active plans. Week and cycle responses share the conversational validation protocol.
+
+Review also identified that day IDs are scoped to a program. Local typed session results now carry an optional `programId`, and both app and MCP reference calculations exclude other cycles with the same day ID. Global history remains available to the model for exercise-level comparison. Final-week not-performed marks close the cycle without inventing sessions; they do not require a performed set in that final week to enable the next-cycle action.

@@ -196,4 +196,4 @@ The rule is a double progression gated by RIR, decided on 2026-11-09:
 
 The rep thresholds (upper half of the range for jumps up to 5 %, top of the range above that) are a working heuristic, not a tested protocol. They follow from the rough rule that one repetition is worth about 2.5–3 % of load, so a jump should still land at or above the bottom of the range. Most of the studies are in young, healthy adults.
 
-Body weight and waist: the app does not add local measurements to the exported context yet (see [body measurements](BODY_MEASUREMENTS.md)). Until it does, give the agent your weekly averages in the message.
+Body measurements recorded in **Progreso > Cuerpo** are included in in-app generation and local context (see [body measurements](BODY_MEASUREMENTS.md)). File/clipboard exports include them only when selected. Measurements retain method and units; muscle mass and lean mass are distinct. The in-app next-cycle prompt is `app/src/main/assets/prompts/next-cycle.txt`; only the first plan is imported manually.
