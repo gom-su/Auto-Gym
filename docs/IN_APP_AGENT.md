@@ -47,7 +47,7 @@ Requests use `claude-opus-5-5` at high effort, streamed. The cost of one generat
 
 ## Verification (2026-11-10)
 
-- Unit tests: 172 run, 0 failures, 1 skipped.
+- Unit tests: 174 run, 0 failures, 1 skipped.
   - `WeekGenerationTest`: acceptance and app-side stamping; questions and answers in one conversation; the two-round limit; another block, blocking issues, unknown fields and other package types sent back once and then refused; a cut reply never parsed; version bump; nothing sent when the brief is not `READY`; the shipped prompt equals the documented one.
   - `ClaudeChatTest`, against a local stand-in for the API: model, key, system prompt, effort, fallback and streaming in the request; earlier turns replayed unchanged with their reasoning blocks; a failed turn not kept; rejected key, no credit, rejected request, cut reply and no connection told apart.
   - `ApiKeyTest`: refused mistakes (pairing key, admin key, spaces), hint-only status, an unreadable stored key.

@@ -4,13 +4,10 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutpoc.planning.PlanOutlines
 import com.example.workoutpoc.planning.ProgramValidationException
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.time.Instant
-import java.util.UUID
 
 data class ExchangeUiState(val ready: Boolean = false, val busy: Boolean = false,
     val preview: ExchangePackage? = null, val message: String? = null,

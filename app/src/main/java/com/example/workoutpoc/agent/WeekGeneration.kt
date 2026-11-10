@@ -78,6 +78,7 @@ class WeekGeneration(
 ) {
     private var questionRounds = 0
     private var repairs = 0
+    private var toldToPropose = false
 
     suspend fun start(contextJson: String, today: String, note: String?): GenerationStep {
         if (brief.status != BriefStatus.READY) throw AgentException(brief.message)
@@ -94,8 +95,11 @@ class WeekGeneration(
         when {
             json == null || root == null -> problems += "La respuesta no es un único objeto JSON."
             "questions" in root ->
-                if (questionRounds >= MAX_QUESTION_ROUNDS) problems += "Ya hiciste tus preguntas. Resuelve lo que falte con la opción segura, " +
-                    "explícalo en differences y entrega el paquete WeekProposal."
+                if (questionRounds >= MAX_QUESTION_ROUNDS) {
+                    problems += "Ya hiciste tus preguntas. Resuelve lo que falte con la opción segura, explícalo en differences y entrega el paquete WeekProposal."
+                    // Said once without spending the correction round: the proposal that follows may still need it.
+                    if (!toldToPropose) { toldToPropose = true; return read(chat.send(WeekPrompts.repair(problems))) }
+                }
                 else try { return GenerationStep.Questions(questions(json)).also { questionRounds++ } }
                 catch (e: AgentException) { problems += e.message.orEmpty() }
             else -> try {

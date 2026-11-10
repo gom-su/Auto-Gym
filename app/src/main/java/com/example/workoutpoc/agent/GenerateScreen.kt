@@ -121,10 +121,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.keySection(ui: Genera
 /** One card per question: the model's options, the recommended one first, plus a free answer. */
 @Composable
 private fun QuestionsForm(questions: List<AgentQuestion>, enabled: Boolean, onAnswer: (List<String>) -> Unit, onCancel: () -> Unit) {
-    // The choice per question: an option index, or options.size for the free answer.
-    val picked = remember(questions) { mutableStateListOf<Int?>().apply { repeat(questions.size) { add(null) } } }
-    val other = remember(questions) { mutableStateListOf<String>().apply { repeat(questions.size) { add("") } } }
-    fun answerOf(i: Int): String? = picked[i]?.let { p -> questions[i].options.getOrNull(p) ?: other[i].trim().ifBlank { null } }
+    // The choice per question: an option index, options.size for the free answer, or -1. Saved, so a rotation or a
+    // scroll that takes the form off screen does not clear what was already answered.
+    val key = questions.joinToString("|") { it.text }
+    var picked by rememberSaveable(key) { mutableStateOf(List(questions.size) { -1 }) }
+    var other by rememberSaveable(key) { mutableStateOf(List(questions.size) { "" }) }
+    fun answerOf(i: Int): String? = picked[i].takeIf { it >= 0 }?.let { p -> questions[i].options.getOrNull(p) ?: other[i].trim().ifBlank { null } }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         questions.forEachIndexed { i, q ->
             ContentCard {
@@ -133,19 +135,19 @@ private fun QuestionsForm(questions: List<AgentQuestion>, enabled: Boolean, onAn
                 (q.options + "Otra respuesta").forEachIndexed { o, option ->
                     val selected = picked[i] == o
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .selectable(selected, enabled = enabled, role = Role.RadioButton) { picked[i] = o },
+                        .selectable(selected, enabled = enabled, role = Role.RadioButton) { picked = picked.toMutableList().also { it[i] = o } },
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         RadioButton(selected, onClick = null, enabled = enabled)
                         Text(if (o == 0) "$option (recomendada)" else option, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
                 if (picked[i] == q.options.size)
-                    OutlinedTextField(other[i], { if (it.length <= 1000) other[i] = it }, Modifier.fillMaxWidth(), enabled = enabled,
+                    OutlinedTextField(other[i], { text -> if (text.length <= 1000) other = other.toMutableList().also { it[i] = text } }, Modifier.fillMaxWidth(), enabled = enabled,
                         label = { Text("Tu respuesta") })
             }
         }
         val answers = questions.indices.map(::answerOf)
         PrimaryAction("Enviar respuestas", { onAnswer(answers.filterNotNull()) }, enabled = enabled && answers.none { it == null }, icon = AppIcons.Agent)
-        QuietAction("Cancelar generación", onCancel, fill = true)
+        QuietAction("Cancelar generación", onCancel, enabled = enabled, fill = true)
     }
 }

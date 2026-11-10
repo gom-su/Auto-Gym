@@ -78,6 +78,25 @@ class WeekGenerationTest {
         assertTrue(chat.sent[3].contains("Ya hiciste tus preguntas"))
     }
 
+    @Test fun `being told to propose does not spend the correction round`() = runTest {
+        val wrongBlock = week.replace("\"blockId\":\"b1\"", "\"blockId\":\"b9\"")
+        val chat = ScriptedChat(AgentReply(questions), AgentReply(questions), AgentReply(questions), AgentReply(wrongBlock), AgentReply(week))
+        val running = generation(chat)
+        val first = (running.start("{}", "2026-11-10", null) as GenerationStep.Questions).questions
+        val second = (running.answer(listOf(first[0] to "Sin dolor")) as GenerationStep.Questions).questions
+        assertTrue(running.answer(listOf(second[0] to "Sin dolor")) is GenerationStep.Proposal)
+        assertTrue(chat.sent[4].contains("blockId debe ser b1"))
+    }
+
+    @Test fun `asking again after being told to propose ends the generation`() = runTest {
+        val chat = ScriptedChat(AgentReply(questions), AgentReply(questions), AgentReply(questions), AgentReply(questions), AgentReply(questions))
+        val running = generation(chat)
+        val first = (running.start("{}", "2026-11-10", null) as GenerationStep.Questions).questions
+        val second = (running.answer(listOf(first[0] to "Sin dolor")) as GenerationStep.Questions).questions
+        assertTrue(fails { running.answer(listOf(second[0] to "Sin dolor")) }.contains("No se guardó nada"))
+        assertEquals(5, chat.sent.size)
+    }
+
     @Test fun `a proposal for another block is sent back once with the reason and then accepted`() = runTest {
         val chat = ScriptedChat(AgentReply(week.replace("\"blockId\":\"b1\"", "\"blockId\":\"b9\"")), AgentReply(week))
         assertTrue(generation(chat).start("{}", "2026-11-10", null) is GenerationStep.Proposal)

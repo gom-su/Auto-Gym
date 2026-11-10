@@ -1,5 +1,6 @@
 package com.example.workoutpoc.agent
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +57,7 @@ class ApiKeyRepository(private val vault: ApiKeyVault, private val io: Coroutine
     suspend fun save(raw: String) = mutex.withLock {
         val key = ApiKeys.clean(raw)
         try { withContext(io) { vault.write(key) } }
+        catch (e: CancellationException) { throw e }
         catch (e: Exception) { throw AgentException("No se pudo guardar la llave en este dispositivo.") }
         mutable.value = ApiKeyStatus(true, ApiKeys.hint(key))
     }
@@ -66,5 +68,6 @@ class ApiKeyRepository(private val vault: ApiKeyVault, private val io: Coroutine
     }
 
     private suspend fun load(): String? = try { withContext(io) { vault.read() } }
+        catch (e: CancellationException) { throw e }
         catch (e: Exception) { throw AgentException("La llave guardada no se pudo leer. Vuelve a pegarla.") }
 }

@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.workoutpoc.exchange.ExchangeCodec
 import com.example.workoutpoc.exchange.ExchangeType
 import com.example.workoutpoc.exchange.localExchange
+import com.example.workoutpoc.exchange.toSessionResult
 import com.example.workoutpoc.planning.BriefStatus
 import com.example.workoutpoc.planning.NextWeekBrief
 import com.example.workoutpoc.planning.PlanOutline
+import com.example.workoutpoc.planning.PlanOutlines
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +72,8 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         discard()
         mutableUi.value = mutableUi.value.copy(savedWeek = null, questions = null)
         val key = app.apiKey.key() ?: throw AgentException("Guarda primero tu llave API de Claude.")
-        val data = app.localExchange(ExchangeType.TrainingContext)
+        // Building and encoding the whole history is kept off the main thread.
+        val (data, contextJson) = withContext(Dispatchers.Default) { app.localExchange(ExchangeType.TrainingContext).let { it to compact.encodeToString(it) } }
         val brief = data.context!!.nextWeeks.firstOrNull() ?: throw AgentException("No hay plan activo. Activa uno en Planes de periodización.")
         if (brief.status != BriefStatus.READY) throw AgentException(brief.message)
         app.proposals.restore(); app.exchanges.restore()
@@ -81,7 +84,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         chat = opened; week = brief.weekNumber
         val started = WeekGeneration(opened, brief, taken, { p -> app.proposals.check(p).blocking.map { it.message } })
         generation = started
-        show(started.start(compact.encodeToString(data), LocalDate.now().toString(), note.trim().take(MAX_NOTE).ifBlank { null }))
+        show(started.start(contextJson, LocalDate.now().toString(), note.trim().take(MAX_NOTE).ifBlank { null }))
     }
 
     /** [answers] are in the order of the questions shown. */
@@ -92,10 +95,17 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         show(running.answer(questions.zip(answers.map { it.trim().take(MAX_NOTE) })))
     }
 
+    /**
+     * Stops a call in flight, or drops the questions waiting for answers. The screen stays busy until the interrupted
+     * call has really ended (see [operation]), so a new generation cannot overlap it.
+     */
     fun cancel() {
-        job?.cancel()
-        discard()
-        mutableUi.value = mutableUi.value.copy(busy = false, generating = false, questions = null, message = "Generación cancelada. No se guardó nada.")
+        val running = job?.takeIf { it.isActive && ui.value.generating }
+        if (running != null) running.cancel()
+        else if (!ui.value.busy) {
+            discard()
+            mutableUi.value = mutableUi.value.copy(questions = null, message = CANCELLED)
+        }
     }
 
     private suspend fun show(step: GenerationStep) {
@@ -104,10 +114,10 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 message = "Claude necesita tus respuestas antes de proponer la semana.")
             is GenerationStep.Proposal -> {
                 app.exchanges.save(step.pkg)
-                val saved = week
+                // Shown as saved at once: a cancellation or a failed reload after this point must not hide it.
+                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = week,
+                    message = "Propuesta de la semana $week guardada. Queda pendiente de tu aprobación.")
                 discard(); load()
-                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = saved,
-                    message = "Propuesta de la semana $saved guardada. Queda pendiente de tu aprobación.")
             }
         }
     }
@@ -115,12 +125,17 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
     private suspend fun load() {
         // An unreadable key is reported, and the rest of the screen still loads so it can be replaced.
         val keyProblem = try { app.apiKey.restore(); null } catch (e: AgentException) { e.message }
-        val context = app.localExchange(ExchangeType.TrainingContext).context!!
-        val outline = context.outlines.firstOrNull()
+        // Only the plan and its brief are needed to draw the screen; the full context is built when generating.
+        val (outline, brief) = withContext(Dispatchers.Default) {
+            app.outlines.restore(); app.programs.restore(); app.repository.restore()
+            val active = app.outlines.outlines.value.active.firstOrNull()
+            val sessions = (app.repository.archived.value.sessions + app.repository.state.value).distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() }
+            active to active?.let { o -> PlanOutlines.brief(o, app.programs.library.value.programs.find { it.id == o.programId }, sessions) }
+        }
         app.proposals.restore(); app.exchanges.restore()
         val decided = app.proposals.state.value.decisions.map { it.importId }.toSet()
         mutableUi.value = mutableUi.value.copy(ready = true, key = app.apiKey.status.value, outline = outline,
-            brief = context.nextWeeks.find { it.programId == outline?.programId },
+            brief = brief,
             pending = app.exchanges.archive.value.packages.count { it.proposal?.programId == outline?.programId && outline != null && it.importId !in decided },
             message = keyProblem ?: mutableUi.value.message)
     }
@@ -137,18 +152,26 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         mutableUi.value = mutableUi.value.copy(busy = true, generating = generating, message = null)
         job = viewModelScope.launch {
             try { block() }
-            catch (e: CancellationException) { throw e }
+            catch (e: CancellationException) {
+                if (generating && mutableUi.value.savedWeek == null) mutableUi.value = mutableUi.value.copy(questions = null, message = CANCELLED)
+                throw e
+            }
             // AgentException, and validation and proposal errors, are already worded for the user.
             catch (e: AgentException) { mutableUi.value = mutableUi.value.copy(message = e.message) }
             catch (e: IllegalArgumentException) { mutableUi.value = mutableUi.value.copy(message = e.message) }
             catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo completar la generación. Tus datos se conservan. Reintenta.") }
-            finally { mutableUi.value = mutableUi.value.copy(busy = false, generating = false) }
+            finally {
+                // Without questions waiting there is no conversation to continue: close the client.
+                if (mutableUi.value.questions == null) discard()
+                mutableUi.value = mutableUi.value.copy(busy = false, generating = false)
+            }
         }
     }
 
     private companion object {
         const val PROMPT_ASSET = "prompts/week-proposal.txt"
         const val MAX_NOTE = 2000
+        const val CANCELLED = "Generación cancelada."
         /** The same content as an export, without the indentation: about half the tokens. */
         val compact = Json(ExchangeCodec.json) { prettyPrint = false }
     }
