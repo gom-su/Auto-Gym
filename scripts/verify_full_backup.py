@@ -30,12 +30,14 @@ def call(*parts):
 
 
 def hierarchy():
-    for _ in range(5):
-        call('shell', 'uiautomator', 'dump', '/sdcard/backup-ui.xml')
+    for _ in range(8):
         try:
-            return ET.fromstring(call('shell', 'cat', '/sdcard/backup-ui.xml'))
-        except ET.ParseError:
-            time.sleep(0.2)
+            output = call('shell', 'uiautomator', 'dump', '/sdcard/backup-ui.xml')
+            if b'UI hierchary dumped' in output:
+                return ET.fromstring(call('shell', 'cat', '/sdcard/backup-ui.xml'))
+        except (ET.ParseError, subprocess.CalledProcessError):
+            pass
+        time.sleep(0.5)
     raise AssertionError('No Android UI hierarchy')
 
 
