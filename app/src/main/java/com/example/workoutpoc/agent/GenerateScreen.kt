@@ -1,16 +1,13 @@
 package com.example.workoutpoc.agent
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.workoutpoc.planning.BriefStatus
 import com.example.workoutpoc.ui.*
@@ -111,27 +108,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.keySection(ui: Genera
 private fun QuestionsForm(questions: List<AgentQuestion>, enabled: Boolean, onAnswer: (List<String>) -> Unit, onCancel: () -> Unit) {
     // The choice per question: an option index, options.size for the free answer, or -1. Saved, so a rotation or a
     // scroll that takes the form off screen does not clear what was already answered.
-    val key = questions.joinToString("|") { it.text }
-    var picked by rememberSaveable(key) { mutableStateOf(List(questions.size) { -1 }) }
-    var other by rememberSaveable(key) { mutableStateOf(List(questions.size) { "" }) }
-    fun answerOf(i: Int): String? = picked[i].takeIf { it >= 0 }?.let { p -> questions[i].options.getOrNull(p) ?: other[i].trim().ifBlank { null } }
+    var picked by rememberSaveable(questions) { mutableStateOf(List(questions.size) { -1 }) }
+    var other by rememberSaveable(questions) { mutableStateOf(List(questions.size) { "" }) }
+    fun answerOf(i: Int): String? = questionAnswer(questions[i].options, picked[i], other[i])
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         questions.forEachIndexed { i, q ->
             ContentCard {
                 if (q.topic.isNotBlank()) Eyebrow("PREGUNTA ${i + 1} · ${q.topic.uppercase()}") else Eyebrow("PREGUNTA ${i + 1}")
                 Text(q.text, style = MaterialTheme.typography.titleSmall)
-                (q.options + "Otra respuesta").forEachIndexed { o, option ->
-                    val selected = picked[i] == o
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                        .selectable(selected, enabled = enabled, role = Role.RadioButton) { picked = picked.toMutableList().also { it[i] = o } },
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        RadioButton(selected, onClick = null, enabled = enabled)
-                        Text(if (o == 0) "$option (recomendada)" else option, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                if (picked[i] == q.options.size)
-                    OutlinedTextField(other[i], { text -> if (text.length <= 1000) other = other.toMutableList().also { it[i] = text } }, Modifier.fillMaxWidth(), enabled = enabled,
-                        label = { Text("Tu respuesta") })
+                QuestionAnswerChoices(q.options, picked[i],
+                    { selected -> picked = picked.toMutableList().also { it[i] = selected } }, other[i],
+                    { text -> other = other.toMutableList().also { it[i] = text } }, enabled, recommendedFirst = true)
             }
         }
         val answers = questions.indices.map(::answerOf)

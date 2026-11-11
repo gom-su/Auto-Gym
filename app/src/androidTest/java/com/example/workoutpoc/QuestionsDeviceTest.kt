@@ -34,6 +34,13 @@ class QuestionsDeviceTest {
         device.clickText("Preguntas de planificación")
         // Each question card is a column: act on the field and buttons inside the card that holds the question text.
         fun card(question: String): UiObject2 = device.scrollToText(question).parent
+        val goal = card("¿Cuál es tu objetivo")
+        assertNull(goal.findObject(By.clazz("android.widget.EditText")))
+        goal.findObject(By.text("Mejorar fuerza")).click()
+        card("¿Cuál es tu objetivo").findObject(By.text("Guardar respuesta")).click()
+        val goalEnd = SystemClock.elapsedRealtime() + 6_000
+        while (app.planningAnswers.answers.value.find("goal") == null && SystemClock.elapsedRealtime() < goalEnd) SystemClock.sleep(100)
+        card("¿En qué fase estás").findObject(By.text("Otra")).click()
         card("¿En qué fase estás").findObject(By.clazz("android.widget.EditText")).text = phase
         SystemClock.sleep(600)
         if (device.hasObject(By.pkg("com.google.android.inputmethod.latin"))) { device.pressBack(); device.waitForIdle() }
@@ -46,7 +53,7 @@ class QuestionsDeviceTest {
         val saved = runBlocking { File(app.filesDir, "datastore/planning-answers-v1.json").inputStream().use { PlanningAnswersSerializer.readFrom(it) } }
         assertEquals(phase, saved.find("phase")?.value)
         assertTrue(saved.find("restrictions")!!.unavailable)
-        assertNull(saved.find("goal"))
+        assertEquals("Mejorar fuerza", saved.find("goal")?.value)
 
         // The exported context is built by exactly this function from the stored answers (export encoding is unit-tested).
         val (contextPhase, _, rules) = com.example.workoutpoc.questions.PlanningQuestions.context(

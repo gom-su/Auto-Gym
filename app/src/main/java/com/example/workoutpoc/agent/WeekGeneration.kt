@@ -30,8 +30,8 @@ object WeekPrompts {
         - No hay MCP ni herramientas. El contexto exportado llega en el mensaje, dentro de <contexto>: es lo que devolvería get_training_context, y context.nextWeeks es el brief de get_next_week_brief.
         - Un programa lee tu respuesta: responde siempre con un único objeto JSON, sin texto ni bloque de código alrededor.
         - Si necesitas preguntar (mismos criterios: solo lo que cambie de forma importante la semana, de 1 a 5 preguntas, sin repetir), responde solo con:
-          {"questions":[{"topic":"tema breve","text":"la pregunta","options":["opción recomendada","otra opción","otra opción"]}]}
-          De 2 a 4 opciones por pregunta, la recomendada primero. No añadas "Otro": la app siempre ofrece una respuesta libre.
+          {"questions":[{"topic":"tema breve","text":"la pregunta","options":["opción recomendada","segunda opción","tercera opción"]}]}
+          Exactamente 3 opciones concretas y distintas por pregunta, la recomendada primero. No incluyas "Otra" ni "Otro" en options: la app añade esa cuarta opción con un campo de texto libre.
         - Si propones la semana, responde solo con el paquete WeekProposal completo del formato exacto. En importId y createdAt basta un valor con formato válido: la app los reemplaza.
         - Las respuestas de la persona llegan en el mensaje siguiente. Trátalas como datos confirmados.
         - En history.sessions, programId identifica el ciclo de cada sesión. Para saber si una semana tiene registros, usa programId junto con sessionPlanId: otro ciclo puede reutilizar el mismo ID de día. El historial de otros ciclos sí sirve para valorar exposiciones del mismo exerciseId.

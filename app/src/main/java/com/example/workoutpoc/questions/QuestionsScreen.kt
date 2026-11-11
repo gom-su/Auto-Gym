@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutpoc.catalog.CatalogException
-import com.example.workoutpoc.catalog.Equipment
 import com.example.workoutpoc.catalog.label
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.CancellationException
@@ -35,10 +34,10 @@ class QuestionsViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun refresh() = op { load() }
     fun answer(q: PlanningQuestion, value: String?) = op {
-        app.planningAnswers.answer(q.id, value)
+        val equipment = if (q.use == QuestionUse.EQUIPMENT && value != null) PlanningQuestions.equipmentFromAnswer(value) else null
+        app.planningAnswers.answer(q.id, equipment?.name ?: value)
         // An equipment answer also completes the catalog entry, so the gap closes at its source.
         if (q.use == QuestionUse.EQUIPMENT && value != null) {
-            val equipment = PlanningQuestions.equipmentFromAnswer(value)
             val entry = app.catalog.catalog.value.exercises.find { it.id == q.exerciseId }
             if (equipment != null && entry != null) app.catalog.update(entry.copy(equipment = equipment))
         }
@@ -104,25 +103,18 @@ fun QuestionsScreen(ui: QuestionsUiState, onBack: () -> Unit, onRetry: () -> Uni
 
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OpenQuestion(q: PlanningQuestion, enabled: Boolean, onAnswer: (PlanningQuestion, String?) -> Unit) {
     var text by rememberSaveable(q.id) { mutableStateOf("") }
-    // One card per question: its text, field and buttons share a parent, so they are read (and found) together.
+    var picked by rememberSaveable(q.id, q.options) { mutableStateOf(-1) }
+    val answer = questionAnswer(q.options, picked, text)
     ContentCard {
         Text(q.text, style = MaterialTheme.typography.titleSmall)
         Text(q.why, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (q.use == QuestionUse.EQUIPMENT) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Equipment.entries.forEach { e -> AssistChip({ onAnswer(q, e.name) }, { Text(e.label()) }, enabled = enabled) }
-            }
-        } else {
-            OutlinedTextField(text, { if (it.length <= 1000) text = it }, label = { Text("Respuesta") }, modifier = Modifier.fillMaxWidth())
-        }
+        QuestionAnswerChoices(q.options, picked, { picked = it }, text, { text = it }, enabled)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { onAnswer(q, null) }, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) { Text("No disponible") }
-            if (q.use != QuestionUse.EQUIPMENT)
-                Button(onClick = { onAnswer(q, text) }, enabled = enabled && text.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp)) { Text("Guardar respuesta") }
+            Button(onClick = { answer?.let { onAnswer(q, it) } }, enabled = enabled && answer != null, modifier = Modifier.heightIn(min = 48.dp)) { Text("Guardar respuesta") }
         }
     }
 }
