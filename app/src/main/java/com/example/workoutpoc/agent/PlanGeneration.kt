@@ -14,8 +14,8 @@ object PlanPrompts {
         No hay MCP ni herramientas. El contexto llega dentro de <contexto>.
         Responde con un único objeto JSON, sin texto ni bloque de código alrededor.
         Si necesitas preguntar, no propongas todavía. Devuelve:
-        {"questions":[{"topic":"tema breve","text":"la pregunta","options":["opción recomendada","otra opción"]}]}
-        De 1 a 5 preguntas, de 2 a 4 opciones distintas por pregunta, recomendada primero. La app ofrece respuesta libre.
+        {"questions":[{"topic":"tema breve","text":"la pregunta","options":["opción recomendada","segunda opción","tercera opción"]}]}
+        De 1 a 5 preguntas, exactamente 3 opciones concretas y distintas por pregunta, recomendada primero. No incluyas "Otra" ni "Otro" en options: la app añade esa cuarta opción con un campo de texto libre.
         Las respuestas llegan en el siguiente mensaje: son datos confirmados. No repitas preguntas respondidas.
         Al terminar, devuelve el paquete PlanOutline completo. La app asigna importId y createdAt.
         Si la app devuelve errores de validación, corrige eso y devuelve el JSON completo.

@@ -137,7 +137,7 @@ In **Progreso > Ejercicios**, exercises with an alert carry an **estancado** bad
 
 ### Planning questions (AG-01)
 
-Open **Agente > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
+Open **Agente > Preguntas de planificación** to answer, or mark as not available, the gaps that matter for planning (goal, phase, restrictions, availability, unknown equipment). Each question offers three predefined radio-button answers and **Otra** for a custom answer, with no default selection. The same control is used for the agent’s dynamic questions. Nothing is assumed and nothing blocks; answers feed the exported context. See [proposal review](docs/PROPOSAL_REVIEW.md#focused-planning-questions-ag-01).
 
 ### Multi-week plans
 

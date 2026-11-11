@@ -70,8 +70,9 @@ internal class GenerationConversation(
             return set.questions.map { q ->
                 val options = q.options.map { it.trim() }
                 if (q.text.isBlank() || q.text.length > 1000) refuse("Cada pregunta necesita un text de 1 a 1000 caracteres.")
-                if (options.size !in 2..4 || options.any { it.isEmpty() || it.length > 300 } || options.distinct().size != options.size)
-                    refuse("Cada pregunta necesita de 2 a 4 options distintas, de 1 a 300 caracteres.")
+                if (options.size != 3 || options.any { it.isEmpty() || it.length > 300 } || options.map { it.lowercase() }.distinct().size != 3 ||
+                    options.any { it.equals("Otra", true) || it.equals("Otro", true) || it.equals("Otra respuesta", true) })
+                    refuse("Cada pregunta necesita exactamente 3 options concretas y distintas, de 1 a 300 caracteres. No incluyas Otra: la app añade esa opción con respuesta libre.")
                 AgentQuestion(q.topic.trim().take(100), q.text.trim(), options)
             }
         }

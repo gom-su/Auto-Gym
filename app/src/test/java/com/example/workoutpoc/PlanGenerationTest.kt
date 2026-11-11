@@ -18,7 +18,7 @@ class PlanGenerationTest {
     private val context = TrainingContext(emptyList(), null, history, original.rules, original.goals,
         measurements = listOf(BodyMeasurement("mass", "2026-11-10T12:00:00Z", "MUSCLE_MASS", 34.0, "KG", "BIA")),
         outlines = listOf(original), nextWeeks = listOf(PlanOutlines.brief(original, null, emptyList()).copy(status = BriefStatus.CYCLE_COMPLETE)))
-    private val questions = """{"questions":[{"topic":"Objetivo","text":"¿Mantienes el objetivo?","options":["Sí","Quiero cambiarlo"]}]}"""
+    private val questions = """{"questions":[{"topic":"Objetivo","text":"¿Mantienes el objetivo?","options":["Sí","Quiero cambiarlo","Quiero revisar el objetivo antes"]}]}"""
     private fun pkg(o: PlanOutline = next) = ExchangeCodec.encode(ExchangePackage(1, ExchangeType.PlanOutline, "synthetic", "2026-11-10T12:00:00Z", outline = o))
 
     private class Chat(vararg replies: AgentReply) : AgentChat {
@@ -93,7 +93,7 @@ class PlanGenerationTest {
         assertTrue(state.copy(cycleReady = true).canGenerate)
         assertFalse(state.copy(cycleReady = true, busy = true).canGenerate)
         assertFalse(state.copy(cycleReady = true, key = ApiKeyStatus()).canGenerate)
-        assertFalse(state.copy(cycleReady = true, questions = listOf(AgentQuestion(text = "¿Cambio?", options = listOf("Sí", "No")))).canGenerate)
+        assertFalse(state.copy(cycleReady = true, questions = listOf(AgentQuestion(text = "¿Cambio?", options = listOf("Sí", "No", "Necesito revisarlo")))).canGenerate)
         val skippedFinalWeek = state.copy(cycleReady = true, brief = state.brief!!.copy(status = BriefStatus.ALREADY_PLANNED))
         assertTrue(skippedFinalWeek.newCycle)
         assertTrue(skippedFinalWeek.canGenerate)

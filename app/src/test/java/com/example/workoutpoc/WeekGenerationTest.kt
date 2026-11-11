@@ -23,7 +23,7 @@ class WeekGenerationTest {
     private val outline = ExchangeCodec.decode(examples[0]).outline!!
     private val week = examples[1]
     private val brief = PlanOutlines.brief(outline, null, emptyList())
-    private val questions = """{"questions":[{"topic":"Hombro","text":"¿Cómo está el hombro?","options":["Sin dolor","Molestia leve"]}]}"""
+    private val questions = """{"questions":[{"topic":"Hombro","text":"¿Cómo está el hombro?","options":["Sin dolor","Molestia leve","Molestia que limita el movimiento"]}]}"""
 
     private class ScriptedChat(vararg replies: AgentReply) : AgentChat {
         val sent = mutableListOf<String>()
@@ -64,7 +64,7 @@ class WeekGenerationTest {
         val chat = ScriptedChat(AgentReply(questions), AgentReply(week))
         val running = generation(chat)
         val asked = (running.start("{}", "2026-11-10", null) as GenerationStep.Questions).questions
-        assertEquals(listOf("Sin dolor", "Molestia leve"), asked.single().options)
+        assertEquals(listOf("Sin dolor", "Molestia leve", "Molestia que limita el movimiento"), asked.single().options)
         assertTrue(running.answer(listOf(asked[0] to "Sin dolor")) is GenerationStep.Proposal)
         assertTrue(chat.sent[1].contains("¿Cómo está el hombro?") && chat.sent[1].contains("Respuesta: Sin dolor"))
     }
@@ -149,11 +149,24 @@ class WeekGenerationTest {
 
     @Test fun `malformed questions are refused with the reason`() {
         listOf("""{"questions":[]}""", """{"questions":[{"text":"¿A?","options":["solo una"]}]}""",
-            """{"questions":[{"text":" ","options":["a","b"]}]}""", """{"questions":[{"text":"¿A?","options":["a","a"]}]}""",
+            """{"questions":[{"text":"¿A?","options":["a","b"]}]}""", """{"questions":[{"text":"¿A?","options":["a","b","c","d"]}]}""",
+            """{"questions":[{"text":" ","options":["a","b","c"]}]}""", """{"questions":[{"text":"¿A?","options":["a","A","c"]}]}""",
+            """{"questions":[{"text":"¿A?","options":["a","b","Otra"]}]}""",
             """{"questions":"no"}""").forEach { bad ->
             try { WeekGeneration.questions(bad); fail("Accepted $bad") } catch (_: AgentException) { }
         }
-        assertEquals("Tema", WeekGeneration.questions("""{"questions":[{"topic":" Tema ","text":"¿A?","options":["a","b"],"extra":1}]}""").single().topic)
+        assertEquals("Tema", WeekGeneration.questions("""{"questions":[{"topic":" Tema ","text":"¿A?","options":["a","b","c"],"extra":1}]}""").single().topic)
+    }
+
+    @Test fun `model gets a correction when it does not supply exactly three options`() = runTest {
+        val invalid = questions.replace(",\"Molestia que limita el movimiento\"", "")
+        val chat = ScriptedChat(AgentReply(invalid), AgentReply(questions), AgentReply(week))
+        val running = generation(chat)
+        val asked = running.start("{}", "2026-11-10", null) as GenerationStep.Questions
+        assertEquals(3, asked.questions.single().options.size)
+        assertTrue(chat.sent[1].contains("exactamente 3"))
+        assertTrue(running.answer(asked.questions.map { it to "Otra respuesta escrita por mí" }) is GenerationStep.Proposal)
+        assertTrue(chat.sent.last().contains("Otra respuesta escrita por mí"))
     }
 
     @Test fun `the system prompt is the weekly prompt of the docs plus the in-app mode`() {

@@ -17,7 +17,7 @@ You need an active plan (**Agente › Planes de periodización**). Only the init
 2. **Semana a generar** shows what the app computed: the week number, its block, whether it is a deload, the reference week and its days without records. The button is available only when that week can be planned; if the week is already in the program or the cycle is complete, the card says so.
 3. Optionally write a note for that week (pain, sleep, schedule, your average body weight). It is sent as written.
 4. Tap **Generar semana N**. It usually takes one to three minutes; keep the app open. **Cancelar** stops it and saves nothing.
-5. If Claude needs something decisive, its questions appear with options (the recommended one first) and a free answer. **Enviar respuestas** continues the same request. It can ask at most twice.
+5. If Claude needs something decisive, each question shows exactly three predefined radio-button choices (the recommended one first), plus a fourth radio choice, **Otra**, which opens a free-text field. Nothing is selected by default, and a blank custom answer cannot be submitted. **Enviar respuestas** continues the same request. It can ask at most twice.
 6. When the proposal arrives, **Revisar y aprobar** opens **Propuestas de semana**. Approving it adds the week to the program, as with any imported proposal.
 
 ## Finish a cycle and generate the next plan
@@ -71,3 +71,5 @@ Requests use `claude-opus-5-5` at high effort, streamed. The cost of one generat
 Added final-week and cycle-end notices, next-cycle generation, a separate muscle-mass metric, and measurement context with provenance. The conversational protocol is shared by weekly and cycle generation. New unit coverage checks cycle identity/length, question continuation, invalid and truncated responses, measurement serialization and legacy compatibility, final-week notices and switching to an unpopulated new cycle. Validation: unit suite 188 tests, 0 failures, 1 skipped; `:app:assembleDebug` and `:app:lintDebug` pass (0 lint errors, 72 warnings); the MCP Python suite passes 14/14. No emulator or physical device was connected for this follow-up, and no real API key was used. The new UI flow therefore remains unverified on a device.
 
 Review correction: local session exports now retain their `programId`. Both app-side week references/proposal evidence and MCP reference records filter by cycle so reused day IDs cannot carry progress from an old cycle into a new one. Older results without the optional identity remain readable. Regression tests cover reused IDs and a final week explicitly marked not performed.
+
+Question controls follow-up: predefined planning questions and both AI generation modes share three predefined radio choices plus **Otra**. The AI protocol rejects two or four options and asks for correction rather than inventing or dropping alternatives. Existing stored answers remain unchanged.
