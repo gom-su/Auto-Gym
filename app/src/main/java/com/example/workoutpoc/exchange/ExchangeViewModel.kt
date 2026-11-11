@@ -4,13 +4,10 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutpoc.planning.PlanOutlines
 import com.example.workoutpoc.planning.ProgramValidationException
 import com.example.workoutpoc.workoutApp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.time.Instant
-import java.util.UUID
 
 data class ExchangeUiState(val ready: Boolean = false, val busy: Boolean = false,
     val preview: ExchangePackage? = null, val message: String? = null,
@@ -96,29 +93,8 @@ class ExchangeViewModel(application: Application) : AndroidViewModel(application
             else "Este intercambio ya estaba guardado. No se crearon duplicados.")
     }
     fun generate(type: ExchangeType) = operation {
-        app.programs.restore(); app.repository.restore()
-        val state = app.repository.state.value
-        // Archived and current planned sessions are typed v1 results; the demo keeps its frozen legacy snapshot.
-        val sessions = (app.repository.archived.value.sessions + state).distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() }
-        val results = TrainingResults(sessions, state.toDemoV1()?.let { DemoSnapshot(it) })
-        val data = ExchangePackage(1, type, UUID.randomUUID().toString(), Instant.now().toString(),
-            context = if (type == ExchangeType.TrainingContext) planningContext().let { (phase, goals, rules) ->
-                app.outlines.restore()
-                val outlines = app.outlines.outlines.value.active
-                val programs = app.programs.library.value.programs
-                // The next week of each plan is computed here, deterministically, so the agent never guesses it.
-                TrainingContext(programs, phase, results, rules, goals, outlines = outlines,
-                    nextWeeks = outlines.map { o -> PlanOutlines.brief(o, programs.find { it.id == o.programId }, sessions) })
-            } else null,
-            results = if (type == ExchangeType.TrainingResults) results else null)
-        ExchangeCodec.encode(data)
-        mutableUi.value = mutableUi.value.copy(preview = data, message = "Revisa el JSON antes de compartir. El contexto local no incluye mediciones corporales. La demo se identifica como tal.")
-    }
-    /** Phase, goals and rules come only from the user's answers to the planning questions (AG-01); never invented. */
-    private suspend fun planningContext(): Triple<String?, List<String>, List<String>> {
-        app.catalog.restore(); app.planningAnswers.restore()
-        return com.example.workoutpoc.questions.PlanningQuestions.context(
-            com.example.workoutpoc.questions.PlanningQuestions.questions(app.catalog.catalog.value), app.planningAnswers.answers.value)
+        val data = app.localExchange(type)
+        mutableUi.value = mutableUi.value.copy(preview = data, message = "Revisa el JSON antes de compartir. El contexto incluye tus mediciones corporales con fecha y método; elige si las incluyes al copiar o exportar. La demo se identifica como tal.")
     }
 
     fun stageExport(includeMeasurements: Boolean): Boolean {

@@ -16,6 +16,8 @@ The AI proposes, the deterministic rules validate, and the user decides. Nothing
 
 ## Focused planning questions (AG-01)
 
+Every question offers three predefined radio-button choices plus **Otra**, which reveals a free-text field. Select an answer and save explicitly; choosing a radio never saves by itself. A blank custom answer cannot be saved. The same control is used by dynamic AI questions for weeks and 12-week cycles. Equipment questions also use three choices; **Otra** accepts remaining equipment types or a description. Existing enum-based equipment answers remain compatible.
+
 **Agente > Preguntas de planificación** lists the gaps that matter for planning:
 - the current goal and phase;
 - injuries or restrictions;

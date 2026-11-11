@@ -44,7 +44,7 @@ import java.time.Instant
 
 /**
  * Everything the app keeps on the device, one typed snapshot per store. The pairing keys of signed deliveries
- * (`sync-v1.json`) are deliberately absent: they are secrets and never leave the device in a plain file.
+ * (`sync-v1.json`) and the Keystore-backed Claude API key are deliberately absent: secrets never leave the device in this plain file.
  */
 data class BackupData(
     val workout: WorkoutState = WorkoutState(), val history: WorkoutHistory = WorkoutHistory(),

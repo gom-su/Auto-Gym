@@ -19,9 +19,15 @@ import java.time.Instant
     /** Activated multi-week plans, one per program. */
     val outlines: List<PlanOutline> = emptyList(),
     /** For each plan: which week to plan next and its targets, computed by the app from programs and history. */
-    val nextWeeks: List<NextWeekBrief> = emptyList()
+    val nextWeeks: List<NextWeekBrief> = emptyList(),
+    /** Earlier cycles retained for planning the next one; never treated as active plans. */
+    val previousOutlines: List<PlanOutline> = emptyList()
 )
-@Serializable data class BodyMeasurement(val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String)
+@Serializable data class BodyMeasurement(
+    val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String,
+    val method: String? = null, val label: String? = null, val fasted: Boolean? = null,
+    val timeOfDay: String? = null, val device: String? = null, val notes: String? = null
+)
 @Serializable data class WeekProposal(
     val id: String, val version: Int, val programId: String, val blockId: String,
     val source: String, val week: WeekPlan, val differences: List<String>, val reasons: List<String>
@@ -33,7 +39,9 @@ import java.time.Instant
 @Serializable data class SessionResult(
     val id: String, val sessionPlanId: String?, val status: PerformanceStatus,
     val startedAt: String?, val endedAt: String?, val notes: String?,
-    val sets: List<SetResult>, val cardio: List<CardioResult>
+    val sets: List<SetResult>, val cardio: List<CardioResult>,
+    /** Day IDs are only unique within a program; retain the cycle identity when exporting local history. */
+    val programId: String? = null
 )
 @Serializable data class SetResult(
     val id: String, val prescriptionId: String?, val exerciseId: String,
@@ -73,8 +81,13 @@ object ExchangeCodec {
                 c.phase?.let(::note); c.rules.forEach(::note); c.goals.forEach(::note)
                 results(c.history)
                 unique(c.measurements.map { it.id })
-                c.measurements.forEach { m -> id(m.id); date(m.measuredAt); note(m.metric); note(m.unit); number(m.value) }
+                c.measurements.forEach { m ->
+                    id(m.id); date(m.measuredAt); note(m.metric); note(m.unit); number(m.value)
+                    listOfNotNull(m.method, m.label, m.timeOfDay, m.device, m.notes).forEach(::note)
+                    requireValid(m.unit != "PERCENT" || m.value <= 100, "Un porcentaje no puede superar 100.")
+                }
                 c.outlines.forEach(PlanOutlines::validate)
+                c.previousOutlines.forEach(PlanOutlines::validate)
                 requireValid(c.outlines.map { it.programId }.distinct().size == c.outlines.size, "Dos planes para el mismo programa.")
                 c.nextWeeks.forEach { b ->
                     requireValid(c.outlines.any { it.id == b.outlineId && it.version == b.outlineVersion && it.programId == b.programId },
@@ -96,7 +109,7 @@ object ExchangeCodec {
     private fun results(r: TrainingResults) {
         unique(r.sessions.map { it.id })
         r.sessions.forEach { s ->
-            id(s.id); s.sessionPlanId?.let(::id); s.startedAt?.let(::date); s.endedAt?.let(::date); s.notes?.let(::note)
+            id(s.id); s.sessionPlanId?.let(::id); s.programId?.let(::id); s.startedAt?.let(::date); s.endedAt?.let(::date); s.notes?.let(::note)
             if (s.startedAt != null && s.endedAt != null) requireValid(Instant.parse(s.startedAt) <= Instant.parse(s.endedAt), "Fechas de sesión invertidas.")
             unique(s.sets.map { it.id } + s.cardio.map { it.id })
             s.sets.forEach { set ->

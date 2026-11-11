@@ -16,8 +16,8 @@ import java.io.File
  * issue and no plan-target warning, and approving it creates a valid program.
  */
 class AgentPromptExamplesTest {
-    private val examples = Regex("```json\\r?\\n(.*?)\\r?\\n```", RegexOption.DOT_MATCHES_ALL)
-        .findAll(File("../docs/AGENT_PROMPTS.md").readText()).map { it.groupValues[1] }.toList()
+    private val examples = Regex("```json\\n(.*?)\\n```", RegexOption.DOT_MATCHES_ALL)
+        .findAll(File("../docs/AGENT_PROMPTS.md").readText().replace("\r\n", "\n")).map { it.groupValues[1] }.toList()
 
     @Test fun `both prompt examples are accepted by the app`() {
         assertEquals("One plan example and one week example", 2, examples.size)

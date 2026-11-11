@@ -19,7 +19,7 @@ enum class Tab(val label: String, val icon: ImageVector) {
 }
 
 /** Screens opened over the tabs. The bottom bar is hidden while one is open; Back closes it. */
-enum class Destination { Session, Settings, Plans, Proposals, Questions, Exchange, Migration, Stagnation, Backup }
+enum class Destination { Session, Settings, Plans, Proposals, Questions, Exchange, Migration, Stagnation, Backup, Generate }
 
 /** What the Progreso tab shows; switched with chips at the top of the tab. */
 enum class ProgressSection(val label: String) {
@@ -75,6 +75,7 @@ val Destination.title: String get() = when (this) {
     Destination.Exchange -> "Intercambio JSON"; Destination.Migration -> "Migrar desde Obsidian"
     Destination.Stagnation -> "Señales de estancamiento"
     Destination.Backup -> "Respaldo completo"
+    Destination.Generate -> "Generar siguiente semana"
 }
 
 @Composable

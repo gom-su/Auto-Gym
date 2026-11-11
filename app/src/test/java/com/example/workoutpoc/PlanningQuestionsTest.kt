@@ -26,6 +26,20 @@ class PlanningQuestionsTest {
     private val catalog = ExerciseCatalog(exercises = listOf(CatalogExercise("squat", "Sentadilla", equipment = Equipment.BARBELL),
         CatalogExercise("row", "Remo")))
 
+    @Test fun `every predefined question has three concrete choices and equipment labels resolve to saved identities`() {
+        val questions = PlanningQuestions.questions(catalog)
+        questions.forEach { q ->
+            assertEquals(q.id, 3, q.options.size)
+            assertEquals(q.id, 3, q.options.distinct().size)
+            assertTrue(q.options.none { it.isBlank() || it.equals("Otra", true) })
+        }
+        val equipment = questions.single { it.use == QuestionUse.EQUIPMENT }
+        assertEquals(listOf(Equipment.BARBELL, Equipment.DUMBBELL, Equipment.MACHINE), equipment.options.map { PlanningQuestions.equipmentFromAnswer(it) })
+        assertEquals(Equipment.CABLE, PlanningQuestions.equipmentFromAnswer(" polea "))
+        assertEquals(Equipment.CABLE, PlanningQuestions.equipmentFromAnswer("CABLE"))
+        assertNull(PlanningQuestions.equipmentFromAnswer("Equipo personalizado con agarre distinto"))
+    }
+
     private suspend fun repo(scope: CoroutineScope) = PlanningAnswerRepository(DataStoreFactory.create(storage = OkioStorage(FileSystem.SYSTEM,
         object : OkioSerializer<PlanningAnswers> {
             override val defaultValue = PlanningAnswersSerializer.defaultValue

@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Only the in-app agent uses the network, when the user asks for a week (decision 0009). Recording stays offline. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application android:name=".WorkoutApplication" android:label="Workout Notification PoC"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/Theme.WorkoutPoC"
         android:allowBackup="false" android:supportsRtl="true">

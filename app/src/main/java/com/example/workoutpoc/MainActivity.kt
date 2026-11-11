@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private val historyModel: com.example.workoutpoc.history.HistoryViewModel by viewModels()
     private val planModel: PlanViewModel by viewModels()
     private val homeModel: com.example.workoutpoc.home.HomeViewModel by viewModels()
+    private val generateModel: com.example.workoutpoc.agent.GenerateViewModel by viewModels()
     private val migrationFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(migrationModel::previewFile)
     }
@@ -129,7 +130,7 @@ class MainActivity : ComponentActivity() {
                 programModel.cancelPreview(); migrationModel.cancel(); exchangeModel.cancel()
                 homeModel.refresh(); programModel.restore(); migrationModel.restore(); exchangeModel.restore()
                 proposalModel.refresh(); bodyModel.refresh(); adherenceModel.refresh()
-                questionsModel.refresh(); historyModel.refresh(); planModel.refresh()
+                questionsModel.refresh(); historyModel.refresh(); planModel.refresh(); generateModel.refresh()
             }
         }
         val saved = rememberSaveableStateHolder()
@@ -152,7 +153,8 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(top) {
                 when (top) {
                     Destination.Plans -> planModel.refresh(); Destination.Proposals -> proposalModel.refresh()
-                    Destination.Questions -> questionsModel.refresh(); Destination.Stagnation -> stagnationModel.refresh(); else -> Unit
+                    Destination.Questions -> questionsModel.refresh(); Destination.Stagnation -> stagnationModel.refresh()
+                    Destination.Generate, Destination.Settings -> generateModel.refresh(); else -> Unit
                 }
             }
             CompositionLocalProvider(LocalBackLabel provides nav.backLabel()) {
@@ -188,6 +190,7 @@ class MainActivity : ComponentActivity() {
                         com.example.workoutpoc.home.HomeLink.Proposals -> nav.open(Destination.Proposals)
                         com.example.workoutpoc.home.HomeLink.Questions -> nav.open(Destination.Questions)
                         com.example.workoutpoc.home.HomeLink.Exchange -> nav.open(Destination.Exchange)
+                        com.example.workoutpoc.home.HomeLink.Generate -> nav.open(Destination.Generate)
                         com.example.workoutpoc.home.HomeLink.Body -> { nav.select(Tab.Progreso); nav.section = ProgressSection.Cuerpo }
                     }
                 }
@@ -238,7 +241,7 @@ class MainActivity : ComponentActivity() {
                 val home by homeModel.ui.collectAsStateWithLifecycle()
                 LaunchedEffect(Unit) { homeModel.refresh() }
                 com.example.workoutpoc.agent.AgentScreen(home, { nav.open(Destination.Plans) }, { nav.open(Destination.Questions) },
-                    { nav.open(Destination.Proposals) }, { nav.open(Destination.Exchange) }, ::pickImport)
+                    { nav.open(Destination.Proposals) }, { nav.open(Destination.Exchange) }, ::pickImport) { nav.open(Destination.Generate) }
             }
         }
     }
@@ -253,13 +256,18 @@ class MainActivity : ComponentActivity() {
                     { backupFile.launch(arrayOf("*/*")) }, backupModel::cancelReview, backupModel::confirmRestore)
             }
             Destination.Session -> SessionScreen(nav, state, ready, error)
-            Destination.Settings -> com.example.workoutpoc.settings.SettingsScreen(nav::back, notificationEnabled, overlayGranted,
+            Destination.Settings -> {
+              val keyUi by generateModel.ui.collectAsStateWithLifecycle()
+              com.example.workoutpoc.settings.SettingsScreen(nav::back, notificationEnabled, overlayGranted,
                 ::openNotificationSettings, ::openOverlaySettings, { nav.open(Destination.Migration) }, { nav.open(Destination.Exchange) },
                 // The demo is the session only while no planned session is loaded.
                 demoAvailable = state.source == null, onDemo = nav::openSession,
                 loggingMode = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode,
                 onLoggingMode = { mode -> lifecycleScope.launch { workoutApp.safely { workoutApp.settings.setLoggingMode(mode) } } },
-                onBackup = { nav.open(Destination.Backup) })
+                onBackup = { generateModel.cancel(); nav.open(Destination.Backup) },
+                apiKey = keyUi.key, keyBusy = keyUi.busy, keyMessage = keyUi.message,
+                onSaveKey = generateModel::saveKey, onClearKey = generateModel::clearKey, onGenerate = { nav.open(Destination.Generate) })
+            }
             Destination.Stagnation -> {
                 val stagnationUi by stagnationModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.catalog.StagnationScreen(stagnationUi, nav::back, stagnationModel::refresh, stagnationModel::setSettings)
@@ -279,6 +287,12 @@ class MainActivity : ComponentActivity() {
                 com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { nav.back(); programModel.restore() },
                     proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
                     proposalModel::addExpectation, proposalModel::setManualOutcome)
+            }
+            Destination.Generate -> {
+                val generateUi by generateModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.agent.GenerateScreen(generateUi, nav::back, generateModel::refresh, generateModel::saveKey,
+                    generateModel::clearKey, generateModel::generate, generateModel::answer, generateModel::cancel,
+                    { nav.open(Destination.Proposals) }, { nav.open(Destination.Plans) })
             }
             Destination.Migration -> {
                 val archive by migrationModel.archive.collectAsStateWithLifecycle()

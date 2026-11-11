@@ -1,6 +1,6 @@
 # 0005: Offline persistence stays on atomic DataStore snapshots; Room waits for queryable history
 
-Status: accepted for ENT-07; emulator evidence only.
+Status: accepted for ENT-07; emulator evidence only. Its "no network permission" clause was superseded on 2026-11-10 by [decision 0009](0009-in-app-agent.md): the app now declares `INTERNET` for in-app week generation, and nothing else.
 
 ENT-07 requires that no confirmed record is lost to a forced close or missing network. Its issue suggests Room, but the issue marks proposed technical details as needing design.
 
@@ -12,7 +12,7 @@ The guarantees come from the existing write path, not from the storage engine:
 
 - Every command (in-app, notification or overlay) is applied under one mutex and written atomically (temp file + rename) **before** the new state is published. A set the UI shows as recorded is already on disk. A failed write publishes nothing.
 - Restore validates each snapshot against its own plan. A corrupt or future-version file raises an error and is never overwritten, reset or replaced by an empty default.
-- The app declares no network permission (`INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`), so recording cannot depend on connectivity. `allowBackup` stays false for local-only data. A unit test guards both properties.
+- Recording cannot depend on connectivity: network code exists only in the `agent` package (decision 0009), and the app requests no connectivity-state permission (`ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`). `allowBackup` stays false for local-only data. A unit test guards these properties. Originally the app declared no network permission at all.
 
 ## Why not Room now
 

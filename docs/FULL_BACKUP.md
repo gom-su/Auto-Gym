@@ -5,7 +5,7 @@ A full backup transfers local training data between Auto-Gym installations. It i
 ## User flow
 
 1. Open **Ajustes > Respaldo completo > Exportar respaldo completo**. The app reads all stores under their repository locks, validates a lossless encode/decode round trip, and opens Android `CreateDocument` with MIME `application/json` and the suggested name `auto-gym-respaldo-YYYY-MM-DD.json`. Canceling the picker leaves local data untouched. The snapshot is taken before the picker opens; later edits are not included.
-2. Save the file somewhere safe. It contains personal measurements and training data in plain UTF-8 JSON; it is not encrypted. A provider may itself sync the selected destination. The app adds no network permission and does not upload files itself; `android:allowBackup="false"` stays in force.
+2. Save the file somewhere safe. It contains personal measurements and training data in plain UTF-8 JSON; it is not encrypted. A provider may itself sync the selected destination. Backup and restore add no network permission and do not upload files themselves; the existing in-app agent alone can make user-requested API calls (decision 0009); `android:allowBackup="false"` stays in force.
 3. On the target installation, open **Restaurar respaldo** and pick the JSON through Android `OpenDocument`. The reader accepts at most 64 MiB (67,108,864 bytes), checks strict UTF-8, parses and validates all stores, and reads the current device without writing anything.
 4. Review the backup date, app version and the counts **respaldo / este dispositivo**. The warning explains that restore replaces all included stores and preferences rather than merging them. Canceling this review does not write any store.
 5. Tap **Restaurar y reemplazar datos**, then **Sí, restaurar y reemplazar** in the confirmation dialog. An active or resting session on the target blocks restoration. If local data changed since the comparison, choose the file again to review the current state. Export is allowed during a workout, and a saved in-progress workout can be resumed on a target with no active session.
@@ -45,7 +45,7 @@ This is an illustrative envelope, not an importable fixture. All envelope fields
 | `migrations` | `migrations-v1.json` | Original Obsidian documents, parser output and acknowledged issues |
 | `settings` | `app-settings-v1.json` | App preferences, including the default logging mode |
 
-**`sync-v1.json` is deliberately excluded.** Its pairing secrets never leave the device in this plain backup. Existing target keys stay unchanged; a clean target needs new pairing. Android permissions, generated exports, caches and external source files are also outside the backup.
+**`sync-v1.json` is deliberately excluded.** Its pairing secrets never leave the device in this plain backup. Existing target keys stay unchanged; a clean target needs new pairing. The Claude API key (`no_backup/claude-api-key.bin`) and its Android Keystore encryption key are also excluded and remain on their device; a clean installation needs the API key entered again. Android permissions, generated exports, caches and external source files are also outside the backup.
 
 ### Checksum
 
@@ -81,4 +81,4 @@ python scripts/verify_full_backup.py --serial emulator-5560 --adb C:/path/to/sdk
 
 Prefer a temporary `-read-only -no-snapshot` AVD instance to protect saved emulator data. The check refuses physical devices. It exercises Android document selection, preview/cancel/confirm, export and restore after a clean install, comparing all included stores and reopening after force-stop. Evidence is written under `.local/full-backup` (ignored by Git).
 
-Verified on 2026-11-11: `testDebugUnitTest` passed (160 passed, 1 pre-existing skipped; 11 backup tests), and `assembleDebug` succeeded. The document-provider flow preserved all 12 stores, both cancellation paths wrote nothing, and the restored data survived force-stop. Unit coverage also checks transfer of rest/pause marks between devices with coincident boot counts. Emulator evidence does not establish physical-device behavior.
+Verified on 2026-11-11: `testDebugUnitTest` passed (201 passed, 1 pre-existing skipped; 11 backup tests), `lintDebug` and `assembleDebug` succeeded, and all 14 MCP tests passed. The document-provider flow preserved all 12 stores, both cancellation paths wrote nothing, and the restored data survived force-stop. Unit coverage also checks transfer of rest/pause marks between devices with coincident boot counts. Emulator evidence does not establish physical-device behavior.

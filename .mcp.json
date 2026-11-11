@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "auto-gym": {
+      "command": "python",
+      "args": [
+        "mcp/auto_gym_mcp.py",
+        "--context", "personal-data/auto-gym-interchange-v1.json",
+        "--outbox", "personal-data/auto-gym-outbox"
+      ]
+    }
+  }
+}

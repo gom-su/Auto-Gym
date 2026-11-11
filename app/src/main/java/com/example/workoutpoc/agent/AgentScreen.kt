@@ -14,19 +14,19 @@ import com.example.workoutpoc.ui.theme.Spacing
 private data class Step(val title: String, val status: String, val tone: Tone, val detail: String, val action: String, val onClick: () -> Unit)
 
 /**
- * The Agente tab: the weekly cycle as four steps (send context, answer questions, import the proposal, review it),
+ * The Agente tab: in-app generation with the user's Claude key first, then the weekly cycle as four steps (send context, answer questions, import the proposal, review it),
  * each with its state derived from your data, then the tools behind them. The agent proposes, the rules validate,
  * you approve; the MCP server and manual JSON are equal paths through the same steps.
  */
 @Composable
 fun AgentScreen(home: HomeUiState, onPlans: () -> Unit, onQuestions: () -> Unit, onProposals: () -> Unit,
-                onExchange: () -> Unit, onImport: () -> Unit) {
+                onExchange: () -> Unit, onImport: () -> Unit, onGenerate: () -> Unit) {
     val summary = home.summary
     val week = summary?.week
     val toPlan = summary?.weekToPlan
     val steps = listOf(
         Step("Enviar contexto al agente",
-            when { toPlan != null -> "Semana $toPlan por planificar"; week != null -> "Semana ${week.number} en curso"; else -> "Sin programa" },
+            when { summary?.cycleComplete == true -> "Ciclo terminado"; toPlan != null -> "Semana $toPlan por planificar"; week != null -> "Semana ${week.number} en curso"; else -> "Sin programa" },
             if (toPlan != null) Tone.Warning else Tone.Info,
             "Prepara el contexto local y cópialo o expórtalo; con el servidor MCP, expórtalo como archivo de contexto.",
             "Preparar contexto", onExchange),
@@ -44,7 +44,15 @@ fun AgentScreen(home: HomeUiState, onPlans: () -> Unit, onQuestions: () -> Unit,
     AppScreen("Agente", "", {}, busy = !home.ready) {
         item { SupportingText("El agente propone, las reglas validan y tú apruebas. Nada cambia en tus programas sin tu aprobación.") }
         summary?.outline?.let { o -> item { SupportingText("Plan activo: ${o.name} · ${o.weeks.size} semanas", small = true) } }
-        item { SectionHeader("Ciclo semanal") }
+        summary?.cycleNotice?.let { notice -> item { Banner(notice, tone = Tone.Warning) } }
+        item {
+            ContentCard {
+                Text("Con Claude, desde la app", style = MaterialTheme.typography.titleMedium)
+                SupportingText("Importa manualmente tu primer plan. Después, el agente genera las semanas y el siguiente ciclo con tu historial y las mediciones de Progreso → Cuerpo. Revisas el resultado antes de usarlo.", small = true)
+                PrimaryAction(if (summary?.cycleComplete == true) "Generar nuevo plan de 12 semanas" else "Generar siguiente semana", onGenerate, icon = AppIcons.Bolt)
+            }
+        }
+        item { SectionHeader("Ciclo semanal", supporting = "Con un agente externo: servidor MCP o JSON a mano.") }
         steps.forEachIndexed { i, step ->
             item {
                 ContentCard {

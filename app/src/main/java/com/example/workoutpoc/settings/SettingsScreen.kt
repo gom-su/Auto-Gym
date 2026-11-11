@@ -1,17 +1,22 @@
 package com.example.workoutpoc.settings
 
 import androidx.compose.runtime.Composable
+import com.example.workoutpoc.agent.ApiKeyCard
+import com.example.workoutpoc.agent.ApiKeyStatus
 import com.example.workoutpoc.ui.*
 
-/** Ajustes: device permissions for logging, one-off data tools and the demo, kept out of everyday navigation. */
+/** Ajustes: device permissions for logging, the Claude API key, one-off data tools and the demo, kept out of everyday navigation. */
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit, notificationEnabled: Boolean, overlayGranted: Boolean,
     onNotificationSettings: () -> Unit, onOverlaySettings: () -> Unit,
     onMigration: () -> Unit, onExchange: () -> Unit, demoAvailable: Boolean, onDemo: () -> Unit,
-    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {}, onBackup: () -> Unit = {}
+    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {},
+    /** The Claude API key: its status, whether a key operation is running, and that operation's message. */
+    apiKey: ApiKeyStatus = ApiKeyStatus(), keyBusy: Boolean = false, keyMessage: String? = null,
+    onSaveKey: (String) -> Unit = {}, onClearKey: () -> Unit = {}, onGenerate: () -> Unit = {}, onBackup: () -> Unit = {}
 ) {
-    AppScreen("Ajustes", "Volver", onBack) {
+    AppScreen("Ajustes", "Volver", onBack, busy = keyBusy, message = keyMessage) {
         item { SectionHeader("Registro") }
         item {
             ContentCard {
@@ -25,6 +30,11 @@ fun SettingsScreen(
         item { NavRow("Panel flotante", onOverlaySettings, icon = AppIcons.Bubble,
             supporting = if (overlayGranted) "Autorizado para mostrarse sobre otras aplicaciones"
                 else "Sin permiso para mostrarse sobre otras aplicaciones") }
+        item { SectionHeader("Agente", supporting = "Llave API de Claude, para generar la semana siguiente desde la app.") }
+        // The field is always here, blank, to set the key or replace it.
+        item(key = "api-key") { ApiKeyCard(apiKey, enabled = !keyBusy, onSaveKey, onClearKey, alwaysField = true) }
+        item { NavRow("Generar siguiente semana", onGenerate, icon = AppIcons.Agent,
+            supporting = if (apiKey.present) "Con la llave guardada" else "Necesita una llave guardada") }
         item { SectionHeader("Datos") }
         item { NavRow("Respaldo completo", onBackup, icon = AppIcons.Download,
             supporting = "Exportar respaldo completo o restaurar todos los datos locales") }

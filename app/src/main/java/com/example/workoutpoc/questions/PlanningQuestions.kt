@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
 import com.example.workoutpoc.catalog.Equipment
 import com.example.workoutpoc.catalog.ExerciseCatalog
+import com.example.workoutpoc.catalog.label
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -20,7 +21,7 @@ import java.io.OutputStream
 enum class QuestionUse { PHASE, GOAL, RULE, EQUIPMENT }
 
 data class PlanningQuestion(val id: String, val text: String, val why: String, val use: QuestionUse,
-                            val exerciseId: String? = null, val exerciseName: String? = null)
+                            val options: List<String>, val exerciseId: String? = null, val exerciseName: String? = null)
 
 /** Either a value given by the user or an explicit "not available". Nothing else is ever stored. */
 @Serializable data class PlanningAnswer(val questionId: String, val value: String?, val unavailable: Boolean, val answeredAtMillis: Long) {
@@ -38,10 +39,14 @@ data class PlanningQuestion(val id: String, val text: String, val why: String, v
 
 object PlanningQuestions {
     private val base = listOf(
-        PlanningQuestion("goal", "¿Cuál es tu objetivo principal de entrenamiento ahora?", "Orienta qué progresiones propone el agente.", QuestionUse.GOAL),
-        PlanningQuestion("phase", "¿En qué fase estás (por ejemplo, acumulación, fuerza, mantenimiento)?", "Evita comparar o progresar como si fuera otra fase.", QuestionUse.PHASE),
-        PlanningQuestion("restrictions", "¿Hay lesiones, molestias o restricciones que deba respetar la planificación?", "Una propuesta no debería cargar zonas restringidas.", QuestionUse.RULE),
-        PlanningQuestion("availability", "¿Cuántos días y cuánto tiempo por sesión tienes disponibles?", "Ajusta el volumen semanal a lo realizable.", QuestionUse.RULE)
+        PlanningQuestion("goal", "¿Cuál es tu objetivo principal de entrenamiento ahora?", "Orienta qué progresiones propone el agente.", QuestionUse.GOAL,
+            listOf("Ganar masa muscular", "Mejorar fuerza", "Reducir grasa y mantener masa muscular")),
+        PlanningQuestion("phase", "¿En qué fase estás (por ejemplo, acumulación, fuerza, mantenimiento)?", "Evita comparar o progresar como si fuera otra fase.", QuestionUse.PHASE,
+            listOf("Acumulación / hipertrofia", "Fuerza", "Mantenimiento")),
+        PlanningQuestion("restrictions", "¿Hay lesiones, molestias o restricciones que deba respetar la planificación?", "Una propuesta no debería cargar zonas restringidas.", QuestionUse.RULE,
+            listOf("Sin restricciones conocidas", "Evitar ejercicios que me causen dolor", "Respetar restricciones indicadas por un profesional")),
+        PlanningQuestion("availability", "¿Cuántos días y cuánto tiempo por sesión tienes disponibles?", "Ajusta el volumen semanal a lo realizable.", QuestionUse.RULE,
+            listOf("2 días por semana, hasta 45 minutos por sesión", "3 días por semana, hasta 60 minutos por sesión", "4 días por semana, hasta 60 minutos por sesión"))
     )
 
     /**
@@ -50,7 +55,7 @@ object PlanningQuestions {
      */
     fun questions(catalog: ExerciseCatalog): List<PlanningQuestion> = base + catalog.exercises.filter { it.equipment == null }.map {
         PlanningQuestion("equipment:${it.id}", "¿Con qué equipo haces ${it.name}?", "Distingue variantes no equivalentes y sus cargas.",
-            QuestionUse.EQUIPMENT, it.id, it.name)
+            QuestionUse.EQUIPMENT, listOf(Equipment.BARBELL, Equipment.DUMBBELL, Equipment.MACHINE).map { e -> e.label() }, it.id, it.name)
     }
 
     fun open(questions: List<PlanningQuestion>, answers: PlanningAnswers) = questions.filter { answers.find(it.id) == null }
@@ -76,7 +81,9 @@ object PlanningQuestions {
         return Triple(phase, goals, rules)
     }
 
-    fun equipmentFromAnswer(value: String): Equipment? = Equipment.entries.find { it.name == value }
+    fun equipmentFromAnswer(value: String): Equipment? = Equipment.entries.find {
+        it.name.equals(value.trim(), ignoreCase = true) || it.label().equals(value.trim(), ignoreCase = true)
+    }
 }
 
 object PlanningAnswersSerializer : Serializer<PlanningAnswers> {

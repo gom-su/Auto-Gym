@@ -22,7 +22,7 @@ fun BackupScreen(ui: BackupUiState, onBack: () -> Unit, onExport: () -> Unit, on
             item { SupportingText("Guarda tus datos locales en un archivo para trasladarlos a otra instalación de Auto-Gym.") }
             item { PrimaryAction("Exportar respaldo completo", onExport, enabled = !ui.busy, icon = AppIcons.Download) }
             item { SecondaryAction("Restaurar respaldo", onChooseRestore, enabled = !ui.busy, icon = AppIcons.Upload) }
-            item { SupportingText("El archivo incluye registros y mediciones personales. Guárdalo en un lugar seguro. Las claves de emparejamiento no se incluyen.") }
+            item { SupportingText("El archivo incluye registros y mediciones personales. Guárdalo en un lugar seguro. Las claves de emparejamiento y la llave API de Claude no se incluyen.") }
         } else {
             item { SectionHeader("Revisar respaldo") }
             item { ContentCard {
@@ -38,7 +38,7 @@ fun BackupScreen(ui: BackupUiState, onBack: () -> Unit, onExport: () -> Unit, on
             items(review.backup.data.counts().rows().withIndex().toList(), key = { it.index }) { row ->
                 ContentCard { LabeledValue(row.value.first, "${row.value.second} / ${currentRows[row.index].second}") }
             }
-            item { Banner("Se reemplazarán todos los datos locales y ajustes por los del respaldo. Esta acción no combina registros. Las claves de emparejamiento del dispositivo se conservan.", tone = Tone.Warning) }
+            item { Banner("Se reemplazarán todos los datos locales y ajustes por los del respaldo. Esta acción no combina registros. Las claves de emparejamiento y la llave API de Claude del dispositivo se conservan.", tone = Tone.Warning) }
             if (review.current.sessionInProgress) item { Banner("Hay una sesión en curso. Termínala o ciérrala antes de restaurar.", tone = Tone.Warning) }
             item { QuietAction("Restaurar y reemplazar datos", { confirming = true }, enabled = !ui.busy && !review.current.sessionInProgress,
                 destructive = true, fill = true) }
