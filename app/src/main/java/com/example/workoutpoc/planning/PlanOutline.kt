@@ -238,6 +238,12 @@ class PlanOutlineRepository(private val store: DataStore<PlanOutlineStore>) {
     val outlines = mutable.asStateFlow()
     suspend fun restore() = mutex.withLock { mutable.value = store.data.first() }
 
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(outlines: PlanOutlineStore) = mutex.withLock { replaceAllLocked(outlines) }
+    private suspend fun replaceAllLocked(outlines: PlanOutlineStore) { PlanOutlineStoreSerializer.validate(outlines); mutable.value = store.updateData { outlines } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(planOutlines = store.data.first()) }, { replaceAllLocked(it.planOutlines) })
+
     /**
      * Explicit activation by the user. The plan must agree with the weeks already saved in its program; a plan for a
      * program with an active plan is only accepted as a newer version of that same plan.

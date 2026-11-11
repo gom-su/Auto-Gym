@@ -72,6 +72,11 @@ class WeekAnnotationRepository(private val store: DataStore<WeekAnnotations>) {
     private val mutable = MutableStateFlow(WeekAnnotations())
     val annotations = mutable.asStateFlow()
     suspend fun restore() = mutex.withLock { mutable.value = store.data.first() }
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(annotations: WeekAnnotations) = mutex.withLock { replaceAllLocked(annotations) }
+    private suspend fun replaceAllLocked(annotations: WeekAnnotations) { WeekAnnotationsSerializer.validate(annotations); mutable.value = store.updateData { annotations } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(weekAnnotations = store.data.first()) }, { replaceAllLocked(it.weekAnnotations) })
     suspend fun setDeload(programId: String, weekId: String, deload: Boolean) = mutex.withLock {
         val ref = WeekRef(programId, weekId)
         mutable.value = store.updateData { a ->

@@ -14,6 +14,10 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class WorkoutApplication : Application() {
+    val backups: com.example.workoutpoc.backup.BackupRepository by lazy {
+        com.example.workoutpoc.backup.BackupRepository(repository, programs, outlines, exchanges, proposals,
+            measurements, catalog, planningAnswers, weekAnnotations, migrations, settings)
+    }
     val migrations: com.example.workoutpoc.migration.MigrationRepository by lazy {
         com.example.workoutpoc.migration.MigrationRepository(DataStoreFactory.create(
             com.example.workoutpoc.migration.MigrationArchiveSerializer,

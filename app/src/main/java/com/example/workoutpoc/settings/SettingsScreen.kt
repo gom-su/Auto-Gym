@@ -9,7 +9,7 @@ fun SettingsScreen(
     onBack: () -> Unit, notificationEnabled: Boolean, overlayGranted: Boolean,
     onNotificationSettings: () -> Unit, onOverlaySettings: () -> Unit,
     onMigration: () -> Unit, onExchange: () -> Unit, demoAvailable: Boolean, onDemo: () -> Unit,
-    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {}
+    loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {}, onBackup: () -> Unit = {}
 ) {
     AppScreen("Ajustes", "Volver", onBack) {
         item { SectionHeader("Registro") }
@@ -26,6 +26,8 @@ fun SettingsScreen(
             supporting = if (overlayGranted) "Autorizado para mostrarse sobre otras aplicaciones"
                 else "Sin permiso para mostrarse sobre otras aplicaciones") }
         item { SectionHeader("Datos") }
+        item { NavRow("Respaldo completo", onBackup, icon = AppIcons.Download,
+            supporting = "Exportar respaldo completo o restaurar todos los datos locales") }
         item { NavRow("Migrar desde Obsidian", onMigration, icon = AppIcons.Upload,
             supporting = "Importa y convierte tus semanas de Markdown") }
         item { NavRow("Intercambio JSON", onExchange, icon = AppIcons.Swap,

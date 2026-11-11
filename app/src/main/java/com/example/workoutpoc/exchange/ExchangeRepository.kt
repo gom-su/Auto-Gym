@@ -30,6 +30,11 @@ class ExchangeRepository(private val store: DataStore<ExchangeArchive>) {
     private val mutableArchive = MutableStateFlow(ExchangeArchiveSerializer.defaultValue)
     val archive = mutableArchive.asStateFlow()
     suspend fun restore() = mutex.withLock { mutableArchive.value = store.data.first() }
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(archive: ExchangeArchive) = mutex.withLock { replaceAllLocked(archive) }
+    private suspend fun replaceAllLocked(archive: ExchangeArchive) { ExchangeArchiveSerializer.validate(archive); mutableArchive.value = store.updateData { archive } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(exchanges = store.data.first()) }, { replaceAllLocked(it.exchanges) })
     /** A single atomic write; imports are archive entries, never approvals or executable state. */
     suspend fun save(data: ExchangePackage): Boolean = mutex.withLock {
         ExchangeCodec.encode(data)

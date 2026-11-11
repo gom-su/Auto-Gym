@@ -79,6 +79,12 @@ class ProposalRepository(
 
     suspend fun restore() = mutex.withLock { mutableState.value = store.data.first() }
 
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(state: ProposalState) = mutex.withLock { replaceAllLocked(state) }
+    private suspend fun replaceAllLocked(state: ProposalState) { ProposalStateSerializer.validate(state); mutableState.value = store.updateData { state } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(proposals = store.data.first()) }, { replaceAllLocked(it.proposals) })
+
     suspend fun evaluate(importId: String): ProposalEvaluation {
         programs.restore(); exchanges.restore()
         val pkg = exchanges.archive.value.packages.find { it.importId == importId && it.type == ExchangeType.WeekProposal }
