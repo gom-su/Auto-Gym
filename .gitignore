@@ -48,6 +48,8 @@ personal-data/
 *.p12
 *.pem
 *.key
+gha-creds-*.json
+firebase-debug.log*
 
 # Keep the required Gradle Wrapper binary despite the Java template's *.jar rule
 !gradle/wrapper/gradle-wrapper.jar

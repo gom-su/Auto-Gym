@@ -4,6 +4,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+// CI supplies an increasing build number and the existing debug signing key. Ordinary local builds keep their defaults.
+val distributedVersionCode = providers.gradleProperty("autoGymVersionCode").orNull?.let {
+    it.toIntOrNull()?.takeIf { code -> code in 1..2_100_000_000 }
+        ?: error("autoGymVersionCode must be an integer between 1 and 2100000000")
+}
 android {
     namespace = "com.example.workoutpoc"
     compileSdk = 36
@@ -11,8 +17,8 @@ android {
         applicationId = "com.example.workoutpoc"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = distributedVersionCode ?: 2
+        versionName = providers.gradleProperty("autoGymVersionName").orElse("1.0.1").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
@@ -22,6 +28,16 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     sourceSets.getByName("test").resources.srcDir("src/main/assets")
+    providers.environmentVariable("AUTO_GYM_DEBUG_KEYSTORE").orNull?.let { path ->
+        val existingKey = file(path)
+        require(existingKey.isFile) { "AUTO_GYM_DEBUG_KEYSTORE must point to the existing signing key" }
+        signingConfigs.getByName("debug") {
+            storeFile = existingKey
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
 }
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2025.09.01")

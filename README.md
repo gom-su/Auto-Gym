@@ -121,6 +121,8 @@ Open **Progreso > Cuerpo** to record weight, muscle mass, body fat, lean mass, w
 
 ### In-app agent
 
+Debug APK updates can be delivered automatically after merges to `main` through Firebase App Distribution; see [delivery setup](docs/FIREBASE_DISTRIBUTION.md).
+
 With your own Claude API key, **Agente > Generar siguiente semana** sends the local context to the Claude API and archives the answer as a pending week proposal: one button instead of exporting, asking an external agent and importing. The key is stored encrypted on the device; Claude's questions are answered on the same screen; a reply the app cannot validate is never saved; you still approve the week in **Propuestas de semana**. The first 12-week plan is imported manually. The final week shows a notice; after the cycle is recorded, **Generar nuevo plan de 12 semanas** uses its history and body measurements, asks questions if needed and saves the next plan for explicit review and activation. Previous cycles are retained. Recording and review keep working offline. See [in-app agent](docs/IN_APP_AGENT.md) and [decision 0009](docs/architecture/decisions/0009-in-app-agent.md).
 
 ### MCP server (INT-01)
