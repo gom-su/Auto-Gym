@@ -75,10 +75,15 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
         run: |
           python3 - <<'PY'
-          import base64, os, pathlib, time
+          import base64, hashlib, os, pathlib, subprocess, time
           key = pathlib.Path(os.environ['RUNNER_TEMP']) / 'auto-gym-debug.keystore'
           key.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
           key.chmod(0o600)
+          certificate = subprocess.check_output(['keytool', '-exportcert', '-alias', 'androiddebugkey', '-keystore', str(key), '-storepass', 'android'])
+          expected = os.environ['ANDROID_DEBUG_CERT_SHA256'].replace(':', '').lower().strip()
+          actual = hashlib.sha256(certificate).hexdigest()
+          if actual != expected:
+              raise SystemExit(f'Configured keystore certificate mismatch: expected {expected}, got {actual}')
           code = int(time.time())
           if not 2 < code <= 2_100_000_000:
               raise SystemExit('Build number outside Android versionCode range')
@@ -91,16 +96,22 @@ jobs:
           bash ./gradlew --no-daemon :app:assembleDebug
           -PautoGymVersionCode="$AUTO_GYM_VERSION_CODE"
           -PautoGymVersionName="$AUTO_GYM_VERSION_NAME"
-      - name: Verify signing certificate
+      - name: Sign and verify original certificate
         run: |
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$signer" sign --ks "$AUTO_GYM_DEBUG_KEYSTORE" --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --key-pass pass:android \
+            --out "$RUNNER_TEMP/auto-gym-signed.apk" app/build/outputs/apk/debug/app-debug.apk
+          mv "$RUNNER_TEMP/auto-gym-signed.apk" app/build/outputs/apk/debug/app-debug.apk
           "$signer" verify --print-certs app/build/outputs/apk/debug/app-debug.apk > "$RUNNER_TEMP/apk-cert.txt"
           python3 - <<'PY'
           import os, pathlib, re
           cert = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'apk-cert.txt').read_text()
-          digest = re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)', cert)
+          digests = re.findall(r'certificate SHA-256 digest:\s*([0-9a-fA-F:]+)', cert)
+          actual = {digest.replace(':', '').lower() for digest in digests}
           expected = os.environ['ANDROID_DEBUG_CERT_SHA256'].replace(':', '').lower().strip()
-          if not digest or digest[1].lower() != expected:
+          print(f'Expected certificate: {expected}; APK certificates: {sorted(actual)}')
+          if actual != {expected}:
               raise SystemExit('Signing certificate changed: refusing to distribute an incompatible update')
           PY
       - name: Prepare release notes

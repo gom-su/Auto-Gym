@@ -44,7 +44,7 @@ $buildCode = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 ./gradlew.bat :app:assembleDebug "-PautoGymVersionCode=$buildCode" "-PautoGymVersionName=1.0.1-debug.$buildCode"
 ```
 
-`AUTO_GYM_DEBUG_KEYSTORE`, when set, must point to the existing keystore with the standard Android debug alias/password. A missing supplied file fails the build rather than generating a different key. The workflow also compares the finished APK certificate to `ANDROID_DEBUG_CERT_SHA256` before uploading it.
+`AUTO_GYM_DEBUG_KEYSTORE`, when set, must point to the existing keystore with the standard Android debug alias/password. A missing supplied file fails the build rather than generating a different key. Before compiling, the workflow checks the restored key's DER certificate hash. After compiling, it explicitly signs the final APK with that key using `apksigner` and checks its certificate against `ANDROID_DEBUG_CERT_SHA256` before uploading. Only public certificate fingerprints are printed; private key material is never printed.
 
 ## Verification
 
