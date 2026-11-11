@@ -1,0 +1,140 @@
+name: Android checks and Firebase delivery
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-delivery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Tests, lint and APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify Android
+        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Verify MCP
+        run: python3 -m unittest discover -s mcp/tests
+
+  distribute:
+    name: Deliver updated debug APK
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      ANDROID_DEBUG_CERT_SHA256: ${{ vars.ANDROID_DEBUG_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check delivery configuration
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GOOGLE_SERVICE_ACCOUNT }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+          TESTERS: ${{ secrets.FIREBASE_TESTERS }}
+        run: |
+          for name in FIREBASE_APP_ID FIREBASE_PROJECT_ID ANDROID_DEBUG_CERT_SHA256 WORKLOAD_IDENTITY_PROVIDER SERVICE_ACCOUNT KEYSTORE_BASE64 TESTERS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing delivery configuration: $name"
+              exit 1
+            fi
+          done
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools@15.35.0 --no-audit --no-fund
+      - name: Restore original signing key and assign version
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64, os, pathlib, time
+          key = pathlib.Path(os.environ['RUNNER_TEMP']) / 'auto-gym-debug.keystore'
+          key.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
+          key.chmod(0o600)
+          code = int(time.time())
+          if not 2 < code <= 2_100_000_000:
+              raise SystemExit('Build number outside Android versionCode range')
+          name = f"1.0.1-debug.{code}.{os.environ['GITHUB_SHA'][:7]}"
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'AUTO_GYM_DEBUG_KEYSTORE={key}\nAUTO_GYM_VERSION_CODE={code}\nAUTO_GYM_VERSION_NAME={name}\n')
+          PY
+      - name: Build update with original signature
+        run: >-
+          bash ./gradlew --no-daemon :app:assembleDebug
+          -PautoGymVersionCode="$AUTO_GYM_VERSION_CODE"
+          -PautoGymVersionName="$AUTO_GYM_VERSION_NAME"
+      - name: Verify signing certificate
+        run: |
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$signer" verify --print-certs app/build/outputs/apk/debug/app-debug.apk > "$RUNNER_TEMP/apk-cert.txt"
+          python3 - <<'PY'
+          import os, pathlib, re
+          cert = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'apk-cert.txt').read_text()
+          digest = re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]+)', cert)
+          expected = os.environ['ANDROID_DEBUG_CERT_SHA256'].replace(':', '').lower().strip()
+          if not digest or digest[1].lower() != expected:
+              raise SystemExit('Signing certificate changed: refusing to distribute an incompatible update')
+          PY
+      - name: Prepare release notes
+        run: |
+          {
+            echo "Auto-Gym $AUTO_GYM_VERSION_NAME"
+            echo "Commit: $GITHUB_SHA"
+            echo "Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            git log -1 --format=%s
+          } > "$RUNNER_TEMP/release-notes.txt"
+      - name: Authenticate to Firebase without a service-account key
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.FIREBASE_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_SERVICE_ACCOUNT }}
+      - name: Upload APK and notify tester
+        env:
+          TESTERS: ${{ secrets.FIREBASE_TESTERS }}
+        run: |
+          # The CLI prints a signed download URL. Keep it out of this public repository's logs.
+          if ! firebase appdistribution:distribute app/build/outputs/apk/debug/app-debug.apk \
+            --project "$FIREBASE_PROJECT_ID" --app "$FIREBASE_APP_ID" \
+            --testers "$TESTERS" --release-notes-file "$RUNNER_TEMP/release-notes.txt" --non-interactive \
+            > "$RUNNER_TEMP/firebase-distribution.log" 2>&1; then
+            echo "::error::Firebase upload/distribution failed. Check the app's App Distribution console and the Google authentication step."
+            exit 1
+          fi
+          {
+            echo "### APK delivered to Firebase App Distribution"
+            echo "Version: $AUTO_GYM_VERSION_NAME"
+            echo "Commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/auto-gym-debug.keystore"
