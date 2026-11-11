@@ -34,5 +34,10 @@ class AppSettingsRepository(private val store: DataStore<AppSettings>) {
     private val mutable = MutableStateFlow(AppSettings())
     val settings = mutable.asStateFlow()
     suspend fun restore() = mutex.withLock { mutable.value = store.data.first() }
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(settings: AppSettings) = mutex.withLock { replaceAllLocked(settings) }
+    private suspend fun replaceAllLocked(settings: AppSettings) { require(settings.schemaVersion == 1) { "Versión no compatible." }; mutable.value = store.updateData { settings } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(settings = store.data.first()) }, { replaceAllLocked(it.settings) })
     suspend fun setLoggingMode(mode: LoggingMode) = mutex.withLock { mutable.value = store.updateData { it.copy(loggingMode = mode) } }
 }

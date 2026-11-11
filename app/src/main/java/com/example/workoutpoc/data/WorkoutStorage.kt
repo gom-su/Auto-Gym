@@ -101,6 +101,8 @@ interface SessionHistory {
     suspend fun read(): WorkoutHistory
     /** Returns false when the session was already archived. */
     suspend fun archive(session: WorkoutState): Boolean
+    /** Replaces the whole archive with a restored backup. An unreadable current archive is never overwritten. */
+    suspend fun replace(history: WorkoutHistory)
 }
 
 class MemorySessionHistory : SessionHistory {
@@ -110,6 +112,7 @@ class MemorySessionHistory : SessionHistory {
         if (history.sessions.any { it.sessionId == session.sessionId }) return false
         history = history.copy(sessions = history.sessions + session); return true
     }
+    override suspend fun replace(history: WorkoutHistory) { WorkoutHistorySerializer.validate(history); this.history = history }
 }
 
 class DataStoreSessionHistory(private val store: DataStore<WorkoutHistory>) : SessionHistory {
@@ -123,16 +126,23 @@ class DataStoreSessionHistory(private val store: DataStore<WorkoutHistory>) : Se
         }
         return added
     }
+    // updateData reads the current file first, so a corrupt or future-version archive fails here instead of being replaced.
+    override suspend fun replace(history: WorkoutHistory) {
+        WorkoutHistorySerializer.validate(history)
+        store.updateData { history }
+    }
 }
 
 object WorkoutHistorySerializer : Serializer<WorkoutHistory> {
     override val defaultValue = WorkoutHistory()
+    /** Throws IllegalArgumentException. */
+    fun validate(h: WorkoutHistory) {
+        require(h.schemaVersion == 1)
+        require(h.sessions.map { it.sessionId }.distinct().size == h.sessions.size)
+        h.sessions.forEach(WorkoutValidation::validate)
+    }
     override suspend fun readFrom(input: InputStream): WorkoutHistory = try {
-        WorkoutSerializer.json.decodeFromString<WorkoutHistory>(input.readBytes().decodeToString()).also { h ->
-            require(h.schemaVersion == 1)
-            require(h.sessions.map { it.sessionId }.distinct().size == h.sessions.size)
-            h.sessions.forEach(WorkoutValidation::validate)
-        }
+        WorkoutSerializer.json.decodeFromString<WorkoutHistory>(input.readBytes().decodeToString()).also(::validate)
     } catch (e: SerializationException) { throw CorruptionException("Historial ilegible. Se conserva sin reemplazar.", e) }
       catch (e: IllegalArgumentException) { throw CorruptionException("Historial inválido. Se conserva sin reemplazar.", e) }
     override suspend fun writeTo(t: WorkoutHistory, output: OutputStream) {

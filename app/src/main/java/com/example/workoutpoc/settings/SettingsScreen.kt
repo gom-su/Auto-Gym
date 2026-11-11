@@ -14,7 +14,7 @@ fun SettingsScreen(
     loggingMode: LoggingMode = LoggingMode.NOTIFICATION, onLoggingMode: (LoggingMode) -> Unit = {},
     /** The Claude API key: its status, whether a key operation is running, and that operation's message. */
     apiKey: ApiKeyStatus = ApiKeyStatus(), keyBusy: Boolean = false, keyMessage: String? = null,
-    onSaveKey: (String) -> Unit = {}, onClearKey: () -> Unit = {}, onGenerate: () -> Unit = {}
+    onSaveKey: (String) -> Unit = {}, onClearKey: () -> Unit = {}, onGenerate: () -> Unit = {}, onBackup: () -> Unit = {}
 ) {
     AppScreen("Ajustes", "Volver", onBack, busy = keyBusy, message = keyMessage) {
         item { SectionHeader("Registro") }
@@ -36,6 +36,8 @@ fun SettingsScreen(
         item { NavRow("Generar siguiente semana", onGenerate, icon = AppIcons.Agent,
             supporting = if (apiKey.present) "Con la llave guardada" else "Necesita una llave guardada") }
         item { SectionHeader("Datos") }
+        item { NavRow("Respaldo completo", onBackup, icon = AppIcons.Download,
+            supporting = "Exportar respaldo completo o restaurar todos los datos locales") }
         item { NavRow("Migrar desde Obsidian", onMigration, icon = AppIcons.Upload,
             supporting = "Importa y convierte tus semanas de Markdown") }
         item { NavRow("Intercambio JSON", onExchange, icon = AppIcons.Swap,

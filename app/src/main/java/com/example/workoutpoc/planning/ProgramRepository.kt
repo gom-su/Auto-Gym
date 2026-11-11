@@ -33,6 +33,12 @@ class ProgramRepository(private val store: DataStore<ProgramLibrary>) {
 
     suspend fun restore() = mutex.withLock { mutableLibrary.value = store.data.first() }
 
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(library: ProgramLibrary) = mutex.withLock { replaceAllLocked(library) }
+    private suspend fun replaceAllLocked(library: ProgramLibrary) { ProgramCodec.validateLibrary(library); mutableLibrary.value = store.updateData { library } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(programs = store.data.first()) }, { replaceAllLocked(it.programs) })
+
     /** What saving [program] would do against the current library, without writing anything. */
     fun preview(program: TrainingProgram): MergePlan = ProgramMerge.plan(library.value.programs.find { it.id == program.id }, program)
 

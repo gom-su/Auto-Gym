@@ -34,6 +34,12 @@ class CatalogRepository(private val store: DataStore<ExerciseCatalog>) {
 
     suspend fun restore() = mutex.withLock { mutableCatalog.value = store.data.first() }
 
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(catalog: ExerciseCatalog) = mutex.withLock { replaceAllLocked(catalog) }
+    private suspend fun replaceAllLocked(catalog: ExerciseCatalog) { CatalogCodec.validate(catalog); mutableCatalog.value = store.updateData { catalog } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(exercises = store.data.first()) }, { replaceAllLocked(it.exercises) })
+
     /**
      * Registers every referenced exercise ID that is not yet catalogued, using the name it was referenced with.
      * Existing entries are never renamed by a reference: a different referenced name is kept as an alias.

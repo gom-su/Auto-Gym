@@ -107,6 +107,10 @@ Open **Agente > Intercambio JSON** to review, save, copy and import/export versi
 
 Open the **Plan** tab, choose a saved program day and tap **Entrenar este día**; the session opens. Start it with the notification or floating panel. Each set is prefilled from its prescription and recorded with one tap; the prescription stays separate from recorded values. A session in progress is never replaced, and finished or closed sessions are archived on the device. Planned sessions support warm-up sets, pausing and resuming (rest resumes exactly), cardio entries and partial sessions (ENT-06). They also allow omitting a set, adding or removing an extra set and editing recorded sets with notes (ENT-05). Everything is stored offline and every confirmed set survives a forced close (ENT-07, [decision 0005](docs/architecture/decisions/0005-offline-persistence.md)). See [planned recording](docs/PLANNED_RECORDING.md).
 
+### Full backup
+
+Open **Ajustes > Respaldo completo** to **Exportar respaldo completo** into one JSON file, or **Restaurar respaldo** with a comparison and explicit confirmation before replacing local data. This includes all 12 training/settings stores and keeps the full edit history, measurement methods and exercise aliases. Pairing keys remain on their device. See [full backup format, flow and guarantees](docs/FULL_BACKUP.md). The interchange v1 contract is unchanged.
+
 ### Session history
 
 Open **Progreso > Sesiones** for every recorded session, newest first: date, program, week and day, status (completed, partial or not performed, never assumed), active time, and completed, omitted, unreached, extra and warm-up sets plus cardio. Filter by program to see only its sessions, with totals for what is listed. Tap a session to see each set's load, reps and RIR, notes, and every earlier version of an edited set. The screen only reads; it never changes recorded data. **Exportar CSV** saves the whole history through the system save dialog (one row per set or cardio entry; columns in [session history CSV](docs/SESSION_HISTORY_CSV.md)).

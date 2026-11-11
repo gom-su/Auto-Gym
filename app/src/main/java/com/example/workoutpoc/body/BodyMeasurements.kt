@@ -81,6 +81,11 @@ class MeasurementRepository(private val store: DataStore<MeasurementLog>) {
     private val mutable = MutableStateFlow(MeasurementLog())
     val log = mutable.asStateFlow()
     suspend fun restore() = mutex.withLock { mutable.value = store.data.first() }
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(log: MeasurementLog) = mutex.withLock { replaceAllLocked(log) }
+    private suspend fun replaceAllLocked(log: MeasurementLog) { MeasurementCodec.validate(log); mutable.value = store.updateData { log } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(measurements = store.data.first()) }, { replaceAllLocked(it.measurements) })
     /** Adds one measurement; re-adding the same ID with the same content is a no-op, different content is rejected. */
     suspend fun add(m: BodyMeasurement) = mutex.withLock {
         MeasurementCodec.validate(m)

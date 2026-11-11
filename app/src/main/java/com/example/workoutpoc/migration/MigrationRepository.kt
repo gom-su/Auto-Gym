@@ -32,6 +32,11 @@ class MigrationRepository(private val store: DataStore<MigrationArchive>) {
     private val mutableArchive = MutableStateFlow(MigrationArchive())
     val archive = mutableArchive.asStateFlow()
     suspend fun restore() = mutex.withLock { mutableArchive.value = store.data.first() }
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(archive: MigrationArchive) = mutex.withLock { replaceAllLocked(archive) }
+    private suspend fun replaceAllLocked(archive: MigrationArchive) { MigrationCodec.validate(archive); mutableArchive.value = store.updateData { archive } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(migrations = store.data.first()) }, { replaceAllLocked(it.migrations) })
     suspend fun save(document: MigrationDocument): Boolean = mutex.withLock {
         MigrationCodec.validate(document)
         var added = false

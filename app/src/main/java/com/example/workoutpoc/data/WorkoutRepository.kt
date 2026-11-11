@@ -96,6 +96,54 @@ class WorkoutRepository(
         true
     }
 
+    /** Holds off timer, notification and UI commands for the complete backup transaction.
+     * Reads raw validated storage without reconciling a rest or writing anything during preflight. */
+    suspend fun <T> withBackupAccess(block: suspend (BackupAccess) -> T): T = mutex.withLock {
+        block(BackupAccess(storage.read(), history.read()))
+    }
+
+    inner class BackupAccess internal constructor(val workout: WorkoutState, val archive: WorkoutHistory) {
+        suspend fun replace(state: WorkoutState, archive: WorkoutHistory) = replaceLocked(state, archive)
+    }
+
+    /** Only backup rollback may replace an in-progress session. */
+    suspend fun replaceAll(state: WorkoutState, archive: WorkoutHistory, allowInProgress: Boolean = false): LoadResult =
+        withBackupAccess { access ->
+            if (!allowInProgress && (access.workout.phase == Phase.ActiveSet || access.workout.phase == Phase.Resting))
+                LoadResult.SESSION_IN_PROGRESS
+            else { access.replace(state, archive); LoadResult.LOADED }
+        }
+
+    private suspend fun replaceLocked(state: WorkoutState, archive: WorkoutHistory) {
+        WorkoutValidation.validate(state)
+        WorkoutHistorySerializer.validate(archive)
+        val previousArchive = history.read()
+        // Elapsed time and boot count belong to the source device. Rebase runtime marks using wall time,
+        // even when both devices happen to have the same boot count, then reconcile before either write.
+        val now = clock()
+        fun elapsedAt(wallMillis: Long): Long = Math.addExact(now.elapsedMillis, Math.subtractExact(wallMillis, now.wallMillis))
+        val portable = state.copy(
+            rest = state.rest?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) },
+            paused = state.paused?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) })
+        val restored = reducer.reduce(portable, portable.command(WorkoutEvent.RestFinished), now, idFactory())
+        WorkoutValidation.validate(restored)
+        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            history.replace(archive)
+            try { storage.write(restored) }
+            catch (e: Exception) {
+                try { history.replace(previousArchive) }
+                catch (rollback: Exception) {
+                    throw com.example.workoutpoc.backup.BackupException("No se pudo revertir el historial tras un fallo de escritura.", e, listOf(rollback))
+                }
+                throw e
+            }
+            mutableHistory.value = archive
+            mutableState.value = restored
+            loaded = true
+            mutableReady.value = true
+        }
+    }
+
     private suspend fun archiveLocked(session: WorkoutState) {
         if (session.records.isEmpty()) return
         // A session reset mid-way is archived as ended early, exactly as recorded so far.

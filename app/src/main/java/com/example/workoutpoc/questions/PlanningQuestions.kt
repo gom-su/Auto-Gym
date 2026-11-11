@@ -106,6 +106,11 @@ class PlanningAnswerRepository(private val store: DataStore<PlanningAnswers>, pr
     private val mutable = MutableStateFlow(PlanningAnswers())
     val answers = mutable.asStateFlow()
     suspend fun restore() = mutex.withLock { mutable.value = store.data.first() }
+    /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
+    suspend fun replaceAll(answers: PlanningAnswers) = mutex.withLock { replaceAllLocked(answers) }
+    private suspend fun replaceAllLocked(answers: PlanningAnswers) { PlanningAnswersSerializer.validate(answers); mutable.value = store.updateData { answers } }
+    internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
+        { it.copy(planningAnswers = store.data.first()) }, { replaceAllLocked(it.planningAnswers) })
     /** Records [value] (trimmed) or, when null, an explicit "not available". Replaces an earlier answer. */
     suspend fun answer(questionId: String, value: String?) = mutex.withLock {
         val clean = value?.trim()?.ifBlank { null }

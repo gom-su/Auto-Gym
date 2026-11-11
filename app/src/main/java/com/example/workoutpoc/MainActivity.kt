@@ -47,6 +47,13 @@ import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val backupModel: com.example.workoutpoc.backup.BackupViewModel by viewModels()
+    private val backupDestination = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        backupModel.writeExport(uri)
+    }
+    private val backupFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(backupModel::preview)
+    }
     private val model: WorkoutViewModel by viewModels()
     private val programModel: ProgramViewModel by viewModels()
     private val migrationModel: MigrationViewModel by viewModels()
@@ -116,6 +123,16 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Screens() {
         val nav = rememberAppNavigator()
+        val backupUi by backupModel.ui.collectAsStateWithLifecycle()
+        LaunchedEffect(backupUi.restoreGeneration) {
+            if (backupUi.restoreGeneration > 0) {
+                workoutApp.error.value = null
+                programModel.cancelPreview(); migrationModel.cancel(); exchangeModel.cancel()
+                homeModel.refresh(); programModel.restore(); migrationModel.restore(); exchangeModel.restore()
+                proposalModel.refresh(); bodyModel.refresh(); adherenceModel.refresh()
+                questionsModel.refresh(); historyModel.refresh(); planModel.refresh(); generateModel.refresh()
+            }
+        }
         val saved = rememberSaveableStateHolder()
         val state by model.state.collectAsStateWithLifecycle()
         val ready by model.ready.collectAsStateWithLifecycle()
@@ -232,6 +249,12 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun DestinationScreen(top: Destination, nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
         when (top) {
+            Destination.Backup -> {
+                val backupUi by backupModel.ui.collectAsStateWithLifecycle()
+                com.example.workoutpoc.backup.BackupScreen(backupUi, nav::back,
+                    { backupModel.prepareExport { backupDestination.launch(it) } },
+                    { backupFile.launch(arrayOf("*/*")) }, backupModel::cancelReview, backupModel::confirmRestore)
+            }
             Destination.Session -> SessionScreen(nav, state, ready, error)
             Destination.Settings -> {
               val keyUi by generateModel.ui.collectAsStateWithLifecycle()
@@ -241,6 +264,7 @@ class MainActivity : ComponentActivity() {
                 demoAvailable = state.source == null, onDemo = nav::openSession,
                 loggingMode = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode,
                 onLoggingMode = { mode -> lifecycleScope.launch { workoutApp.safely { workoutApp.settings.setLoggingMode(mode) } } },
+                onBackup = { generateModel.cancel(); nav.open(Destination.Backup) },
                 apiKey = keyUi.key, keyBusy = keyUi.busy, keyMessage = keyUi.message,
                 onSaveKey = generateModel::saveKey, onClearKey = generateModel::clearKey, onGenerate = { nav.open(Destination.Generate) })
             }
