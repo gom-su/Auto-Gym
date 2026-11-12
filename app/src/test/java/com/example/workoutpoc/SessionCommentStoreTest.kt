@@ -2,8 +2,10 @@ package com.example.workoutpoc
 
 import com.example.workoutpoc.backup.*
 import com.example.workoutpoc.domain.*
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
+import okio.Path.Companion.toPath
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.Instant
@@ -45,5 +47,31 @@ class SessionCommentStoreTest {
         }.toString()
         val restored = BackupCodec.decode(envelope).data
         assertEquals(SessionCommentLog(), restored.comments)
+    }
+}
+
+class SessionCommentRepositoryTest {
+    @get:org.junit.Rule val folder = org.junit.rules.TemporaryFolder()
+
+    @Test fun `added comments survive restore and resolution removes them from the agent context`() = kotlinx.coroutines.test.runTest {
+        val file = folder.newFolder().resolve("session-comments-v1.json")
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+        val store = androidx.datastore.core.DataStoreFactory.create(storage = androidx.datastore.core.okio.OkioStorage(
+            okio.FileSystem.SYSTEM, object : androidx.datastore.core.okio.OkioSerializer<SessionCommentLog> {
+                override val defaultValue = SessionCommentLogSerializer.defaultValue
+                override suspend fun readFrom(source: okio.BufferedSource) = SessionCommentLogSerializer.readFrom(source.inputStream())
+                override suspend fun writeTo(t: SessionCommentLog, sink: okio.BufferedSink) = SessionCommentLogSerializer.writeTo(t, sink.outputStream())
+            }) { file.absolutePath.toPath() }, scope = scope)
+        val repo = com.example.workoutpoc.data.SessionCommentRepository(store)
+        repo.restore()
+        repo.add(SessionComment("c1", "En este remo prefiero el agarre neutro", 10, "prog", "week-one", "s1", "row"))
+        repo.add(SessionComment("c2", "Calentamiento largo", 20, "prog", "week-one", "s1", null))
+        assertEquals(2, repo.log.value.comments.size)
+
+        repo.resolve("c2", 30)
+        repo.restore()
+        val inForce = com.example.workoutpoc.domain.SessionComments.forGeneration(repo.log.value.comments, "prog", setOf("row"))
+        assertEquals(listOf("c1"), inForce.map { it.id })
+        scope.cancel()
     }
 }

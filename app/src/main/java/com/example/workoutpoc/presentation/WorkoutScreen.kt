@@ -35,7 +35,9 @@ fun WorkoutScreen(
     onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {},
     /** The default logging mode in Ajustes is the floating panel: offer it first. */
     overlayFirst: Boolean = false,
-    onFinalize: () -> Unit = {}
+    onFinalize: () -> Unit = {},
+    /** Saves a comment for the planned session (contract §7); exerciseId is null for a general comment. */
+    onSaveComment: (text: String, exerciseId: String?) -> Unit = { _, _ -> }
 ) {
     var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
     var confirmReset by remember(state.sessionId) { mutableStateOf(false) }
@@ -88,6 +90,7 @@ fun WorkoutScreen(
                     Phase.Completed -> {
                         CompletedCard(state, plan)
                         if (!demo) SessionReviewContent(remember(state) { state.review() })
+                        if (!demo && state.source != null) SessionCommentCard(state, onSaveComment)
                     }
                 }
                 SessionStatus(state, now, dispatch)
@@ -194,7 +197,7 @@ private fun ModeButton(text: String, icon: androidx.compose.ui.graphics.vector.I
 
 /** The one card that holds what to do right now; visually the strongest element on the screen. */
 @Composable
-private fun FocusCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun FocusCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md), content = content)
     }

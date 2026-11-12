@@ -386,6 +386,17 @@ class MainActivity : ComponentActivity() {
                             if (workoutApp.repository.state.value.sessionId != state.sessionId) nav.select(Tab.Hoy)
                         }
                     }
+                }, onSaveComment = { text, exerciseId ->
+                    // Contract §7: the comment is tied to the program, the week and the session it was written in.
+                    val source = state.source ?: return@WorkoutScreen
+                    lifecycleScope.launch {
+                        workoutApp.safely {
+                            workoutApp.comments.add(com.example.workoutpoc.domain.SessionComment(
+                                id = java.util.UUID.randomUUID().toString(), text = text.trim(),
+                                createdAtMillis = System.currentTimeMillis(), programId = source.programId,
+                                weekId = source.weekId, sessionId = state.sessionId, exerciseId = exerciseId))
+                        }
+                    }
                 })
     }
 
