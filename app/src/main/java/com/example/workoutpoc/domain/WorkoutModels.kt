@@ -23,9 +23,15 @@ data class PlannedSet(
     val restSeconds: Int = 10, val weightStepTenths: Int = 25, val maxWeightTenths: Int = 3000, val maxReps: Int = 30,
     /** Added during the session; it has no prescription of its own and is never reported as prescribed. */
     val extra: Boolean = false,
-    /** A warm-up/approach set (always extra). Its load never carries into work sets. */
-    val warmup: Boolean = false
+    /** A warm-up/approach set (always extra). Its load never carries into work sets. Legacy; [setType] wins when both are set. */
+    val warmup: Boolean = false,
+    /** Set kind. Legacy snapshots read warmup = true as APPROACH. */
+    val setType: SetType = if (warmup) SetType.APPROACH else SetType.WORK
 )
+
+/** Kind of a strength set (contract §3). WARMUP and APPROACH never feed RIR or load preselection of work sets. */
+@Serializable
+enum class SetType { WORK, WARMUP, APPROACH }
 
 /** Integer tenths of the set's unit avoid floating point drift; rir=4 means 4+, null means not recorded. */
 @Serializable
@@ -43,11 +49,14 @@ enum class SetStatus { COMPLETED, SKIPPED }
 data class SetRecord(val index: Int, val exercise: String, val number: Int,
                      val values: SetValues, val completedAtMillis: Long, val prescriptionId: String? = null,
                      val status: SetStatus = SetStatus.COMPLETED, val notes: String? = null, val editedAtMillis: Long? = null,
-                     val revisions: List<SetRevision> = emptyList())
+                     val revisions: List<SetRevision> = emptyList(),
+                     /** Unit the values were recorded in; null means the prescribed unit (contract §2). */
+                     val recordedUnit: WeightUnit? = null)
 
 /** A recorded version that an edit replaced, with the time it was replaced. */
 @Serializable
-data class SetRevision(val status: SetStatus, val values: SetValues, val notes: String?, val replacedAtMillis: Long)
+data class SetRevision(val status: SetStatus, val values: SetValues, val notes: String?, val replacedAtMillis: Long,
+                       val recordedUnit: WeightUnit? = null)
 
 const val MAX_SET_REVISIONS = 50
 
@@ -64,7 +73,45 @@ enum class DistanceUnit { M, KM, MI }
 @Serializable
 data class CardioEntry(
     val id: String, val modality: String, val durationSeconds: Int?, val distanceTenths: Int?,
-    val distanceUnit: DistanceUnit?, val notes: String?, val recordedAtMillis: Long
+    val distanceUnit: DistanceUnit?, val notes: String?, val recordedAtMillis: Long,
+    /** Planned cardio step this entry executed (contract §6); null for manual cardio. */
+    val plannedCardioId: String? = null
+)
+
+/** Executable cardio step of a planned session, run by duration (contract §6). */
+@Serializable
+data class PlannedCardio(val stepId: String, val modality: String, val plannedSeconds: Int)
+
+/**
+ * Rest between two steps, kept outside [SetRecord] (contract §5). Actual rest is
+ * confirmedAt - startedAt - pausedMillis; it is open (confirmedAtMillis == null) until OK or Skip.
+ */
+@Serializable
+data class RestSegment(
+    val id: String, val afterStepId: String,
+    val startedAtMillis: Long, val bootCount: Int,
+    /** Adjustable with -15 s / +15 s inside 45–120 s; the elapsed time is never reset by adjusting. */
+    val configuredSeconds: Int,
+    val pausedMillis: Long = 0,
+    val confirmedAtMillis: Long? = null,
+    val skipped: Boolean = false
+)
+
+/** Session or exercise comment that outlives the week it was written in (contract §7). */
+@Serializable
+data class SessionComment(
+    val id: String,
+    val text: String,
+    val createdAtMillis: Long,
+    val programId: String,
+    /** Origin week only; not the key for relevance. */
+    val weekId: String? = null,
+    val sessionId: String? = null,
+    /** null = general session comment. */
+    val exerciseId: String? = null,
+    val setIndex: Int? = null,
+    /** null = still in force. */
+    val resolvedAtMillis: Long? = null
 )
 
 /** Start of a pause, on both clocks so a reboot during the pause still resolves its duration. */
@@ -97,7 +144,11 @@ data class WorkoutState(
     val cardio: List<CardioEntry> = emptyList(),
     /** Non-null while paused; rest deadlines are shifted by the pause length on resume. */
     val paused: PauseMark? = null,
-    val pausedMillis: Long = 0
+    val pausedMillis: Long = 0,
+    /** Planned cardio steps, in the same single sequence as the strength plan (contract §6). */
+    val cardioPlan: List<PlannedCardio> = emptyList(),
+    /** Rest segments (contract §5). The legacy [rest] deadline remains until the reducer migrates. */
+    val restSegments: List<RestSegment> = emptyList()
 )
 
 enum class WorkoutEvent {
