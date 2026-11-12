@@ -317,8 +317,7 @@ private fun RestControls(state: WorkoutState, plan: List<PlannedSet>, now: () ->
                 strokeWidth = 10.dp, trackColor = MaterialTheme.colorScheme.surfaceContainerHighest, gapSize = 0.dp)
             Text("$seconds s", style = MaterialTheme.typography.displayLarge.tabular(), color = MaterialTheme.colorScheme.primary)
         }
-        val next = plan[(state.index + 1).coerceAtMost(plan.lastIndex)]
-        Text("Siguiente: ${next.exercise} · ${next.number}/${next.total}\n${prescriptionLabel(next)}", style = MaterialTheme.typography.bodyLarge,
+        Text("Siguiente: ${state.nextSetLabel(plan)}", style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.align(Alignment.Start))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             if (state.openRestSegment != null) {

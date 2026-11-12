@@ -60,7 +60,7 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
             Phase.Idle -> "Inicia desde la aplicación"
         }
         root.findViewById<TextView>(R.id.overlay_subtitle).text = if (paused) "Reanuda desde la aplicación" else if (resting)
-            "Siguiente: ${plan[(state.index + 1).coerceAtMost(plan.lastIndex)].exercise}"
+            "Siguiente: ${state.nextSetLabel(plan)}"
         else "${state.records.size}/${plan.size} completadas · serie ${current.number}/${current.total}"
         root.findViewById<TextView>(R.id.overlay_weight).text = loadLabel(state.values.weightTenths, current.unit)
         root.findViewById<TextView>(R.id.overlay_reps).text = "${state.values.reps} reps"
@@ -71,6 +71,9 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
             contentDescription = postpone?.let { "Posponer ${current.exercise}; siguiente: ${it.nextExercise}" }
         }
         root.findViewById<TextView>(R.id.overlay_countdown).text = "${seconds(state)} s"
+        root.findViewById<Button>(R.id.overlay_reduce).visibility = if (state.openRestSegment == null) View.GONE else View.VISIBLE
+        root.findViewById<Button>(R.id.overlay_add).text = if (state.source == null) "+10 s" else "+15 s"
+        root.findViewById<Button>(R.id.overlay_skip).text = if (restExpired(state)) "OK" else "Saltar descanso"
         listOf(R.id.overlay_rir0, R.id.overlay_rir1, R.id.overlay_rir2, R.id.overlay_rir3, R.id.overlay_rir4)
             .forEachIndexed { rir, id ->
                 root.findViewById<Button>(id).apply {
@@ -82,6 +85,9 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
     }
 
     private fun seconds(s: WorkoutState): Long = ((s.rest?.remainingMillis(clockSnapshot(context)) ?: 0) + 999) / 1000
+
+    private fun restExpired(state: WorkoutState): Boolean =
+        state.source != null && state.rest?.remainingMillis(clockSnapshot(context)) == 0L
 
     private fun rebuild() {
         remove()
@@ -103,8 +109,11 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
                 R.id.overlay_complete to WorkoutEvent.CompleteSet,
                 R.id.overlay_postpone to WorkoutEvent.PostponeExercise,
                 R.id.overlay_add to WorkoutEvent.AddRestTime,
-                R.id.overlay_skip to WorkoutEvent.SkipRest).forEach { (id, event) ->
+                R.id.overlay_reduce to WorkoutEvent.ReduceRestTime).forEach { (id, event) ->
                 findViewById<View>(id).setOnClickListener { dispatch(snapshot.command(event)) }
+            }
+            findViewById<View>(R.id.overlay_skip).setOnClickListener {
+                dispatch(snapshot.command(if (restExpired(snapshot)) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest))
             }
             listOf(R.id.overlay_rir0, R.id.overlay_rir1, R.id.overlay_rir2, R.id.overlay_rir3, R.id.overlay_rir4)
                 .forEachIndexed { rir, id -> findViewById<View>(id).setOnClickListener {

@@ -196,16 +196,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
 
     private fun advance(s: WorkoutState, plan: List<PlannedSet>): WorkoutState {
         val next: Int = (s.index + 1).coerceAtMost(plan.lastIndex)
-        val current = plan[s.index]
-        val proposed: SetValues = values(plan, next).let {
-            // Carry the last real load only to the same exercise, unit and prescribed load (a repeated deviation);
-            // a set that prescribes a different load prefills that prescription instead.
-            val n = plan[next]
-            val same = current.setType == SetType.WORK && n.setType == SetType.WORK &&
-                n.exercise == current.exercise && n.exerciseId == current.exerciseId && n.unit == current.unit &&
-                n.weightTenths == current.weightTenths && n.loadPrescribed == current.loadPrescribed
-            if (same) it.copy(weightTenths = s.values.weightTenths.coerceAtMost(plan[next].maxWeightTenths)) else it
-        }
+        val proposed = s.followingSetValues(plan[s.index], plan[next])
         return s.copy(phase = Phase.ActiveSet, index = next, values = proposed, rest = null)
     }
 

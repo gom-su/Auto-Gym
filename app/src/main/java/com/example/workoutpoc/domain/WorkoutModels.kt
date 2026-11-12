@@ -209,6 +209,29 @@ fun WorkoutState.command(event: WorkoutEvent, rir: Int? = null): WorkoutCommand 
 val WorkoutState.openRestSegment: RestSegment?
     get() = restSegments.lastOrNull()?.takeIf { it.confirmedAtMillis == null && !it.interrupted }
 
+fun WorkoutState.followingSetValues(current: PlannedSet, next: PlannedSet): SetValues {
+    val carryLoad = current.setType == SetType.WORK && next.setType == SetType.WORK &&
+        current.sameExercise(next) && current.unit == next.unit && current.basis == next.basis &&
+        current.weightTenths == next.weightTenths && current.loadPrescribed == next.loadPrescribed
+    val weight = if (carryLoad) values.weightTenths.coerceAtMost(next.maxWeightTenths) else next.weightTenths
+    return SetValues(weight, next.reps, next.rir)
+}
+
+fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
+    val current = plan.getOrNull(index) ?: return ""
+    val next = plan.getOrNull(index + 1) ?: return ""
+    val prefill = followingSetValues(current, next)
+    val basis = when (next.basis) {
+        "PER_HAND" -> " por mano"
+        "PER_SIDE" -> " por lado"
+        "TOTAL" -> " total"
+        else -> ""
+    }
+    val load = if (next.loadPrescribed || prefill.weightTenths != 0) loadLabel(prefill.weightTenths, next.unit) + basis else "carga sin indicar"
+    val reps = if (prefill.reps > 0) "${prefill.reps} reps" else "reps sin indicar"
+    return "${next.exercise} · ${next.number}/${next.total}\n$load · $reps"
+}
+
 fun weightLabel(tenths: Int): String = if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"
 
 /** Human label of a recorded/prefilled load in the set's own unit, without conversion. */
