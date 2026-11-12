@@ -45,7 +45,7 @@ fun ExchangeScreen(archive: ExchangeArchive, ui: ExchangeUiState, onBack: () -> 
                     Text("Preparar para el agente", style = MaterialTheme.typography.titleMedium)
                     TonalAction("Preparar contexto local", { onGenerate(ExchangeType.TrainingContext) }, enabled = ui.ready && !ui.busy)
                     TonalAction("Preparar resultados locales", { onGenerate(ExchangeType.TrainingResults) }, enabled = ui.ready && !ui.busy)
-                    SupportingText("Los resultados locales incluyen la sesión demo disponible; no hay historial adicional registrado. La fase, los objetivos y las reglas del contexto salen solo de tus respuestas en Preguntas de planificación.",
+                    SupportingText("Los resultados locales incluyen la sesión demo disponible; el contexto para el agente no la incluye. La fase, los objetivos y las reglas del contexto salen solo de tus respuestas en Preguntas de planificación.",
                         small = true)
                 }
             }

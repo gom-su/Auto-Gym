@@ -2,7 +2,7 @@
 
 Open **Agente → Intercambio JSON** (also in **Ajustes**). Import a UTF-8 file or paste JSON, review its complete content, then explicitly save. Saved entries can be selected, copied or exported through Android's document picker. Canceling review or a picker does not import anything. Errors offer retry; a failed destination write can leave an incomplete destination file and never reports success.
 
-**Preparar contexto local** includes saved programs, typed session history, active and previous cycle outlines, next-week briefs, planning answers and dated local measurements with their method and unit. **Preparar resultados locales** includes recorded session results and the available demo snapshot. Missing data is never invented. Both actions prepare a review, without saving or sharing automatically. Review the content before choosing a destination or copying to the system clipboard.
+**Preparar contexto local** includes saved programs, typed session history, active and previous cycle outlines, next-week briefs, planning answers and dated local measurements with their method and unit. The context never includes the demo snapshot: its sets are fixed synthetic data, so an agent must not plan from them (packages that carry one are still read). **Preparar resultados locales** includes recorded session results and the available demo snapshot. Missing data is never invented. Both actions prepare a review, without saving or sharing automatically. Review the content before choosing a destination or copying to the system clipboard.
 
 ## Contract v1
 

@@ -25,7 +25,8 @@ suspend fun WorkoutApplication.localExchange(type: ExchangeType): ExchangePackag
         val saved = programs.library.value.programs
         val inForce = comments.log.value.comments.filter { c -> c.resolvedAtMillis == null && saved.any { it.id == c.programId } }
         // The next week of each plan is computed here, deterministically, so the agent never guesses it.
-        TrainingContext(saved, phase, results, rules, goals,
+        // The demo snapshot is synthetic proof-of-concept data: the agent only gets real sessions.
+        TrainingContext(saved, phase, results.forAgentContext(), rules, goals,
             measurements = measurements.log.value.measurements.sortedBy { it.measuredAtMillis }.map { it.toContextMeasurement() },
             outlines = active,
             nextWeeks = active.map { o -> PlanOutlines.brief(o, saved.find { it.id == o.programId }, sessions) },
