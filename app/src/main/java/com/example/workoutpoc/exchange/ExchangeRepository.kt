@@ -32,6 +32,12 @@ class ExchangeRepository(private val store: DataStore<ExchangeArchive>) {
     suspend fun restore() = mutex.withLock { mutableArchive.value = store.data.first() }
     /** Replaces the whole store with a restored backup (see docs/FULL_BACKUP.md). The serializer validates it. */
     suspend fun replaceAll(archive: ExchangeArchive) = mutex.withLock { replaceAllLocked(archive) }
+
+    /** Removes a pending proposal that a newer version replaced (§2). Other packages are never touched. */
+    suspend fun removeSuperseded(importId: String) = mutex.withLock {
+        val current = store.data.first()
+        replaceAllLocked(current.copy(packages = current.packages.filterNot { it.importId == importId }))
+    }
     private suspend fun replaceAllLocked(archive: ExchangeArchive) { ExchangeArchiveSerializer.validate(archive); mutableArchive.value = store.updateData { archive } }
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(exchanges = store.data.first()) }, { replaceAllLocked(it.exchanges) })

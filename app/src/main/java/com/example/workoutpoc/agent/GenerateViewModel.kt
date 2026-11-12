@@ -59,6 +59,8 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
     private var chat: AgentChat? = null
     private var generation: WeekGeneration? = null
     private var planGeneration: PlanGeneration? = null
+    /** The pending proposal this generation regenerates; it is removed once the new version is saved. */
+    private var replacing: String? = null
     private var week: Int? = null
 
     init { refresh() }
@@ -75,8 +77,25 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         mutableUi.value = mutableUi.value.copy(key = app.apiKey.status.value, message = "Llave eliminada de este dispositivo.")
     }
 
-    fun generate(note: String) = operation(generating = true) {
+    fun generate(note: String) = operation(generating = true) { startGeneration(note, supersedes = null) }
+
+    /**
+     * Regenerates a pending proposal with the user's feedback (§2). The previous version goes to the agent as the
+     * reference to correct. It is removed only after the new version is saved, so a failure keeps it available.
+     */
+    fun regenerate(importId: String, feedback: String) = operation(generating = true) {
+        app.proposals.restore(); app.exchanges.restore()
+        if (app.proposals.decisionFor(importId) != null) throw AgentException("Solo se regenera una propuesta pendiente.")
+        val previous = app.exchanges.archive.value.packages.find { it.importId == importId && it.proposal != null }
+            ?: throw AgentException("La propuesta ya no está guardada.")
+        val reference = compact.encodeToString(previous.proposal)
+        val note = "Feedback del usuario: ${feedback.trim()}\n\nVersión anterior, a corregir (no la copies si el feedback pide cambios):\n$reference"
+        startGeneration(note, supersedes = importId)
+    }
+
+    private suspend fun startGeneration(note: String, supersedes: String?) {
         discard()
+        replacing = supersedes
         mutableUi.value = mutableUi.value.copy(savedWeek = null, savedPlan = null, questions = null)
         val key = app.apiKey.key() ?: throw AgentException("Guarda primero tu llave API de Claude.")
         // Building and encoding the whole history is kept off the main thread.
@@ -134,7 +153,11 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
             is GenerationStep.Questions -> mutableUi.value = mutableUi.value.copy(questions = step.questions,
                 message = "Claude necesita tus respuestas antes de proponer ${if (planGeneration != null) "el nuevo plan" else "la semana"}.")
             is GenerationStep.Proposal -> {
+                val superseded = replacing
+                replacing = null
                 app.exchanges.save(step.pkg)
+                // Only one pending version stays for approval: the new one is saved first, then the old one is removed (§2).
+                superseded?.let { app.exchanges.removeSuperseded(it) }
                 // Shown as saved at once: a cancellation or a failed reload after this point must not hide it.
                 val plan = step.pkg.outline
                 mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = week, savedPlan = plan?.name,
