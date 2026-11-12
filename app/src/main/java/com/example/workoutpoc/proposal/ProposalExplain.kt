@@ -60,29 +60,29 @@ object ProposalExplain {
             }
         } }
         removed.forEach { id -> val e = before.getValue(id).first()
-            out += ExplainedChange(ChangeKind.REMOVAL, id, e.name, "Se retira ${e.name} (${before.getValue(id).sumOf { it.sets.size }} series en la semana base).",
+            out += ExplainedChange(ChangeKind.REMOVAL, id, e.name, "Se retira ${e.name} (${before.getValue(id).sumOf { it.workSets().size }} series en la semana base).",
                 evidence(id), reason(e.name, id)) }
         added.forEach { id -> val e = after.getValue(id).first()
-            out += ExplainedChange(ChangeKind.ADDITION, id, e.name, "Se añade ${e.name} con ${after.getValue(id).sumOf { it.sets.size }} series.",
+            out += ExplainedChange(ChangeKind.ADDITION, id, e.name, "Se añade ${e.name} con ${after.getValue(id).sumOf { it.workSets().size }} series.",
                 evidence(id), reason(e.name, id)) }
 
         (before.keys intersect after.keys).forEach { id ->
             val b = before.getValue(id); val a = after.getValue(id); val name = a.first().name
-            fun sets(l: List<ExercisePrescription>) = l.sumOf { it.sets.size }
+            fun sets(l: List<ExercisePrescription>) = l.sumOf { it.workSets().size }
             fun change(kind: ChangeKind, summary: String) { out += ExplainedChange(kind, id, name, summary, evidence(id), reason(name, id)) }
             val sb = sets(b); val sa = sets(a)
             if (sa != sb) change(if (sa > sb) ChangeKind.INCREASE else ChangeKind.REDUCTION, "$name: series $sb → $sa (${pct(sb.toDouble(), sa.toDouble())}).")
-            val loadsB = b.flatMap { it.sets }.mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } }
-            val loadsA = a.flatMap { it.sets }.mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } }
+            val loadsB = b.flatMap { it.workSets() }.mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } }
+            val loadsA = a.flatMap { it.workSets() }.mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } }
             loadsA.forEach { (key, v) ->
                 val old = loadsB[key] ?: return@forEach
                 if (old != v) change(if (v > old) ChangeKind.INCREASE else ChangeKind.REDUCTION,
                     "$name: carga máxima ${old.fmt()} → ${v.fmt()} ${key.first} ${key.second} (${pct(old, v)}).")
             }
-            val repsB = b.flatMap { it.sets }.mapNotNull { it.reps }; val repsA = a.flatMap { it.sets }.mapNotNull { it.reps }
+            val repsB = b.flatMap { it.workSets() }.mapNotNull { it.reps }; val repsA = a.flatMap { it.workSets() }.mapNotNull { it.reps }
             if (repsB.isNotEmpty() && repsA.isNotEmpty() && repsB.sum() != repsA.sum())
                 change(if (repsA.sum() > repsB.sum()) ChangeKind.INCREASE else ChangeKind.REDUCTION, "$name: repeticiones prescritas ${repsB.sum()} → ${repsA.sum()} en total.")
-            val rirB = b.flatMap { it.sets }.mapNotNull { it.rir }.minOrNull(); val rirA = a.flatMap { it.sets }.mapNotNull { it.rir }.minOrNull()
+            val rirB = b.flatMap { it.workSets() }.mapNotNull { it.rir }.minOrNull(); val rirA = a.flatMap { it.workSets() }.mapNotNull { it.rir }.minOrNull()
             if (rirB != null && rirA != null && rirB != rirA)
                 change(if (rirA < rirB) ChangeKind.INCREASE else ChangeKind.REDUCTION,
                     "$name: RIR mínimo $rirB → $rirA (${if (rirA < rirB) "más cerca del fallo" else "más margen"}).")

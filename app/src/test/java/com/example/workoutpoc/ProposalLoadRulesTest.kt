@@ -67,5 +67,9 @@ class ProposalLoadRulesTest {
         val withApproach = evaluate(proposal)
         assertEquals(plain.issues.map { it.code }, withApproach.issues.map { it.code })
         assertEquals(plain.differences, withApproach.differences)
+        // The explained changes of the review use the same definition of a work set.
+        val saved = context.programs.flatMap { it.blocks }.flatMap { it.weeks }.last()
+        assertEquals(ProposalExplain.explain(base, saved, emptyList()).map { it.summary },
+            ProposalExplain.explain(proposal, saved, emptyList()).map { it.summary })
     }
 }

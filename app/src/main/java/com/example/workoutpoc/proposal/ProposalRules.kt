@@ -46,7 +46,7 @@ private data class ExerciseSummary(val name: String, val sets: Int, val loads: M
                                    val minReps: Int?, val maxReps: Int?, val minRir: Int?)
 
 /** Warm-up and approach sets are prescribed apart: they never count as volume, rep range or effort (contract §3). */
-private fun ExercisePrescription.workSets() = sets.filter { it.kind == SetKind.WORK }
+internal fun ExercisePrescription.workSets() = sets.filter { it.kind == SetKind.WORK }
 
 private fun WeekPlan.summary(): Map<String, ExerciseSummary> =
     days.flatMap { it.exercises }.groupBy { it.exerciseId }.mapValues { (_, list) ->
@@ -136,7 +136,7 @@ object ProposalRules {
             sessions.filter { it.programId == null || it.programId == proposal.programId }, settings, ::add)
             else block?.weeks?.lastOrNull { it.id != week.id }
         val proposed = week.summary()
-        week.days.flatMap { it.exercises }.flatMap { e -> e.sets.filter { it.rir == 0 }.map { e.name } }.distinct().forEach {
+        week.days.flatMap { it.exercises }.flatMap { e -> e.workSets().filter { it.rir == 0 }.map { e.name } }.distinct().forEach {
             add("RIR_ZERO", settings.rirZero, "$it: prescribe series al fallo (RIR 0).")
         }
         // Contract §1: every strength set carries an explicit load before the proposal can be approved, and warm-up or
