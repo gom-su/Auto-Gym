@@ -27,6 +27,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
 
     fun reduce(s: WorkoutState, c: WorkoutCommand, now: ClockSnapshot, newSessionId: String): WorkoutState {
         if (c.sessionId != s.sessionId || c.index != s.index || c.revision != s.revision) return s
+        if (c.event in restActions && c.restSegmentId != s.openRestSegment?.id) return s
         // A paused session only resumes, finishes or closes; stale taps from the overlay/notification are inert.
         if (s.paused != null && c.event !in setOf(WorkoutEvent.ResumeSession, WorkoutEvent.FinishWorkout, WorkoutEvent.ResetDemo)) return s
         val plan = planOf(s)
@@ -35,21 +36,25 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             WorkoutEvent.ResetDemo -> WorkoutState(sessionId = newSessionId)
             WorkoutEvent.UndoLastSet -> undo(s)
             WorkoutEvent.FinishWorkout -> if (s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
-                s.copy(phase = Phase.Completed, rest = null, endedEarly = true, endedAtMillis = now.wallMillis,
+                closeRest(s, now, interrupted = true).copy(phase = Phase.Completed, rest = null, endedEarly = true, endedAtMillis = now.wallMillis,
                     paused = null, pausedMillis = s.pausedMillis + (s.paused?.elapsedSince(now) ?: 0)) else s
             WorkoutEvent.PauseSession -> if (s.source != null && s.paused == null && (s.phase == Phase.ActiveSet || s.phase == Phase.Resting))
                 s.copy(paused = PauseMark(now.elapsedMillis, now.wallMillis, now.bootCount)) else s
             WorkoutEvent.ResumeSession -> s.paused?.let { mark ->
                 val pause = mark.elapsedSince(now)
-                s.copy(paused = null, pausedMillis = s.pausedMillis + pause,
+                updateRestSegment(s) { it.copy(pausedMillis = it.pausedMillis + pause) }.copy(
+                    paused = null, pausedMillis = s.pausedMillis + pause,
                     rest = s.rest?.let { it.copy(elapsedMillis = it.elapsedMillis + pause, wallMillis = it.wallMillis + pause) })
             } ?: s
             WorkoutEvent.AddWarmupSet -> if (s.source != null && plan.size < MAX_PLAN_SIZE &&
                 (s.phase == Phase.ActiveSet || (s.phase == Phase.Resting && s.index < plan.lastIndex))) addWarmup(s, plan) else s
-            WorkoutEvent.AddRestTime -> if (s.phase == Phase.Resting && s.rest != null)
-                s.copy(rest = s.rest.copy(elapsedMillis = s.rest.elapsedMillis + 10_000, wallMillis = s.rest.wallMillis + 10_000)) else s
-            WorkoutEvent.SkipRest -> if (s.phase == Phase.Resting) advance(s, plan) else s
-            WorkoutEvent.RestFinished -> if (s.phase == Phase.Resting && s.rest?.remainingMillis(now) == 0L) advance(s, plan) else s
+            WorkoutEvent.AddRestTime -> adjustRest(s, if (s.source == null) 10 else 15)
+            WorkoutEvent.ReduceRestTime -> if (s.source != null) adjustRest(s, -15) else s
+            WorkoutEvent.SkipRest -> if (s.phase == Phase.Resting) advance(closeRest(s, now, skipped = true), plan) else s
+            WorkoutEvent.ConfirmRest -> if (s.phase == Phase.Resting && s.rest?.remainingMillis(now) == 0L)
+                advance(closeRest(s, now), plan) else s
+            WorkoutEvent.RestFinished -> if (s.source == null && s.phase == Phase.Resting && s.rest?.remainingMillis(now) == 0L)
+                advance(s, plan) else s
             // Deviations apply to planned sessions; the demo keeps its fixed proof-of-concept plan.
             WorkoutEvent.SkipSet -> if (s.source != null && s.phase == Phase.ActiveSet) skip(s, plan, now) else s
             WorkoutEvent.AddSet -> if (s.source != null && s.phase != Phase.Idle && plan.size < MAX_PLAN_SIZE) addSet(s, plan) else s
@@ -64,11 +69,13 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
      * Loads a planned day without starting it. Only an idle or finished session may be replaced, so an
      * in-progress session can never be discarded by loading another day; callers archive finished records first.
      */
-    fun load(s: WorkoutState, plan: List<PlannedSet>, source: SessionSource, newSessionId: String): WorkoutState {
+    fun load(s: WorkoutState, plan: List<PlannedSet>, source: SessionSource, newSessionId: String,
+             previousWorkSets: Map<String, PreviousWorkSet> = emptyMap()): WorkoutState {
         require(plan.isNotEmpty()) { "El día no contiene series." }
         if (s.phase == Phase.ActiveSet || s.phase == Phase.Resting) return s
-        return WorkoutState(sessionId = newSessionId, revision = s.revision + 1, values = values(plan, 0),
-            plan = plan, source = source)
+        val loaded = WorkoutState(sessionId = newSessionId, revision = s.revision + 1, plan = plan, source = source,
+            previousWorkSets = previousWorkSets)
+        return loaded.copy(values = loaded.prefillSet(plan.first()))
     }
 
     /**
@@ -90,7 +97,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         if (updated == record) return s
         if (record.revisions.size >= MAX_SET_REVISIONS) throw WorkoutEditException("La serie alcanzó el máximo de $MAX_SET_REVISIONS ediciones.")
         // The replaced version is kept, never overwritten, so the edit trail stays complete.
-        val replaced = SetRevision(record.status, record.values, record.notes, now.wallMillis)
+        val replaced = SetRevision(record.status, record.values, record.notes, now.wallMillis, record.recordedUnit)
         return s.copy(records = s.records.toMutableList().also {
             it[index] = updated.copy(editedAtMillis = now.wallMillis, revisions = record.revisions + replaced)
         }, revision = s.revision + 1)
@@ -110,14 +117,14 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         val template = plan[last?.index ?: s.index]
         val count = plan.count { it.exercise == template.exercise && it.exerciseId == template.exerciseId }
         val prefill = last?.values ?: SetValues(template.weightTenths, template.reps, template.rir)
-        val extra = template.copy(number = count + 1, prescriptionId = null, extra = true, warmup = false, loadPrescribed = false,
+        val extra = template.copy(number = count + 1, prescriptionId = null, extra = true, warmup = false, loadPrescribed = false, setType = SetType.WORK,
             weightTenths = prefill.weightTenths, reps = prefill.reps, rir = prefill.rir)
         val position = s.records.size
         val newPlan = plan.take(position) + extra + plan.drop(position)
         return when (s.phase) {
-            Phase.ActiveSet -> s.copy(plan = newPlan, values = values(newPlan, position))
+            Phase.ActiveSet -> s.copy(plan = newPlan, values = s.prefillSet(extra))
             Phase.Resting -> s.copy(plan = newPlan)
-            Phase.Completed -> s.copy(plan = newPlan, phase = Phase.ActiveSet, index = position, values = values(newPlan, position),
+            Phase.Completed -> s.copy(plan = newPlan, phase = Phase.ActiveSet, index = position, values = s.prefillSet(extra),
                 endedEarly = false, endedAtMillis = null)
             Phase.Idle -> s
         }
@@ -127,10 +134,11 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     private fun addWarmup(s: WorkoutState, plan: List<PlannedSet>): WorkoutState {
         val position = s.records.size
         val target = plan[position]
-        val count = plan.count { it.warmup && it.exercise == target.exercise && it.exerciseId == target.exerciseId }
-        val warmup = target.copy(number = count + 1, prescriptionId = null, extra = true, warmup = true, loadPrescribed = false)
+        val count = plan.count { it.setType != SetType.WORK && it.exercise == target.exercise && it.exerciseId == target.exerciseId }
+        val warmup = target.copy(number = count + 1, prescriptionId = null, extra = true, warmup = true,
+            loadPrescribed = false, setType = SetType.APPROACH)
         val newPlan = plan.take(position) + warmup + plan.drop(position)
-        return if (s.phase == Phase.ActiveSet) s.copy(plan = newPlan, values = values(newPlan, position)) else s.copy(plan = newPlan)
+        return if (s.phase == Phase.ActiveSet) s.copy(plan = newPlan, values = s.prefillSet(warmup)) else s.copy(plan = newPlan)
     }
 
     fun addCardio(s: WorkoutState, sessionId: String, revision: Long, entry: CardioEntry): WorkoutState {
@@ -150,7 +158,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     private fun postpone(s: WorkoutState, plan: List<PlannedSet>, t: PostponeTarget): WorkoutState {
         val newPlan = plan.subList(0, s.index) + plan.subList(t.currentEnd, t.nextEnd) +
             plan.subList(s.index, t.currentEnd) + plan.subList(t.nextEnd, plan.size)
-        return s.copy(plan = newPlan, values = values(newPlan, s.index))
+        return s.copy(plan = newPlan, values = s.prefillSet(newPlan[s.index]))
     }
 
     private fun removeExtra(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {
@@ -158,14 +166,12 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         if (newPlan.isEmpty()) return s
         return if (s.index == newPlan.size)
             s.copy(plan = newPlan, phase = Phase.Completed, index = newPlan.lastIndex, rest = null, endedAtMillis = now.wallMillis)
-        else s.copy(plan = newPlan, values = values(newPlan, s.index))
+        else s.copy(plan = newPlan, values = s.prefillSet(newPlan[s.index]))
     }
 
     private fun start(s: WorkoutState, plan: List<PlannedSet>, id: String, now: ClockSnapshot): WorkoutState =
-        s.copy(sessionId = id, phase = Phase.ActiveSet, index = 0, values = values(plan, 0), records = emptyList(),
+        s.copy(sessionId = id, phase = Phase.ActiveSet, index = 0, values = s.prefillSet(plan.first()), records = emptyList(),
             rest = null, endedEarly = false, startedAtMillis = now.wallMillis, endedAtMillis = null)
-
-    private fun values(plan: List<PlannedSet>, index: Int): SetValues = plan[index].let { SetValues(it.weightTenths, it.reps, it.rir) }
 
     private fun active(s: WorkoutState, plan: List<PlannedSet>, c: WorkoutCommand, now: ClockSnapshot): WorkoutState {
         val p: PlannedSet = plan[s.index]
@@ -181,8 +187,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
                     s.index == plan.lastIndex ->
                         s.copy(phase = Phase.Completed, records = s.records + record, rest = null, endedAtMillis = now.wallMillis)
                     p.restSeconds == 0 -> advance(s.copy(records = s.records + record), plan)
-                    else -> s.copy(phase = Phase.Resting, records = s.records + record,
-                        rest = RestDeadline(now.elapsedMillis + p.restSeconds * 1000L, now.wallMillis + p.restSeconds * 1000L, now.bootCount))
+                    else -> beginRest(s.copy(records = s.records + record), p, now)
                 }
             }
             else -> s
@@ -191,21 +196,57 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
 
     private fun advance(s: WorkoutState, plan: List<PlannedSet>): WorkoutState {
         val next: Int = (s.index + 1).coerceAtMost(plan.lastIndex)
-        val current = plan[s.index]
-        val proposed: SetValues = values(plan, next).let {
-            // Carry the last real load only to the same exercise, unit and prescribed load (a repeated deviation);
-            // a set that prescribes a different load prefills that prescription instead.
-            val n = plan[next]
-            val same = !current.warmup && !n.warmup && n.exercise == current.exercise && n.exerciseId == current.exerciseId && n.unit == current.unit &&
-                n.weightTenths == current.weightTenths && n.loadPrescribed == current.loadPrescribed
-            if (same) it.copy(weightTenths = s.values.weightTenths.coerceAtMost(plan[next].maxWeightTenths)) else it
-        }
+        val proposed = s.followingSetValues(plan[s.index], plan[next])
         return s.copy(phase = Phase.ActiveSet, index = next, values = proposed, rest = null)
     }
 
     private fun undo(s: WorkoutState): WorkoutState {
         val last: SetRecord = s.records.lastOrNull() ?: return s
         return s.copy(phase = Phase.ActiveSet, index = last.index, values = last.values,
-            records = s.records.dropLast(1), rest = null, endedEarly = false, endedAtMillis = null)
+            records = s.records.dropLast(1), rest = null, endedEarly = false, endedAtMillis = null,
+            restSegments = s.restSegments.dropLastWhile { it.afterStepId == stepId(last.prescriptionId, last.index) })
+    }
+
+    private fun beginRest(s: WorkoutState, step: PlannedSet, now: ClockSnapshot): WorkoutState {
+        val seconds = step.restSeconds
+        val duration = seconds * 1000L
+        val segments = if (s.source == null) s.restSegments else s.restSegments + RestSegment(
+            id = "rest-${s.revision}", afterStepId = stepId(step.prescriptionId, s.index),
+            startedAtMillis = now.wallMillis, bootCount = now.bootCount, configuredSeconds = seconds,
+            startedAtElapsedMillis = now.elapsedMillis
+        )
+        return s.copy(phase = Phase.Resting, restSegments = segments,
+            rest = RestDeadline(now.elapsedMillis + duration, now.wallMillis + duration, now.bootCount))
+    }
+
+    private fun adjustRest(s: WorkoutState, deltaSeconds: Int): WorkoutState {
+        val deadline = s.rest ?: return s
+        val segment = s.openRestSegment
+        val configured = segment?.let { (it.configuredSeconds + deltaSeconds).coerceIn(45, 120) }
+        val deltaMillis = when {
+            segment != null && configured != null -> (configured - segment.configuredSeconds) * 1000L
+            s.source == null -> deltaSeconds * 1000L
+            else -> return s
+        }
+        return updateRestSegment(s) { it.copy(configuredSeconds = requireNotNull(configured)) }.copy(
+            rest = deadline.copy(elapsedMillis = deadline.elapsedMillis + deltaMillis, wallMillis = deadline.wallMillis + deltaMillis))
+    }
+
+    private fun closeRest(s: WorkoutState, now: ClockSnapshot, skipped: Boolean = false, interrupted: Boolean = false): WorkoutState =
+        updateRestSegment(s) { segment ->
+            val paused = segment.pausedMillis + (s.paused?.elapsedSince(now) ?: 0)
+            segment.copy(pausedMillis = paused, confirmedAtMillis = now.wallMillis.takeUnless { interrupted },
+                measuredMillis = segment.copy(pausedMillis = paused).elapsedMillis(now), skipped = skipped, interrupted = interrupted)
+        }
+
+    private fun updateRestSegment(s: WorkoutState, update: (RestSegment) -> RestSegment): WorkoutState {
+        val segment = s.openRestSegment ?: return s
+        return s.copy(restSegments = s.restSegments.dropLast(1) + update(segment))
+    }
+
+    private fun stepId(prescriptionId: String?, index: Int): String = prescriptionId ?: "set-$index"
+
+    private companion object {
+        val restActions = setOf(WorkoutEvent.AddRestTime, WorkoutEvent.ReduceRestTime, WorkoutEvent.SkipRest, WorkoutEvent.ConfirmRest)
     }
 }

@@ -11,6 +11,10 @@ const val DEFAULT_REST_SECONDS = 90
 /** A planned day located in the library by identity, with display names snapshotted for the session. */
 data class DaySelection(val program: TrainingProgram, val block: TrainingBlock, val week: WeekPlan, val day: SessionPlan) {
     val source get() = SessionSource(program.id, program.name, block.id, week.id, week.name, week.version, day.id, day.name)
+    val previousWeekId: String?
+        get() = program.blocks.flatMap { it.weeks }.let { weeks ->
+            weeks.getOrNull(weeks.indexOfFirst { it.id == week.id } - 1)?.id
+        }
 }
 
 fun TrainingProgram.findDay(weekId: String, dayId: String): DaySelection? {

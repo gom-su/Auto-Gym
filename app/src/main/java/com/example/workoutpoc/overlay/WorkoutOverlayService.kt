@@ -19,6 +19,7 @@ class WorkoutOverlayService : Service() {
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var overlay: WorkoutOverlayController
     private lateinit var notifications: WorkoutNotificationManager
+    private lateinit var restHaptics: com.example.workoutpoc.timer.RestHaptics
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) { overlay.render(workoutApp.repository.state.value) }
     }
@@ -26,6 +27,7 @@ class WorkoutOverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         notifications = workoutApp.notifications
+        restHaptics = com.example.workoutpoc.timer.RestHaptics(this)
         overlay = WorkoutOverlayController(this) { command -> scope.launch {
             workoutApp.safely { workoutApp.repository.dispatch(command) }
         } }
@@ -46,6 +48,7 @@ class WorkoutOverlayService : Service() {
                 workoutApp.repository.restore()
                 workoutApp.repository.state.collect { state ->
                     notifications.update(state)
+                    restHaptics.update(state)
                     overlay.render(state)
                     if (state.phase == Phase.Completed || state.phase == Phase.Idle) {
                         overlay.close()
@@ -60,7 +63,13 @@ class WorkoutOverlayService : Service() {
         }
         scope.launch { workoutApp.safely { RestTimer(workoutApp.repository).run() } }
         scope.launch {
-            while (isActive) { overlay.render(workoutApp.repository.state.value); delay(250) }
+            while (isActive) {
+                val state = workoutApp.repository.state.value
+                if (state.phase == Phase.Resting) notifications.update(state)
+                restHaptics.update(state)
+                overlay.render(state)
+                delay(250)
+            }
         }
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -74,6 +83,7 @@ class WorkoutOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         scope.cancel()
+        if (::restHaptics.isInitialized) restHaptics.stop()
         if (::overlay.isInitialized) overlay.close()
         try { unregisterReceiver(screenReceiver) } catch (e: IllegalArgumentException) { Log.d("WorkoutService", "Receiver no registrado", e) }
         super.onDestroy()

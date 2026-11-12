@@ -94,8 +94,19 @@ data class RestSegment(
     val configuredSeconds: Int,
     val pausedMillis: Long = 0,
     val confirmedAtMillis: Long? = null,
-    val skipped: Boolean = false
-)
+    val skipped: Boolean = false,
+    val startedAtElapsedMillis: Long? = null,
+    val measuredMillis: Long? = null,
+    val interrupted: Boolean = false
+) {
+    val actualRestSeconds: Long? get() = measuredMillis?.div(1000)
+
+    fun elapsedMillis(now: ClockSnapshot): Long {
+        val elapsed = if (bootCount == now.bootCount && startedAtElapsedMillis != null)
+            now.elapsedMillis - startedAtElapsedMillis else now.wallMillis - startedAtMillis
+        return (elapsed - pausedMillis).coerceAtLeast(0)
+    }
+}
 
 /** Session or exercise comment that outlives the week it was written in (contract §7). */
 @Serializable
@@ -127,6 +138,11 @@ data class SessionSource(
 )
 
 @Serializable
+data class PreviousWorkSet(
+    val weightTenths: Int, val unit: WeightUnit, val basis: String?, val reps: Int, val rir: Int?
+)
+
+@Serializable
 data class WorkoutState(
     val sessionId: String = "",
     val phase: Phase = Phase.Idle,
@@ -148,7 +164,8 @@ data class WorkoutState(
     /** Planned cardio steps, in the same single sequence as the strength plan (contract §6). */
     val cardioPlan: List<PlannedCardio> = emptyList(),
     /** Rest segments (contract §5). The legacy [rest] deadline remains until the reducer migrates. */
-    val restSegments: List<RestSegment> = emptyList()
+    val restSegments: List<RestSegment> = emptyList(),
+    val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap()
 )
 
 enum class WorkoutEvent {
@@ -160,7 +177,7 @@ enum class WorkoutEvent {
     /** Planned sessions only (ENT-06). */
     PauseSession, ResumeSession, AddWarmupSet,
     /** Planned sessions only: on an exercise's first set, move all its unrecorded sets after the next exercise. */
-    PostponeExercise
+    PostponeExercise, ReduceRestTime, ConfirmRest
 }
 
 /** Plan positions [WorkoutState.index, currentEnd) are the current exercise and [currentEnd, nextEnd) the next one. */
@@ -188,12 +205,55 @@ fun WorkoutState.postponeTarget(plan: List<PlannedSet>): PostponeTarget? {
 
 /** Every command targets an exact snapshot. Old notification/overlay taps become no-ops. */
 data class WorkoutCommand(val event: WorkoutEvent, val sessionId: String,
-                          val index: Int, val revision: Long, val rir: Int? = null)
+                          val index: Int, val revision: Long, val rir: Int? = null, val restSegmentId: String? = null)
 
 data class ClockSnapshot(val elapsedMillis: Long, val wallMillis: Long, val bootCount: Int)
 
 fun WorkoutState.command(event: WorkoutEvent, rir: Int? = null): WorkoutCommand =
-    WorkoutCommand(event, sessionId, index, revision, rir)
+    WorkoutCommand(event, sessionId, index, revision, rir, openRestSegment?.id)
+
+val WorkoutState.openRestSegment: RestSegment?
+    get() = restSegments.lastOrNull()?.takeIf { it.confirmedAtMillis == null && !it.interrupted }
+
+fun WorkoutState.followingSetValues(current: PlannedSet, next: PlannedSet): SetValues {
+    val carryLoad = current.setType == SetType.WORK && next.setType == SetType.WORK &&
+        current.sameExercise(next) && current.unit == next.unit && current.basis == next.basis &&
+        current.weightTenths == next.weightTenths && current.loadPrescribed == next.loadPrescribed
+    val weight = if (carryLoad) values.weightTenths.coerceAtMost(next.maxWeightTenths) else next.weightTenths
+    return prefillSet(next, weight)
+}
+
+internal fun WorkoutState.prefillSet(step: PlannedSet, weight: Int = step.weightTenths): SetValues {
+    if (source == null) return SetValues(weight, step.reps, step.rir)
+    if (step.setType != SetType.WORK) return SetValues(weight, step.reps, null)
+    val previousToday = records.lastOrNull { record ->
+        plan.getOrNull(record.index)?.let { previous ->
+            val sameExercise = step.exerciseId?.let { it == previous.exerciseId } ?: previous.sameExercise(step)
+            previous.setType == SetType.WORK && sameExercise
+        } == true
+    }
+    val previousWeek = step.exerciseId?.let(previousWorkSets::get)
+    val rir = if (previousToday != null) previousToday.takeIf { it.status == SetStatus.COMPLETED }?.values?.rir else previousWeek?.takeIf {
+        step.loadPrescribed && step.reps > 0 && it.weightTenths == weight && it.unit == step.unit &&
+            it.basis == step.basis && it.reps == step.reps
+    }?.rir
+    return SetValues(weight, step.reps, rir)
+}
+
+fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
+    val current = plan.getOrNull(index) ?: return ""
+    val next = plan.getOrNull(index + 1) ?: return ""
+    val prefill = followingSetValues(current, next)
+    val basis = when (next.basis) {
+        "PER_HAND" -> " por mano"
+        "PER_SIDE" -> " por lado"
+        "TOTAL" -> " total"
+        else -> ""
+    }
+    val load = if (next.loadPrescribed || prefill.weightTenths != 0) loadLabel(prefill.weightTenths, next.unit) + basis else "carga sin indicar"
+    val reps = if (prefill.reps > 0) "${prefill.reps} reps" else "reps sin indicar"
+    return "${next.exercise} · ${next.number}/${next.total}\n$load · $reps"
+}
 
 fun weightLabel(tenths: Int): String = if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"
 

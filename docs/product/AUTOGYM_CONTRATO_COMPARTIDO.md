@@ -61,7 +61,10 @@ data class RestSegment(
   val configuredSeconds: Int,  // ajustable con −15 s/+15 s dentro de 45–120 s
   val pausedMillis: Long,      // pausa de sesión ocurrida dentro del descanso, registrada aparte
   val confirmedAtMillis: Long?,// instante de OK o Saltar; null mientras está abierto
-  val skipped: Boolean = false
+  val skipped: Boolean = false,
+  val startedAtElapsedMillis: Long? = null, // reloj monotónico del inicio; mide sin depender del reloj de pared
+  val measuredMillis: Long? = null,         // tiempo real medido al cerrar; null mientras está abierto
+  val interrupted: Boolean = false          // cerrado por fin de sesión, no por OK
 )
 ```
 

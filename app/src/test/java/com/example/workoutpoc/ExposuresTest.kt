@@ -40,6 +40,7 @@ class ExposuresTest {
         session(repo, program, "week-one", "day-one-a") {          // squat KG TOTAL: warm-up, 20 kg × 8, 22.5 kg × 7
             go(WorkoutEvent.AddWarmupSet); repeat(4) { go(WorkoutEvent.DecrementWeight) }; go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest)
             go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest)
+            dispatch(state.value.command(WorkoutEvent.SelectRir, 2))
             go(WorkoutEvent.DecrementReps); go(WorkoutEvent.CompleteSet)
         }
         session(repo, program, "week-two", "day-two-c") {          // squat KG PER_SIDE, omitted

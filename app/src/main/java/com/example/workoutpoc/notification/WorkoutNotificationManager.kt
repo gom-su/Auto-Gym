@@ -3,7 +3,6 @@ package com.example.workoutpoc.notification
 import android.app.*
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
@@ -21,6 +20,7 @@ import com.example.workoutpoc.timer.clockSnapshot
 class WorkoutNotificationManager(private val context: Context) {
     companion object { const val ID: Int = 7; const val CHANNEL: String = "workout_interactive" }
     private var publishedState: WorkoutState? = null
+    private var publishedRestExpired = false
     init {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Entrenamiento interactivo", NotificationManager.IMPORTANCE_LOW).apply {
@@ -45,6 +45,7 @@ class WorkoutNotificationManager(private val context: Context) {
                 .appendPath(event.name).appendPath((rir ?: -1).toString()).build()
             putExtra("session", s.sessionId); putExtra("index", s.index)
             putExtra("revision", s.revision); putExtra("rir", rir ?: -1)
+            putExtra("restSegmentId", s.openRestSegment?.id)
         }
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
@@ -69,11 +70,18 @@ class WorkoutNotificationManager(private val context: Context) {
         // A paused session exposes no set controls: taps would be ignored and look broken.
         if (s.phase == Phase.Completed || s.phase == Phase.Idle || s.paused != null) return builder.build()
         val compact = RemoteViews(context.packageName, R.layout.notification_compact)
+        val remaining = s.rest?.remainingMillis(clockSnapshot(context))
+        val restExpired = s.source != null && remaining == 0L
+        val restAction = if (restExpired) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest
         compact.setTextViewText(R.id.compact_title, if (s.phase == Phase.ActiveSet)
-            "$title\n${loadLabel(s.values.weightTenths, unit)} · ${s.values.reps} reps" else "Descanso · ${plan[s.index].restSeconds} s o tiempo ampliado")
-        compact.setTextViewText(R.id.compact_complete, if (s.phase == Phase.Resting) "Saltar" else "Completar")
+            "$title\n${loadLabel(s.values.weightTenths, unit)} · ${s.values.reps} reps" else "Descanso")
+        compact.setViewVisibility(R.id.compact_countdown, if (remaining == null) View.GONE else View.VISIBLE)
+        remaining?.let { setCountdown(compact, R.id.compact_countdown, it) }
+        compact.setTextViewText(R.id.compact_complete, if (s.phase == Phase.Resting) {
+            if (restExpired) "OK" else "Saltar"
+        } else "Completar")
         compact.setOnClickPendingIntent(R.id.compact_complete, action(s,
-            if (s.phase == Phase.Resting) WorkoutEvent.SkipRest else WorkoutEvent.CompleteSet))
+            if (s.phase == Phase.Resting) restAction else WorkoutEvent.CompleteSet))
         compact.setOnClickPendingIntent(R.id.compact_edit, openEditor())
         val expanded = RemoteViews(context.packageName, R.layout.notification_expanded)
         expanded.setTextViewText(R.id.title, title)
@@ -90,28 +98,38 @@ class WorkoutNotificationManager(private val context: Context) {
             listOf(R.id.rir0, R.id.rir1, R.id.rir2, R.id.rir3, R.id.rir4).forEachIndexed { rir, id ->
                 expanded.setTextViewText(id, "${if (s.values.rir == rir) "●" else ""}${if (rir == 4) "4+" else rir}")
                 expanded.setContentDescription(id, "RIR $rir${if (s.values.rir == rir) ", seleccionado" else ""}")
-                expanded.setTextColor(id, if (s.values.rir == rir) Color.rgb(35, 100, 15) else Color.DKGRAY)
+                expanded.setTextColor(id, context.getColor(if (s.values.rir == rir) R.color.notification_selected else R.color.notification_text))
                 expanded.setOnClickPendingIntent(id, action(s, WorkoutEvent.SelectRir, rir))
             }
             expanded.setTextViewText(R.id.complete, if (s.values.reps == 0) "Ajusta reps: mínimo 1" else "Completar serie")
         } else {
-            val remaining: Long = s.rest?.remainingMillis(clockSnapshot(context)) ?: 0
-            expanded.setChronometerCountDown(R.id.countdown, true)
-            expanded.setChronometer(R.id.countdown, SystemClock.elapsedRealtime() + remaining, null, true)
+            setCountdown(expanded, R.id.countdown, remaining ?: 0)
+            expanded.setTextViewText(R.id.rest_next, s.nextSetLabel(plan))
+            expanded.setViewVisibility(R.id.reduce_rest, if (s.openRestSegment == null) View.GONE else View.VISIBLE)
+            expanded.setOnClickPendingIntent(R.id.reduce_rest, action(s, WorkoutEvent.ReduceRestTime))
+            expanded.setTextViewText(R.id.add_rest, if (s.source == null) "+10 s" else "+15 s")
             expanded.setOnClickPendingIntent(R.id.add_rest, action(s, WorkoutEvent.AddRestTime))
-            expanded.setOnClickPendingIntent(R.id.skip_rest, action(s, WorkoutEvent.SkipRest))
+            expanded.setTextViewText(R.id.skip_rest, if (restExpired) "OK" else "Saltar descanso")
+            expanded.setOnClickPendingIntent(R.id.skip_rest, action(s, restAction))
         }
         return builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(compact).setCustomBigContentView(expanded).build()
     }
 
+    private fun setCountdown(views: RemoteViews, id: Int, remaining: Long) {
+        views.setChronometerCountDown(id, true)
+        views.setChronometer(id, SystemClock.elapsedRealtime() + remaining, null, remaining > 0)
+    }
+
     @Suppress("MissingPermission")
     @Synchronized
     fun update(s: WorkoutState, force: Boolean = false) {
-        if (!force && publishedState == s) return
+        val expired = s.paused == null && s.rest?.remainingMillis(clockSnapshot(context)) == 0L
+        if (!force && publishedState == s && publishedRestExpired == expired) return
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             NotificationManagerCompat.from(context).notify(ID, build(s))
             publishedState = s
+            publishedRestExpired = expired
             Log.d("WorkoutNotification", "posted revision=${s.revision} at=${SystemClock.elapsedRealtime()}")
         }
     }

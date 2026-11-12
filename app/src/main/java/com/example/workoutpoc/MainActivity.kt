@@ -327,7 +327,7 @@ class MainActivity : ComponentActivity() {
                 workoutApp.programs.restore()
                 val selection = workoutApp.programs.library.value.programs.find { it.id == programId }?.findDay(weekId, dayId)
                 if (selection == null) programModel.showMessage("El día ya no existe en el programa guardado.")
-                else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source)) {
+                else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source, selection.previousWeekId)) {
                     com.example.workoutpoc.data.LoadResult.LOADED -> {
                         message = null; nav.openSession()
                         if (workoutApp.settings.settings.value.loggingMode == com.example.workoutpoc.settings.LoggingMode.OVERLAY) startOverlay()

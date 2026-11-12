@@ -1,17 +1,17 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="#FFFFFF">
-    <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="24dp" android:singleLine="true" android:ellipsize="end" android:textSize="14sp" android:textStyle="bold" android:textColor="#17201A"/>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@color/notification_surface">
+    <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="24dp" android:singleLine="true" android:ellipsize="end" android:textSize="14sp" android:textStyle="bold" android:textColor="@color/notification_text"/>
     <LinearLayout android:id="@+id/set_controls" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
         <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
             <TextView android:id="@+id/weight_minus" style="@style/NotificationControl" android:text="−" android:contentDescription="Reducir peso"/>
-            <TextView android:id="@+id/weight" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:textColor="#17201A" android:textSize="16sp"/>
+            <TextView android:id="@+id/weight" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:textColor="@color/notification_text" android:textSize="16sp"/>
             <TextView android:id="@+id/weight_plus" style="@style/NotificationControl" android:text="+" android:contentDescription="Aumentar peso"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
             <TextView android:id="@+id/reps_minus" style="@style/NotificationControl" android:text="−" android:contentDescription="Reducir repeticiones"/>
-            <TextView android:id="@+id/reps" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:textColor="#17201A" android:textSize="16sp"/>
+            <TextView android:id="@+id/reps" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:gravity="center" android:textColor="@color/notification_text" android:textSize="16sp"/>
             <TextView android:id="@+id/reps_plus" style="@style/NotificationControl" android:text="+" android:contentDescription="Aumentar repeticiones"/>
         </LinearLayout>
-        <TextView android:layout_width="match_parent" android:layout_height="16dp" android:text="RIR · repeticiones en reserva" android:textSize="11sp" android:textColor="#17201A"/>
+        <TextView android:layout_width="match_parent" android:layout_height="16dp" android:text="RIR · repeticiones en reserva" android:textSize="11sp" android:textColor="@color/notification_text"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="48dp">
             <TextView android:id="@+id/rir0" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="0"/>
             <TextView android:id="@+id/rir1" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="1"/>
@@ -22,8 +22,10 @@
         <TextView android:id="@+id/complete" style="@style/NotificationControl" android:layout_width="match_parent" android:text="Completar serie"/>
     </LinearLayout>
     <LinearLayout android:id="@+id/rest_controls" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
-        <Chronometer android:id="@+id/countdown" android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center" android:textSize="24sp" android:textColor="#17201A"/>
+        <TextView android:id="@+id/rest_next" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="2" android:textSize="14sp" android:textColor="@color/notification_text"/>
+        <Chronometer android:id="@+id/countdown" android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center" android:textSize="24sp" android:textColor="@color/notification_text"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="48dp">
+            <TextView android:id="@+id/reduce_rest" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="−15 s"/>
             <TextView android:id="@+id/add_rest" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="+10 s"/>
             <TextView android:id="@+id/skip_rest" style="@style/NotificationControl" android:layout_width="0dp" android:layout_weight="1" android:text="Saltar descanso" android:textSize="14sp"/>
         </LinearLayout>

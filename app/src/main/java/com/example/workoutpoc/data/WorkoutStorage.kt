@@ -64,6 +64,9 @@ object WorkoutValidation {
         require((s.phase == Phase.Resting) == (s.rest != null))
         require(s.paused == null || s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
         require(s.pausedMillis >= 0)
+        require(s.previousWorkSets.size <= 1000 && (s.source != null || s.previousWorkSets.isEmpty()))
+        require(s.previousWorkSets.values.all { it.weightTenths in 0..1_000_000 && it.reps in 1..1000 &&
+            (it.rir == null || it.rir in 0..4) })
         require(s.cardio.size <= 100 && s.cardio.map { it.id }.distinct().size == s.cardio.size)
         s.cardio.forEach { c ->
             try { com.example.workoutpoc.domain.validateCardio(c) }

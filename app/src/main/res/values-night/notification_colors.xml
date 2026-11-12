@@ -1,0 +1,8 @@
+<resources>
+    <color name="notification_surface">#17201A</color>
+    <color name="notification_text">#EDF5E8</color>
+    <color name="notification_pressed">#456337</color>
+    <color name="notification_control_fill">#26362A</color>
+    <color name="notification_control_border">#4B5D4B</color>
+    <color name="notification_selected">#B4EE80</color>
+</resources>
