@@ -25,7 +25,8 @@ private fun DecisionStatus?.short() = when (this) { null -> "Pendiente"; Decisio
 fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit, onRetry: () -> Unit,
                    onSelect: (String?) -> Unit, onApprove: () -> Unit, onReject: () -> Unit, onSaveRules: (RuleSettings) -> Unit,
                    onAddExpectation: (Expectation) -> Unit = {}, onManualOutcome: (String, Outcome?, String?) -> Unit = { _, _, _ -> },
-                   onReplacePreview: (Boolean) -> Unit = {}, onRegenerate: (String) -> Unit = {}) {
+                   onReplacePreview: (Boolean) -> Unit = {}, onRegenerate: (String) -> Unit = {},
+                   onRegenerateWeek: (programId: String, weekId: String) -> Unit = { _, _ -> }) {
     val evaluation = ui.evaluation
     val decision = ui.selected?.let { id -> state.decisions.find { it.importId == id } }
     BackHandler(ui.selected != null && !ui.busy) { onSelect(null) }
@@ -93,6 +94,10 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                         }
                     }
                 }
+            }
+            // Only the latest week of a block can be regenerated; the generation reports it when it is not (decision §2).
+            if (decision?.status == DecisionStatus.APPROVED && !ui.busy) item {
+                SecondaryAction("Regenerar esta semana con feedback", { onRegenerateWeek(decision.programId, decision.weekId) }, enabled = !ui.busy)
             }
             if (decision?.status == DecisionStatus.APPROVED) item {
                 ExpectationSection(decision.importId, p, state.expectations.filter { it.importId == decision.importId }, ui.results,

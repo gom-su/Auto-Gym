@@ -288,7 +288,8 @@ class MainActivity : ComponentActivity() {
                 com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { nav.back(); programModel.restore() },
                     proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
                     proposalModel::addExpectation, proposalModel::setManualOutcome, proposalModel::previewReplacement,
-                    onRegenerate = { importId -> generateModel.prepareRegeneration(importId); nav.open(Destination.Generate) })
+                    onRegenerate = { importId -> generateModel.prepareRegeneration(importId); nav.open(Destination.Generate) },
+                    onRegenerateWeek = { programId, weekId -> generateModel.prepareWeekRegeneration(programId, weekId); nav.open(Destination.Generate) })
             }
             Destination.Generate -> {
                 val generateUi by generateModel.ui.collectAsStateWithLifecycle()

@@ -84,15 +84,18 @@ fun GenerateScreen(
                     supportingText = { Text("Molestias, sueño o cambios de horario. Las mediciones de Progreso → Cuerpo ya se incluyen.") })
             }
             // A pending proposal is being regenerated: the note is the feedback sent with the previous version (§2).
-            if (ui.regeneratingId != null) item {
+            if (ui.regeneratingId != null || ui.regeneratingWeekId != null) item {
                 ContentCard {
-                    Text("Regenerar la propuesta pendiente", style = MaterialTheme.typography.titleMedium)
-                    SupportingText("Tu nota es el feedback. Claude recibe la versión anterior y propone una nueva; la anterior se conserva hasta que la nueva se guarde.", small = true)
+                    Text(if (ui.regeneratingWeekId != null) "Regenerar la semana aprobada" else "Regenerar la propuesta pendiente",
+                        style = MaterialTheme.typography.titleMedium)
+                    SupportingText(if (ui.regeneratingWeekId != null)
+                        "Tu nota es el feedback. Claude propone una nueva versión de esta semana; al aprobarla, reemplaza la semana guardada y borra sus registros."
+                        else "Tu nota es el feedback. Claude recibe la versión anterior y propone una nueva; la anterior se conserva hasta que la nueva se guarde.", small = true)
                     SecondaryAction("Cancelar regeneración", onCancelRegeneration, enabled = !ui.busy)
                 }
             }
             item {
-                val regenerating = ui.regeneratingId != null
+                val regenerating = ui.regeneratingId != null || ui.regeneratingWeekId != null
                 PrimaryAction(when {
                     regenerating -> "Regenerar con feedback"
                     newCycle -> "Generar nuevo plan de 12 semanas"
