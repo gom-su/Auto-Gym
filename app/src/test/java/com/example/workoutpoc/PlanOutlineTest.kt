@@ -145,6 +145,30 @@ class PlanOutlineTest {
         assertTrue(ProposalRules.evaluate(proposal(1), library(null), emptySet(), RuleSettings()).blocking.any { it.code == "PROGRAM_MISSING" })
     }
 
+    /** The same week with three warm-up/approach sets per exercise that are off-target on reps, RIR and volume. */
+    private fun withApproaches(w: WeekPlan) = w.copy(days = w.days.map { d -> d.copy(exercises = d.exercises.map { e ->
+        e.copy(sets = List(3) { i -> SetPrescription("${e.id}-ap$i", 30, 0, PrescribedLoad(5.0, LoadUnit.KG, LoadBasis.TOTAL), null, SetKind.APPROACH) } + e.sets)
+    }) })
+
+    @Test fun `approach sets are not counted by the outline reps, RIR, volume or deload checks`() {
+        val program = ProposalRules.appliedProgram(proposal(1), null, outline)!!
+        val sessions = trained(week(1))
+        fun codes(p: WeekProposal, s: List<SessionResult> = sessions, prog: TrainingProgram? = program) =
+            ProposalRules.evaluate(p, library(prog), emptySet(), RuleSettings(newExercise = Severity.OFF), outline, s).issues.map { it.code }
+        // Week 2 with approach sets that break the reps and RIR targets must not be flagged for them.
+        assertTrue("OUTLINE_RIR" !in codes(proposal(2, w = withApproaches(week(2)))))
+        assertTrue("OUTLINE_REPS" !in codes(proposal(2, w = withApproaches(week(2)))))
+        assertTrue("OUTLINE_SETS" !in codes(proposal(2, w = withApproaches(week(2)))))
+        // Work sets still count: a real RIR violation is flagged with or without the approach sets.
+        assertTrue("OUTLINE_RIR" in codes(proposal(2, w = withApproaches(week(2, rir = 0)))))
+        // Deload: approach sets do not add to the volume compared with the last week of real work.
+        var deloadProgram: TrainingProgram? = null
+        val deloadSessions = mutableListOf<SessionResult>()
+        (1..3).forEach { n -> deloadProgram = ProposalRules.appliedProgram(proposal(n), deloadProgram, outline); deloadSessions += trained(week(n)).map { it.copy(id = "$n${it.id}") } }
+        assertEquals(codes(proposal(4, w = week(4)), deloadSessions, deloadProgram), codes(proposal(4, w = withApproaches(week(4))), deloadSessions, deloadProgram))
+        assertTrue("OUTLINE_DELOAD" in codes(proposal(4, w = withApproaches(week(4, sets = 4))), deloadSessions, deloadProgram))
+    }
+
     @Test fun `deload week with more volume than the last real week is flagged`() {
         var program: TrainingProgram? = null
         val sessions = mutableListOf<SessionResult>()

@@ -56,6 +56,39 @@ class AdherenceTest {
         assertEquals(DayStatus.COMPLETED, marked.single { it.week.id == "week-one" }.days.single { it.day.id == "day-one-a" }.status)
     }
 
+    @Test fun `approach records do not affect work adherence`() = runTest {
+        val selection = program.findDay("week-one", "day-one-a")!!
+        val exercise = selection.day.exercises.first()
+        val approach = exercise.sets.first().copy(id = "approach-test", kind = SetKind.APPROACH)
+        val day = selection.day.copy(exercises = listOf(exercise.copy(sets = listOf(approach) + exercise.sets)) +
+            selection.day.exercises.drop(1))
+        val withApproach = program.copy(blocks = program.blocks.map { block ->
+            block.copy(weeks = block.weeks.map { week ->
+                if (week.id == selection.week.id) week.copy(days = week.days.map { if (it.id == day.id) day else it })
+                else week
+            })
+        })
+
+        for (approachEvent in listOf(WorkoutEvent.CompleteSet, WorkoutEvent.SkipSet)) {
+            val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
+            repo.restore()
+            repo.loadDay(withApproach.findDay(selection.week.id, day.id)!!)
+            repo.go(WorkoutEvent.StartWorkout)
+            repo.go(approachEvent)
+            if (repo.state.value.phase == Phase.Resting) repo.go(WorkoutEvent.SkipRest)
+            repo.go(WorkoutEvent.CompleteSet)
+            repo.go(WorkoutEvent.SkipRest)
+            repo.go(WorkoutEvent.CompleteSet)
+
+            val result = adherence(listOf(withApproach), listOf(repo.state.value), WeekAnnotations())
+                .single { it.week.id == selection.week.id }.days.single { it.day.id == day.id }
+            assertEquals(DayStatus.COMPLETED, result.status)
+            assertEquals(listOf(2, 2, 0, 0, 0), with(result) {
+                listOf(prescribedSets, completedSets, omittedSets, unrecordedSets, extraSets)
+            })
+        }
+    }
+
     @Test fun `ended early, in progress and extra sets are reported honestly`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
@@ -71,6 +104,30 @@ class AdherenceTest {
         assertEquals(DayStatus.COMPLETED, a.status); assertEquals(1, a.extraSets)
         val c = weeks.single { it.week.id == "week-two" }.days.single()
         assertEquals(DayStatus.PARTIAL, c.status); assertTrue(c.inProgress)
+    }
+
+    @Test fun `a legacy day with only skipped approaches is not performed`() = runTest {
+        val block = program.blocks.first()
+        val week = block.weeks.first()
+        val day = week.days.first()
+        val legacyDay = day.copy(exercises = day.exercises.map { exercise ->
+            exercise.copy(sets = exercise.sets.map { it.copy(kind = SetKind.APPROACH) })
+        })
+        val legacyProgram = program.copy(blocks = listOf(block.copy(weeks = listOf(week.copy(days = listOf(legacyDay))))))
+        val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
+        repo.restore()
+        repo.loadDay(legacyProgram.findDay(week.id, day.id)!!)
+        repo.go(WorkoutEvent.StartWorkout)
+        repeat(legacyDay.exercises.sumOf { it.sets.size }) { repo.go(WorkoutEvent.SkipSet) }
+
+        val session = repo.state.value
+        assertEquals(Phase.Completed, session.phase)
+        assertFalse(session.endedEarly)
+        assertTrue(session.cardio.isEmpty())
+        assertTrue(session.records.isNotEmpty() && session.records.all { it.status == SetStatus.SKIPPED })
+        val result = adherence(listOf(legacyProgram), listOf(session), WeekAnnotations()).single().days.single()
+        assertEquals(DayStatus.NOT_PERFORMED, result.status)
+        assertEquals(0, result.prescribedSets)
     }
 
     @Test fun `goal progress counts trained sessions and cardio in the current calendar week only`() = runTest {

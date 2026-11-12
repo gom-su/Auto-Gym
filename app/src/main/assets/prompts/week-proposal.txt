@@ -73,7 +73,7 @@ Compara promedios semanales, no datos sueltos, y solo dentro de la misma métric
 
 ## Formato exacto (la app rechaza campos desconocidos)
 Paquete sin MCP:
-{"schemaVersion":1,"type":"WeekProposal","importId":"<UUID nuevo>","createdAt":"<ISO-8601 con zona>","context":null,"results":null,"proposal":{"id","version","programId","blockId","source":"Agente externo","week":{…},"differences":[…],"reasons":[…]}}
+{"schemaVersion":2,"type":"WeekProposal","importId":"<UUID nuevo>","createdAt":"<ISO-8601 con zona>","context":null,"results":null,"proposal":{"id","version","programId","blockId","source":"Agente externo","week":{…},"differences":[…],"reasons":[…]}}
 week: {"id","name","version":1,"days":[{"id","name","exercises":[{"id","exerciseId","name","sets":[{"id","kind"?,"reps"?,"rir"?,"load":{"value","unit","basis"},"restSeconds"?}]}],"cardio"?:{"modality","durationSeconds"}}]}
 - kind: "WORK" (por defecto), "WARMUP" o "APPROACH". cardio.modality: de 1 a 200 caracteres; cardio.durationSeconds: entero de 1 a 86400.
 - differences: resumen de la semana (adherencia, progresos, dificultades, fatiga, molestias, cambios, y la tendencia de peso si hay medidas).
@@ -81,7 +81,7 @@ week: {"id","name","version":1,"days":[{"id","name","exercises":[{"id","exercise
 
 Ejemplo de forma (semana 1 del plan de ejemplo; tu semana sigue el plan y los registros):
 ```json
-{"schemaVersion":1,"type":"WeekProposal","importId":"0d3b6a2c-5e7f-4a1b-8c9d-1e2f3a4b5c6d","createdAt":"2026-11-09T12:05:00Z","context":null,"results":null,
+{"schemaVersion":2,"type":"WeekProposal","importId":"0d3b6a2c-5e7f-4a1b-8c9d-1e2f3a4b5c6d","createdAt":"2026-11-09T12:05:00Z","context":null,"results":null,
  "proposal":{"id":"prop-s1","version":1,"programId":"ejemplo-programa","blockId":"b1","source":"Agente externo",
   "week":{"id":"s1","name":"Semana 1","version":1,"days":[{"id":"s1-A","name":"Día A","exercises":[
     {"id":"s1-A-sentadilla-barra","exerciseId":"sentadilla-barra","name":"Sentadilla con barra","sets":[

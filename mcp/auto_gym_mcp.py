@@ -36,6 +36,7 @@ ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 UNIT_BASES = {"KG": {"TOTAL", "PER_SIDE", "PER_HAND"}, "LB": {"TOTAL", "PER_SIDE", "PER_HAND"},
               "MACHINE_SETTING": {"MACHINE_SETTING"}, "BODYWEIGHT": {"BODYWEIGHT"}}
 MAX_BYTES = 1_048_576
+MAX_NON_WORK_SETS = 4
 
 
 class ToolError(Exception):
@@ -70,6 +71,16 @@ def _all_ids(program):
                     ids.append(e["id"])
                     ids.extend(s["id"] for s in e["sets"])
     return ids
+
+
+
+def _load_key_label(key):
+    return f"{key[0]} {key[1]}"
+
+
+def _num(value):
+    """Formats a load like the app: whole numbers without a decimal point."""
+    return str(int(value)) if float(value).is_integer() else str(value)
 
 
 def validate_week(week):
@@ -111,15 +122,50 @@ def validate_week(week):
                 _check(s.get("kind", "WORK") in {"WORK", "WARMUP", "APPROACH"}, f"{sp}: kind debe ser WORK, WARMUP o APPROACH.")
                 _check(s.get("load") is not None, f"{sp}: falta la carga prescrita (0 solo si es la carga prescrita).")
                 ident(s["id"], sp)
-                for key, lo, hi in (("reps", 1, 1000), ("rir", 0, 10), ("restSeconds", 0, 86400)):
+                for key, lo, hi in (("reps", 1, 1000), ("rir", 0, 10)):
                     v = s.get(key)
                     _check(v is None or (isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi), f"{sp}: {key} fuera de rango ({lo}–{hi}).")
+                rest = s.get("restSeconds")
+                if rest is not None:
+                    _check(isinstance(rest, int) and not isinstance(rest, bool), f"{sp}: restSeconds debe ser un entero.")
+                    _check(rest == 0 or 45 <= rest <= 120,
+                           f"{d['name']} · {e['name']}, serie {si}: descanso {rest} s fuera de 45–120 s, "
+                           "el rango que la persona puede ajustar durante la sesión.")
                 load = s.get("load")
                 if load is not None:
                     _check(isinstance(load, dict) and set(load) == {"value", "unit", "basis"}, f"{sp}: carga con value, unit y basis.")
                     _check(isinstance(load["value"], (int, float)) and not isinstance(load["value"], bool) and 0 <= load["value"] <= 100000,
                            f"{sp}: carga fuera de rango.")
                     _check(load["basis"] in UNIT_BASES.get(load["unit"], set()), f"{sp}: unidad y base de carga incompatibles.")
+            non_work_count = sum(s.get("kind", "WORK") != "WORK" for s in e["sets"])
+            exercise_label = f"{d['name']} · {e['name']}"
+            _check(non_work_count < len(e["sets"]),
+                   f"{exercise_label}: no tiene series de trabajo; solo calentamientos o aproximaciones no se pueden revisar.")
+            _check(non_work_count <= MAX_NON_WORK_SETS,
+                   f"{exercise_label}: {non_work_count} series de calentamiento o aproximación; el máximo es {MAX_NON_WORK_SETS}.")
+            # Mirrors the app's WARMUP_ORDER: warm-up and approach sets come before the work sets of their exercise.
+            first_work = next((i for i, s in enumerate(e["sets"]) if s.get("kind", "WORK") == "WORK"), None)
+            _check(first_work is None or all(s.get("kind", "WORK") == "WORK" for s in e["sets"][first_work:]),
+                   f"{exercise_label}: las series de calentamiento o aproximación deben ir antes de las de trabajo.")
+            # Mirrors the app's NON_WORK_LOAD: a warm-up or approach cannot be heavier than the heaviest work set of the
+            # exercise in the same unit and basis; a different unit or basis cannot be compared, so it is blocked.
+            work_loads = {}
+            for s in e["sets"]:
+                if s.get("kind", "WORK") == "WORK" and s.get("load"):
+                    key = (s["load"]["unit"], s["load"]["basis"])
+                    work_loads[key] = max(work_loads.get(key, float("-inf")), s["load"]["value"])
+            for s in e["sets"]:
+                if s.get("kind", "WORK") == "WORK" or not s.get("load") or not work_loads:
+                    continue
+                load = s["load"]
+                key = (load["unit"], load["basis"])
+                kind_label = "calentamiento" if s["kind"] == "WARMUP" else "aproximación"
+                if key not in work_loads:
+                    _check(False, f"{exercise_label}: una serie de {kind_label} usa {_load_key_label(key)}, distinta de la carga de trabajo ("
+                                  f"{', '.join(_load_key_label(k) for k in work_loads)}); no se puede comparar.")
+                _check(load["value"] <= work_loads[key],
+                       f"{exercise_label}: una serie de {kind_label} pesa {_num(load['value'])} {_load_key_label(key)}, "
+                       f"más que la carga de trabajo máxima ({_num(work_loads[key])}).")
             seen_ids = [e["id"]] + [s["id"] for s in e["sets"]]
             _check(not (set(seen_ids) & seen) and len(set(seen_ids)) == len(seen_ids), f"{ep}: ID duplicado.")
             seen.update(seen_ids)

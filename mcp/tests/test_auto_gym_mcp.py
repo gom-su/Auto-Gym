@@ -104,6 +104,90 @@ class McpServerTest(unittest.TestCase):
             self.assertTrue(error, f"{label}: {text}")
         self.assertEqual([], os.listdir(self.outbox))
 
+    def test_rejects_rest_outside_range_for_all_set_kinds(self):
+        for kind, seconds in ((None, 44), ("WORK", 44), ("WORK", 121),
+                              ("APPROACH", 44), ("APPROACH", 121), ("WARMUP", 44)):
+            with self.subTest(seconds=seconds, kind=kind):
+                args = self.proposal()
+                prescribed_set = args["week"]["days"][0]["exercises"][0]["sets"][0]
+                prescribed_set["restSeconds"] = seconds
+                if kind is not None:
+                    prescribed_set["kind"] = kind
+                error, message = self.tool("create_week_proposal", args)
+                self.assertTrue(error)
+                self.assertEqual(
+                    f"Error: Día MCP · Sentadilla ficticia, serie 1: descanso {seconds} s fuera de 45–120 s, "
+                    "el rango que la persona puede ajustar durante la sesión.", message)
+        self.assertEqual([], os.listdir(self.outbox))
+
+    def test_rejects_exercise_without_work_sets(self):
+        args = self.proposal()
+        sets = args["week"]["days"][0]["exercises"][0]["sets"]
+        sets[0]["kind"] = "WARMUP"
+        sets[1]["kind"] = "APPROACH"
+        error, message = self.tool("create_week_proposal", args)
+        self.assertTrue(error)
+        self.assertEqual("Error: Día MCP · Sentadilla ficticia: no tiene series de trabajo; "
+                         "solo calentamientos o aproximaciones no se pueden revisar.", message)
+        self.assertEqual([], os.listdir(self.outbox))
+
+    def test_warmup_must_precede_work_sets_and_load_messages_match_the_app(self):
+        work = self.proposal()["week"]["days"][0]["exercises"][0]["sets"][0]
+        late = self.proposal()
+        late["week"]["days"][0]["exercises"][0]["sets"].append(dict(work, id="mcp-week-late", kind="APPROACH"))
+        error, message = self.tool("create_week_proposal", late)
+        self.assertTrue(error)
+        self.assertIn("deben ir antes de las de trabajo", message)
+        heavy = self.proposal()
+        heavy_load = dict(work["load"], value=float(work["load"]["value"]) + 1)
+        heavy["week"]["days"][0]["exercises"][0]["sets"].insert(0, dict(work, id="mcp-week-h", kind="WARMUP", load=heavy_load))
+        error, message = self.tool("create_week_proposal", heavy)
+        self.assertTrue(error)
+        self.assertIn(f"pesa {int(heavy_load['value'])} {work['load']['unit']} {work['load']['basis']}, más que la carga de trabajo máxima ({int(work['load']['value'])})", message)
+        self.assertNotIn(".0 ", message)
+
+    def test_non_work_load_is_bounded_by_work_load_in_same_unit(self):
+        work = self.proposal()["week"]["days"][0]["exercises"][0]["sets"][0]
+        heavier = dict(work, id="mcp-week-heavy", kind="WARMUP", load=dict(work["load"], value=work["load"]["value"] + 10))
+        other_unit = dict(work, id="mcp-week-unit", kind="APPROACH", load=dict(work["load"], unit="LB"))
+        for extra, fragment in ((heavier, "más que la carga de trabajo máxima"), (other_unit, "no se puede comparar")):
+            with self.subTest(fragment=fragment):
+                case = self.proposal()
+                case["week"]["days"][0]["exercises"][0]["sets"].insert(0, extra)
+                error, message = self.tool("create_week_proposal", case)
+                self.assertTrue(error)
+                self.assertIn(fragment, message)
+        ok = self.proposal()
+        ok["week"]["days"][0]["exercises"][0]["sets"].insert(0, dict(work, id="mcp-week-same", kind="APPROACH"))
+        error, message = self.tool("create_week_proposal", ok)
+        self.assertFalse(error, message)
+
+    def test_caps_combined_warmup_and_approach_sets_per_exercise(self):
+        args = self.proposal()
+        sets = args["week"]["days"][0]["exercises"][0]["sets"]
+        sets[:0] = [dict(sets[0], id=f"preparation-{i}", kind=kind)
+                    for i, kind in enumerate(("WARMUP", "WARMUP", "APPROACH", "APPROACH", "APPROACH"))]
+        error, message = self.tool("create_week_proposal", args)
+        self.assertTrue(error)
+        self.assertEqual("Error: Día MCP · Sentadilla ficticia: 5 series de calentamiento o aproximación; el máximo es 4.",
+                         message)
+        self.assertEqual([], os.listdir(self.outbox))
+        del sets[0]
+        error, message = self.tool("create_week_proposal", args)
+        self.assertFalse(error, message)
+
+    def test_accepts_no_rest_range_endpoints_and_omitted_rest(self):
+        args = self.proposal()
+        sets = args["week"]["days"][0]["exercises"][0]["sets"]
+        sets[0].update(kind="APPROACH", restSeconds=0)
+        sets[1].update(kind="WORK", restSeconds=0)
+        sets.append(dict(sets[1], id="mcp-week-s3", restSeconds=45))
+        sets.append(dict(sets[1], id="mcp-week-s4", restSeconds=120))
+        sets.append(dict(sets[1], id="mcp-week-s5"))
+        del sets[-1]["restSeconds"]
+        error, message = self.tool("create_week_proposal", args)
+        self.assertFalse(error, message)
+
 
 PLAN_CONTEXT = os.path.join(ROOT, "mcp", "examples", "training-context-with-plan.json")
 OUTLINE = os.path.join(ROOT, "app", "src", "main", "assets", "examples", "plan-outline-v1.json")
