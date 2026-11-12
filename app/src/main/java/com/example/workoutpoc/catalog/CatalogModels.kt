@@ -1,6 +1,7 @@
 package com.example.workoutpoc.catalog
 
 import com.example.workoutpoc.planning.LoadBasis
+import com.example.workoutpoc.planning.LoadUnit
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -18,7 +19,9 @@ import kotlinx.serialization.json.Json
     val loadBasis: LoadBasis? = null,
     /** Machine configuration or setup notes, e.g. seat height. */
     val setup: String? = null,
-    val aliases: List<String> = emptyList()
+    val aliases: List<String> = emptyList(),
+    /** Unit the user last recorded this exercise in (contract §2). Only KG or LB; null = no preference yet. */
+    val preferredUnit: LoadUnit? = null
 )
 
 @Serializable data class ExerciseCatalog(val schemaVersion: Int = 1, val exercises: List<CatalogExercise> = emptyList())
@@ -44,6 +47,8 @@ object CatalogCodec {
         check(e.aliases.size <= 50 && e.aliases.distinct().size == e.aliases.size, "Nombres anteriores repetidos o demasiados.")
         e.aliases.forEach { text(it, 200, "Nombre anterior") }
         check(e.name !in e.aliases, "El nombre actual no puede figurar como nombre anterior.")
+        check(e.preferredUnit == null || e.preferredUnit == LoadUnit.KG || e.preferredUnit == LoadUnit.LB,
+            "La unidad preferida solo puede ser kg o lb.")
         check(e.equipment != Equipment.BODYWEIGHT || e.loadBasis == null || e.loadBasis == LoadBasis.BODYWEIGHT,
             "Un ejercicio de peso corporal solo admite base de peso corporal.")
         check(e.equipment != Equipment.MACHINE || e.loadBasis == null || e.loadBasis in setOf(LoadBasis.MACHINE_SETTING, LoadBasis.TOTAL, LoadBasis.PER_SIDE),
