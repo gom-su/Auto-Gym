@@ -27,7 +27,9 @@ import java.io.OutputStream
     val programId: String, val blockId: String, val weekId: String,
     val warnings: List<String>, val differences: List<String>, val statedDifferences: List<String>, val reasons: List<String>,
     /** Each relevant change with its evidence and the agent's reason at decision time (AG-03, AG-07). */
-    val explanations: List<ExplainedChange> = emptyList()
+    val explanations: List<ExplainedChange> = emptyList(),
+    /** The approval replaced an already saved week (§2); [deletedRecords] are the sessions its replacement removed. */
+    val replacedWeek: Boolean = false, val deletedRecords: Int = 0
 )
 
 @Serializable data class ProposalState(
@@ -71,7 +73,10 @@ class ProposalRepository(
     private val now: () -> Long = System::currentTimeMillis,
     private val sessions: suspend () -> List<com.example.workoutpoc.domain.WorkoutState> = { emptyList() },
     /** Activated multi-week plans; a proposal for a planned program is checked against its plan week. */
-    private val outlines: suspend () -> List<com.example.workoutpoc.planning.PlanOutline> = { emptyList() }
+    private val outlines: suspend () -> List<com.example.workoutpoc.planning.PlanOutline> = { emptyList() },
+    /** Recorded sessions of one saved week, and the deletion an approved replacement performs (contract §2). */
+    private val weekRecords: suspend (programId: String, weekId: String) -> Int = { _, _ -> 0 },
+    private val deleteWeekRecords: suspend (programId: String, weekId: String) -> Int = { _, _ -> 0 }
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(ProposalState())
@@ -85,13 +90,15 @@ class ProposalRepository(
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(proposals = store.data.first()) }, { replaceAllLocked(it.proposals) })
 
-    suspend fun evaluate(importId: String): ProposalEvaluation {
+    suspend fun evaluate(importId: String, replacing: Boolean = false): ProposalEvaluation {
         programs.restore(); exchanges.restore()
         val pkg = exchanges.archive.value.packages.find { it.importId == importId && it.type == ExchangeType.WeekProposal }
             ?: throw ProposalException("La propuesta no está guardada.")
         val rules = mutableState.value.rules
         val states = sessions()
-        val base = applyRules(pkg.proposal!!, states)
+        val proposal = pkg.proposal!!
+        val replacedRecords = if (replacing) weekRecords(proposal.programId, proposal.week.id) else 0
+        val base = applyRules(proposal, states, replacing, replacedRecords)
         val explanations = ProposalExplain.explain(base.proposal, base.base, states)
         val unexplained = if (rules.unexplainedChange == Severity.OFF) emptyList() else explanations.filter { it.reason == null }.map {
             ValidationIssue("UNEXPLAINED_CHANGE", rules.unexplainedChange, "${it.kind.label} sin motivo específico del agente: ${it.summary}")
@@ -108,9 +115,11 @@ class ProposalRepository(
         return applyRules(proposal, sessions())
     }
 
-    private suspend fun applyRules(proposal: com.example.workoutpoc.exchange.WeekProposal, states: List<com.example.workoutpoc.domain.WorkoutState>) =
+    private suspend fun applyRules(proposal: com.example.workoutpoc.exchange.WeekProposal, states: List<com.example.workoutpoc.domain.WorkoutState>,
+                                   replacing: Boolean = false, replacedRecords: Int = 0) =
         ProposalRules.evaluate(proposal, programs.library.value, knownExerciseIds(), mutableState.value.rules,
-            outlines().find { it.programId == proposal.programId }, states.distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() })
+            outlines().find { it.programId == proposal.programId }, states.distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() },
+            replacing, replacedRecords)
 
     fun decisionFor(importId: String): ProposalDecision? = mutableState.value.decisions.find { it.importId == importId }
 
@@ -118,21 +127,35 @@ class ProposalRepository(
      * Explicit approval. Re-checks the rules at decision time; blocking issues prevent it. The week is appended
      * idempotently (an interrupted earlier approval is completed, never duplicated) before the decision is recorded.
      */
-    suspend fun approve(importId: String): ProposalDecision = mutex.withLock {
+    suspend fun approve(importId: String, replaceWeek: Boolean = false): ProposalDecision = mutex.withLock {
         decisionFor(importId)?.let { if (it.status == DecisionStatus.APPROVED) return@withLock it else throw ProposalException("La propuesta ya fue rechazada.") }
-        val evaluation = evaluate(importId)
+        val evaluation = evaluate(importId, replaceWeek)
         if (!evaluation.canApprove) throw ProposalException("No se puede aprobar: hay ${evaluation.blocking.size} bloqueos sin resolver.")
         val p = evaluation.proposal
         otherVersionDecision(p.id, p.version)
+        var replaced = false
+        var deleted = 0
         if (!evaluation.alreadyApplied) {
             val program = programs.library.value.programs.find { it.id == p.programId }
-            // With an activated plan, week 1 creates the program and a block's first week creates that block.
-            val applied = ProposalRules.appliedProgram(p, program, outlines().find { it.programId == p.programId })
-                ?: throw ProposalException("El programa o el bloque de la propuesta ya no existe.")
-            try { programs.importProgram(applied) }
-            catch (e: ProgramValidationException) { throw ProposalException(e.message ?: "Conflicto al añadir la semana.") }
+            val weekSaved = program?.blocks?.find { it.id == p.blockId }?.weeks?.any { it.id == p.week.id } == true
+            if (replaceWeek && weekSaved) {
+                // Explicit replacement (§2): the saved week and its recorded sessions change together. If the deletion
+                // fails, the previous program is restored before the error reaches the user.
+                replaced = true
+                val before = programs.replaceProgram(ProposalRules.appliedReplacement(p, program!!))
+                deleted = try { deleteWeekRecords(p.programId, p.week.id) } catch (e: Exception) {
+                    programs.replaceAll(before)
+                    throw ProposalException("No se pudieron borrar los registros de la semana. Se conserva la planificación anterior. ${e.message.orEmpty()}".trim())
+                }
+            } else {
+                // With an activated plan, week 1 creates the program and a block's first week creates that block.
+                val applied = ProposalRules.appliedProgram(p, program, outlines().find { it.programId == p.programId })
+                    ?: throw ProposalException("El programa o el bloque de la propuesta ya no existe.")
+                try { programs.importProgram(applied) }
+                catch (e: ProgramValidationException) { throw ProposalException(e.message ?: "Conflicto al añadir la semana.") }
+            }
         }
-        record(importId, evaluation, DecisionStatus.APPROVED)
+        record(importId, evaluation, DecisionStatus.APPROVED, replaced, deleted)
     }
 
     /** Explicit rejection; nothing in the program changes. */
@@ -174,10 +197,11 @@ class ProposalRepository(
             throw ProposalException("Ya existe una decisión para la propuesta $proposalId versión $version importada con otro importId.")
     }
 
-    private suspend fun record(importId: String, e: ProposalEvaluation, status: DecisionStatus): ProposalDecision {
+    private suspend fun record(importId: String, e: ProposalEvaluation, status: DecisionStatus,
+                               replacedWeek: Boolean = false, deletedRecords: Int = 0): ProposalDecision {
         val p = e.proposal
         val decision = ProposalDecision(importId, p.id, p.version, status, now(), p.programId, p.blockId, p.week.id,
-            e.warnings.map { it.message }, e.differences, p.differences, p.reasons, e.explanations)
+            e.warnings.map { it.message }, e.differences, p.differences, p.reasons, e.explanations, replacedWeek, deletedRecords)
         mutableState.value = store.updateData { it.copy(decisions = it.decisions + decision) }
         return decision
     }

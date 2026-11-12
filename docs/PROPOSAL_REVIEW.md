@@ -150,3 +150,8 @@ Decisions also store the explained changes (AG-03). **Historial de decisiones** 
 - `ProposalDeviceTest` now also checks the explained "Aumento · Press ficticio: carga máxima 3 → 4" card and the approved decision in **Historial de decisiones**. It passed, but took 9.5 minutes, mostly scrolling a decision history that grew across repeated emulator runs.
 
 Physical-device testing was not performed.
+
+## Límites conocidos del reemplazo de semana
+
+- **Atomicidad:** aprobar un reemplazo escribe primero el programa y después borra los registros de la semana en el historial y en la sesión actual. Son almacenes distintos en disco y no hay una transacción común. Si la app se cierra entre ambas escrituras, puede quedar la semana nueva con registros antiguos. Si el borrado falla sin cerrarse la app, el programa anterior se restaura.
+- **Mitigación actual:** la revisión muestra cuántas sesiones se borrarán, y la confirmación es explícita. Un diario de recuperación queda como mejora futura.

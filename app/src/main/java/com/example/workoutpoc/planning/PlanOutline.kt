@@ -168,6 +168,34 @@ object PlanOutlines {
     fun hasRealData(s: SessionResult) = s.status in REAL && (s.sets.any { it.status in REAL } || s.cardio.any { it.status in REAL })
     private val REAL = setOf(PerformanceStatus.COMPLETED, PerformanceStatus.PARTIAL)
 
+    /**
+     * Brief to regenerate one saved week (decision §2). Only the latest week of its block can be regenerated, since
+     * later weeks are built on it. The reference is the last week before it with real records; its own records are not
+     * used as the reference, because approving the replacement deletes them.
+     */
+    fun regenerationBrief(o: PlanOutline, program: TrainingProgram?, sessions: List<SessionResult>, weekId: String): NextWeekBrief {
+        val weeks = programWeeks(program)
+        val index = weeks.indexOfFirst { it.second.id == weekId }
+        require(index >= 0) { "La semana $weekId no está en el programa." }
+        val number = index + 1
+        val blockId = weeks[index].first.id
+        require(weeks.last { it.first.id == blockId }.second.id == weekId) { "Solo se regenera la última semana del bloque." }
+        val target = o.weeks.getOrNull(number - 1)?.takeIf { it.number == number }
+            ?: throw IllegalArgumentException("La semana $number no está en el plan activo.")
+        val withData = sessions.filter { (it.programId == null || it.programId == o.programId) && hasRealData(it) }
+        val reference = (0 until index).lastOrNull { i -> weeks[i].second.days.any { d -> withData.any { it.sessionPlanId == d.id } } }
+        val refWeek = reference?.let { weeks[it].second }
+        val refSessions = refWeek?.let { w -> withData.filter { s -> w.days.any { it.id == s.sessionPlanId } } }.orEmpty()
+        val missingDays = refWeek?.days?.filter { d -> refSessions.none { it.sessionPlanId == d.id } }?.map { it.name }.orEmpty()
+        val block = o.blocks.first { it.id == target.blockId }
+        val (inBlock, blockSize) = weekInBlock(o, number)
+        val reason = refWeek?.let { "Referencia: semana ${reference!! + 1} (${it.name})." } ?: "Sin semana previa con registros que sirva de referencia."
+        return NextWeekBrief(o.programId, o.id, o.version, BriefStatus.READY, o.weeks.size, weeks.size,
+            reference?.plus(1), refWeek?.id, refSessions.map { it.id }, missingDays,
+            number, block.id, block.name, inBlock, blockSize, target,
+            "Regeneración de la semana $number (${weeks[index].second.name}). $reason Al aprobar, la semana reemplazada y sus registros se borran.")
+    }
+
     fun brief(o: PlanOutline, program: TrainingProgram?, sessions: List<SessionResult>): NextWeekBrief {
         val weeks = programWeeks(program)
         val withData = sessions.filter { (it.programId == null || it.programId == o.programId) && hasRealData(it) }

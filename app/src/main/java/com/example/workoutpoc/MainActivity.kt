@@ -287,13 +287,16 @@ class MainActivity : ComponentActivity() {
                 val proposalUi by proposalModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { nav.back(); programModel.restore() },
                     proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
-                    proposalModel::addExpectation, proposalModel::setManualOutcome)
+                    proposalModel::addExpectation, proposalModel::setManualOutcome, proposalModel::previewReplacement,
+                    onRegenerate = { importId -> generateModel.prepareRegeneration(importId); nav.open(Destination.Generate) },
+                    onRegenerateWeek = { programId, weekId -> generateModel.prepareWeekRegeneration(programId, weekId); nav.open(Destination.Generate) })
             }
             Destination.Generate -> {
                 val generateUi by generateModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.agent.GenerateScreen(generateUi, nav::back, generateModel::refresh, generateModel::saveKey,
                     generateModel::clearKey, generateModel::generate, generateModel::answer, generateModel::cancel,
-                    { nav.open(Destination.Proposals) }, { nav.open(Destination.Plans) })
+                    { nav.open(Destination.Proposals) }, { nav.open(Destination.Plans) },
+                    onCancelRegeneration = generateModel::cancelRegeneration)
             }
             Destination.Migration -> {
                 val archive by migrationModel.archive.collectAsStateWithLifecycle()

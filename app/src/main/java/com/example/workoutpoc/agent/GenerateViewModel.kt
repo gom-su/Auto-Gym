@@ -25,6 +25,10 @@ import java.time.LocalDate
 
 data class GenerateUiState(
     val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
+    /** Pending proposal the next generation regenerates with the feedback typed here; null for a new week. */
+    val regeneratingId: String? = null,
+    /** Saved week the next generation regenerates (latest week of its block); null otherwise. */
+    val regeneratingWeekId: String? = null,
     val key: ApiKeyStatus = ApiKeyStatus(),
     /** The active plan and the week the app says comes next; null without an active plan. */
     val outline: PlanOutline? = null, val brief: NextWeekBrief? = null,
@@ -59,6 +63,10 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
     private var chat: AgentChat? = null
     private var generation: WeekGeneration? = null
     private var planGeneration: PlanGeneration? = null
+    /** The pending proposal this generation regenerates; it is removed once the new version is saved. */
+    private var replacing: String? = null
+    /** Program and saved week of a regeneration requested from the approved week (§2). */
+    private var regenerationWeek: Pair<String, String>? = null
     private var week: Int? = null
 
     init { refresh() }
@@ -76,15 +84,68 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun generate(note: String) = operation(generating = true) {
+        val regenerating = mutableUi.value.regeneratingId
+        val week = regenerationWeek
+        when {
+            regenerating != null -> regenerateNow(regenerating, note)
+            week != null -> startGeneration(note, supersedes = null, regenerates = week)
+            else -> startGeneration(note, supersedes = null, regenerates = null)
+        }
+    }
+
+    /** Opens the generation for a pending proposal: the next request is a regeneration of it. */
+    fun prepareRegeneration(importId: String) {
+        regenerationWeek = null
+        mutableUi.value = mutableUi.value.copy(regeneratingId = importId, regeneratingWeekId = null, message = null)
+    }
+
+    /** Opens the generation for the latest saved week of a block; its new version replaces the week on approval (§2). */
+    fun prepareWeekRegeneration(programId: String, weekId: String) {
+        regenerationWeek = programId to weekId
+        mutableUi.value = mutableUi.value.copy(regeneratingId = null, regeneratingWeekId = weekId, message = null)
+    }
+
+    fun cancelRegeneration() {
+        regenerationWeek = null
+        mutableUi.value = mutableUi.value.copy(regeneratingId = null, regeneratingWeekId = null)
+    }
+
+    /**
+     * Regenerates a pending proposal with the user's feedback (§2). The previous version goes to the agent as the
+     * reference to correct. It is removed only after the new version is saved, so a failure keeps it available.
+     */
+    fun regenerate(importId: String, feedback: String) = operation(generating = true) { regenerateNow(importId, feedback) }
+
+    private suspend fun regenerateNow(importId: String, feedback: String) {
+        app.proposals.restore(); app.exchanges.restore()
+        if (app.proposals.decisionFor(importId) != null) throw AgentException("Solo se regenera una propuesta pendiente.")
+        val previous = app.exchanges.archive.value.packages.find { it.importId == importId && it.proposal != null }
+            ?: throw AgentException("La propuesta ya no está guardada.")
+        val reference = compact.encodeToString(previous.proposal)
+        val note = "Feedback del usuario: ${feedback.trim()}\n\nVersión anterior, a corregir (no la copies si el feedback pide cambios):\n$reference"
+        startGeneration(note, supersedes = importId, regenerates = null)
+    }
+
+    private suspend fun startGeneration(note: String, supersedes: String?, regenerates: Pair<String, String>?) {
         discard()
+        replacing = supersedes
         mutableUi.value = mutableUi.value.copy(savedWeek = null, savedPlan = null, questions = null)
         val key = app.apiKey.key() ?: throw AgentException("Guarda primero tu llave API de Claude.")
         // Building and encoding the whole history is kept off the main thread.
-        val (data, contextJson) = withContext(Dispatchers.Default) { app.localExchange(ExchangeType.TrainingContext).let { it to compact.encodeToString(it) } }
-        val brief = data.context!!.nextWeeks.firstOrNull() ?: throw AgentException("No hay plan activo. Activa uno en Planes de periodización.")
+        val (data, defaultJson) = withContext(Dispatchers.Default) { app.localExchange(ExchangeType.TrainingContext).let { it to compact.encodeToString(it) } }
+        val context = data.context!!
+        // A regeneration asks for one saved week: its brief replaces the next-week brief the context would otherwise carry.
+        val brief = if (regenerates == null) context.nextWeeks.firstOrNull()
+            ?: throw AgentException("No hay plan activo. Activa uno en Planes de periodización.")
+            else {
+                val outline = context.outlines.firstOrNull { it.programId == regenerates.first }
+                    ?: throw AgentException("El plan de esta semana ya no está activo.")
+                PlanOutlines.regenerationBrief(outline, context.programs.find { it.id == regenerates.first }, context.history.sessions, regenerates.second)
+            }
+        val contextJson = if (regenerates == null) defaultJson else compact.encodeToString(context.copy(nextWeeks = listOf(brief)))
         app.weekAnnotations.restore()
         val states = (app.repository.archived.value.sessions + app.repository.state.value).distinctBy { it.sessionId }
-        val newCycle = HomePlanner.summary(data.context!!.programs, data.context!!.outlines, states, app.weekAnnotations.annotations.value).cycleComplete
+        val newCycle = regenerates == null && HomePlanner.summary(context.programs, context.outlines, states, app.weekAnnotations.annotations.value).cycleComplete
         if (!newCycle && brief.status == BriefStatus.CYCLE_COMPLETE)
             throw AgentException("Termina de registrar los días de la última semana antes de generar el nuevo plan.")
         if (!newCycle && brief.status != BriefStatus.READY) throw AgentException(brief.message)
@@ -134,10 +195,15 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
             is GenerationStep.Questions -> mutableUi.value = mutableUi.value.copy(questions = step.questions,
                 message = "Claude necesita tus respuestas antes de proponer ${if (planGeneration != null) "el nuevo plan" else "la semana"}.")
             is GenerationStep.Proposal -> {
+                val superseded = replacing
+                replacing = null
+                regenerationWeek = null
                 app.exchanges.save(step.pkg)
+                // Only one pending version stays for approval: the new one is saved first, then the old one is removed (§2).
+                superseded?.let { app.exchanges.removeSuperseded(it) }
                 // Shown as saved at once: a cancellation or a failed reload after this point must not hide it.
                 val plan = step.pkg.outline
-                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = week, savedPlan = plan?.name,
+                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = week, savedPlan = plan?.name, regeneratingId = null, regeneratingWeekId = null,
                     message = if (plan != null) "Nuevo plan de 12 semanas guardado. Revísalo y actívalo en Planes de periodización."
                         else "Propuesta de la semana $week guardada. Queda pendiente de tu aprobación.")
                 discard(); load()
