@@ -20,7 +20,8 @@ import com.example.workoutpoc.ui.theme.Spacing
 @Composable
 fun GenerateScreen(
     ui: GenerateUiState, onBack: () -> Unit, onRetry: () -> Unit, onSaveKey: (String) -> Unit, onClearKey: () -> Unit,
-    onGenerate: (String) -> Unit, onAnswer: (List<String>) -> Unit, onCancel: () -> Unit, onProposals: () -> Unit, onPlans: () -> Unit
+    onGenerate: (String) -> Unit, onAnswer: (List<String>) -> Unit, onCancel: () -> Unit, onProposals: () -> Unit, onPlans: () -> Unit,
+    onCancelRegeneration: () -> Unit = {}
 ) {
     var note by rememberSaveable { mutableStateOf("") }
     val brief = ui.brief
@@ -82,8 +83,21 @@ fun GenerateScreen(
                     label = { Text(if (newCycle) "Objetivos o cambios para el nuevo ciclo (opcional)" else "Nota para esta semana (opcional)") },
                     supportingText = { Text("Molestias, sueño o cambios de horario. Las mediciones de Progreso → Cuerpo ya se incluyen.") })
             }
+            // A pending proposal is being regenerated: the note is the feedback sent with the previous version (§2).
+            if (ui.regeneratingId != null) item {
+                ContentCard {
+                    Text("Regenerar la propuesta pendiente", style = MaterialTheme.typography.titleMedium)
+                    SupportingText("Tu nota es el feedback. Claude recibe la versión anterior y propone una nueva; la anterior se conserva hasta que la nueva se guarde.", small = true)
+                    SecondaryAction("Cancelar regeneración", onCancelRegeneration, enabled = !ui.busy)
+                }
+            }
             item {
-                PrimaryAction(if (newCycle) "Generar nuevo plan de 12 semanas" else "Generar semana ${brief?.weekNumber}", { onGenerate(note) }, enabled = ui.canGenerate, icon = AppIcons.Agent, tall = true)
+                val regenerating = ui.regeneratingId != null
+                PrimaryAction(when {
+                    regenerating -> "Regenerar con feedback"
+                    newCycle -> "Generar nuevo plan de 12 semanas"
+                    else -> "Generar semana ${brief?.weekNumber}"
+                }, { onGenerate(note) }, enabled = ui.canGenerate, icon = AppIcons.Agent, tall = true)
             }
             if (ui.generating) {
                 item { SupportingText("Consultando a Claude. Suele tardar entre uno y tres minutos; deja la app abierta.") }

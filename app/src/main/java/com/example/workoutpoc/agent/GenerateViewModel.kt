@@ -25,6 +25,8 @@ import java.time.LocalDate
 
 data class GenerateUiState(
     val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
+    /** Pending proposal the next generation regenerates with the feedback typed here; null for a new week. */
+    val regeneratingId: String? = null,
     val key: ApiKeyStatus = ApiKeyStatus(),
     /** The active plan and the week the app says comes next; null without an active plan. */
     val outline: PlanOutline? = null, val brief: NextWeekBrief? = null,
@@ -77,13 +79,23 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
         mutableUi.value = mutableUi.value.copy(key = app.apiKey.status.value, message = "Llave eliminada de este dispositivo.")
     }
 
-    fun generate(note: String) = operation(generating = true) { startGeneration(note, supersedes = null) }
+    fun generate(note: String) = operation(generating = true) {
+        val regenerating = mutableUi.value.regeneratingId
+        if (regenerating != null) regenerateNow(regenerating, note) else startGeneration(note, supersedes = null)
+    }
+
+    /** Opens the generation for a pending proposal: the next request is a regeneration of it. */
+    fun prepareRegeneration(importId: String) { mutableUi.value = mutableUi.value.copy(regeneratingId = importId, message = null) }
+
+    fun cancelRegeneration() { mutableUi.value = mutableUi.value.copy(regeneratingId = null) }
 
     /**
      * Regenerates a pending proposal with the user's feedback (§2). The previous version goes to the agent as the
      * reference to correct. It is removed only after the new version is saved, so a failure keeps it available.
      */
-    fun regenerate(importId: String, feedback: String) = operation(generating = true) {
+    fun regenerate(importId: String, feedback: String) = operation(generating = true) { regenerateNow(importId, feedback) }
+
+    private suspend fun regenerateNow(importId: String, feedback: String) {
         app.proposals.restore(); app.exchanges.restore()
         if (app.proposals.decisionFor(importId) != null) throw AgentException("Solo se regenera una propuesta pendiente.")
         val previous = app.exchanges.archive.value.packages.find { it.importId == importId && it.proposal != null }
@@ -160,7 +172,7 @@ class GenerateViewModel(application: Application) : AndroidViewModel(application
                 superseded?.let { app.exchanges.removeSuperseded(it) }
                 // Shown as saved at once: a cancellation or a failed reload after this point must not hide it.
                 val plan = step.pkg.outline
-                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = week, savedPlan = plan?.name,
+                mutableUi.value = mutableUi.value.copy(questions = null, savedWeek = week, savedPlan = plan?.name, regeneratingId = null,
                     message = if (plan != null) "Nuevo plan de 12 semanas guardado. Revísalo y actívalo en Planes de periodización."
                         else "Propuesta de la semana $week guardada. Queda pendiente de tu aprobación.")
                 discard(); load()

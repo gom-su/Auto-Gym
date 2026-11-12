@@ -25,7 +25,7 @@ private fun DecisionStatus?.short() = when (this) { null -> "Pendiente"; Decisio
 fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit, onRetry: () -> Unit,
                    onSelect: (String?) -> Unit, onApprove: () -> Unit, onReject: () -> Unit, onSaveRules: (RuleSettings) -> Unit,
                    onAddExpectation: (Expectation) -> Unit = {}, onManualOutcome: (String, Outcome?, String?) -> Unit = { _, _, _ -> },
-                   onReplacePreview: (Boolean) -> Unit = {}) {
+                   onReplacePreview: (Boolean) -> Unit = {}, onRegenerate: (String) -> Unit = {}) {
     val evaluation = ui.evaluation
     val decision = ui.selected?.let { id -> state.decisions.find { it.importId == id } }
     BackHandler(ui.selected != null && !ui.busy) { onSelect(null) }
@@ -87,6 +87,7 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                                 enabled = !ui.busy && evaluation.canApprove, icon = AppIcons.Check, tall = true)
                             if (evaluation.blocking.any { it.code == "WEEK_EXISTS" })
                                 SecondaryAction("Reemplazar la semana guardada…", { onReplacePreview(true) }, enabled = !ui.busy)
+                            SecondaryAction("Regenerar con feedback", { ui.selected?.let(onRegenerate) }, enabled = !ui.busy && ui.selected != null)
                             SecondaryAction("Rechazar propuesta", onReject, enabled = !ui.busy)
                             SupportingText("Aprobar añade la semana al programa guardado sin activar ninguna sesión ni modificar semanas existentes.", small = true)
                         }
