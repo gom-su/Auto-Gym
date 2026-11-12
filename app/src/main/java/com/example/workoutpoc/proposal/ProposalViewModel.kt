@@ -15,7 +15,9 @@ data class ProposalUiState(
     val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
     val proposals: List<ExchangePackage> = emptyList(), val selected: String? = null, val evaluation: ProposalEvaluation? = null,
     /** Current evaluation of every expectation, by expectation ID (AG-04). */
-    val results: Map<String, EvaluationResult> = emptyMap()
+    val results: Map<String, EvaluationResult> = emptyMap(),
+    /** The user asked to replace the saved week; the evaluation shows what that approval deletes (§2). */
+    val replacePreview: Boolean = false
 )
 
 class ProposalViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,18 +46,28 @@ class ProposalViewModel(application: Application) : AndroidViewModel(application
         app.proposals.restore(); app.exchanges.restore(); evaluateAll()
         mutableUi.value = mutableUi.value.copy(ready = true,
             proposals = app.exchanges.archive.value.packages.filter { it.type == ExchangeType.WeekProposal })
-        mutableUi.value.selected?.let { mutableUi.value = mutableUi.value.copy(evaluation = app.proposals.evaluate(it)) }
+        mutableUi.value.selected?.let { mutableUi.value = mutableUi.value.copy(evaluation = app.proposals.evaluate(it, mutableUi.value.replacePreview)) }
     }
 
     fun select(importId: String?) = operation {
-        mutableUi.value = mutableUi.value.copy(selected = importId, evaluation = importId?.let { app.proposals.evaluate(it) })
+        mutableUi.value = mutableUi.value.copy(selected = importId, replacePreview = false,
+            evaluation = importId?.let { app.proposals.evaluate(it) })
+    }
+
+    /** Shows the evaluation of replacing the saved week, or returns to the normal one. Nothing is written here. */
+    fun previewReplacement(on: Boolean) = operation {
+        val id = mutableUi.value.selected ?: return@operation
+        mutableUi.value = mutableUi.value.copy(replacePreview = on, evaluation = app.proposals.evaluate(id, replacing = on))
     }
 
     fun approve() = operation {
         val id = mutableUi.value.selected ?: return@operation
-        val decision = app.proposals.approve(id)
-        mutableUi.value = mutableUi.value.copy(evaluation = app.proposals.evaluate(id),
-            message = "Propuesta aprobada. La semana ${decision.weekId} se añadió al programa; puedes entrenarla desde Programas.")
+        val replacing = mutableUi.value.replacePreview
+        val decision = app.proposals.approve(id, replaceWeek = replacing)
+        val message = if (decision.replacedWeek)
+            "Semana ${decision.weekId} reemplazada. Se borraron ${decision.deletedRecords} sesión(es) registrada(s) de esa semana."
+        else "Propuesta aprobada. La semana ${decision.weekId} se añadió al programa; puedes entrenarla desde Programas."
+        mutableUi.value = mutableUi.value.copy(evaluation = app.proposals.evaluate(id), replacePreview = false, message = message)
     }
 
     fun reject() = operation {

@@ -24,7 +24,8 @@ private fun DecisionStatus?.short() = when (this) { null -> "Pendiente"; Decisio
 @Composable
 fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit, onRetry: () -> Unit,
                    onSelect: (String?) -> Unit, onApprove: () -> Unit, onReject: () -> Unit, onSaveRules: (RuleSettings) -> Unit,
-                   onAddExpectation: (Expectation) -> Unit = {}, onManualOutcome: (String, Outcome?, String?) -> Unit = { _, _, _ -> }) {
+                   onAddExpectation: (Expectation) -> Unit = {}, onManualOutcome: (String, Outcome?, String?) -> Unit = { _, _, _ -> },
+                   onReplacePreview: (Boolean) -> Unit = {}) {
     val evaluation = ui.evaluation
     val decision = ui.selected?.let { id -> state.decisions.find { it.importId == id } }
     BackHandler(ui.selected != null && !ui.busy) { onSelect(null) }
@@ -75,10 +76,20 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
             if (decision == null) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        PrimaryAction(if (evaluation.canApprove) "Aprobar y añadir semana" else "Aprobación bloqueada", onApprove,
-                            enabled = !ui.busy && evaluation.canApprove, icon = AppIcons.Check, tall = true)
-                        SecondaryAction("Rechazar propuesta", onReject, enabled = !ui.busy)
-                        SupportingText("Aprobar añade la semana al programa guardado sin activar ninguna sesión ni modificar semanas existentes.", small = true)
+                        if (ui.replacePreview) {
+                            // Explicit replacement (§2): the warning in the review says which week and how many sessions go.
+                            PrimaryAction("Confirmar reemplazo y borrar registros", onApprove,
+                                enabled = !ui.busy && evaluation.canApprove, icon = AppIcons.Check, tall = true)
+                            SecondaryAction("Cancelar reemplazo", { onReplacePreview(false) }, enabled = !ui.busy)
+                            SupportingText("Reemplazar borra las sesiones registradas de esa semana y no se puede deshacer.", small = true)
+                        } else {
+                            PrimaryAction(if (evaluation.canApprove) "Aprobar y añadir semana" else "Aprobación bloqueada", onApprove,
+                                enabled = !ui.busy && evaluation.canApprove, icon = AppIcons.Check, tall = true)
+                            if (evaluation.blocking.any { it.code == "WEEK_EXISTS" })
+                                SecondaryAction("Reemplazar la semana guardada…", { onReplacePreview(true) }, enabled = !ui.busy)
+                            SecondaryAction("Rechazar propuesta", onReject, enabled = !ui.busy)
+                            SupportingText("Aprobar añade la semana al programa guardado sin activar ninguna sesión ni modificar semanas existentes.", small = true)
+                        }
                     }
                 }
             }

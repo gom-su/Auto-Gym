@@ -287,7 +287,7 @@ class MainActivity : ComponentActivity() {
                 val proposalUi by proposalModel.ui.collectAsStateWithLifecycle()
                 com.example.workoutpoc.proposal.ProposalScreen(proposalState, proposalUi, { nav.back(); programModel.restore() },
                     proposalModel::refresh, proposalModel::select, proposalModel::approve, proposalModel::reject, proposalModel::saveRules,
-                    proposalModel::addExpectation, proposalModel::setManualOutcome)
+                    proposalModel::addExpectation, proposalModel::setManualOutcome, proposalModel::previewReplacement)
             }
             Destination.Generate -> {
                 val generateUi by generateModel.ui.collectAsStateWithLifecycle()
