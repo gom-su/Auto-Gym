@@ -177,7 +177,7 @@ object BackupCodec {
             throw BackupException("Versión de la aplicación no válida en el respaldo. No se reemplazó nada.")
         val known = sections.map { it.key }.toSet()
         (envelope.stores.keys - known).firstOrNull()?.let {
-            throw BackupException("El respaldo contiene un almacén desconocido (\"${it.take(40)}\"). No se reemplazó nada.")
+            throw BackupException("El respaldo contiene un almacén desconocido (\"${it.take(40)}\"). Actualiza la aplicación para restaurarlo. No se reemplazó nada.")
         }
         // Checked before any store is read: a damaged or edited file is reported as such, not as an invalid store.
         if (!MessageDigest.isEqual(digest(envelope.stores).encodeToByteArray(), envelope.sha256.encodeToByteArray()))

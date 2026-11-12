@@ -123,7 +123,7 @@ def plan_week(outline, n):
         for e in d["exercises"]:
             t = next((t for t in w["targets"] if e["exerciseId"] in t.get("exerciseIds", [])), None) or \
                 next((t for t in w["targets"] if not t.get("exerciseIds")), {})
-            sets = [{"id": f"w{n}-{d['id']}-{e['exerciseId']}-{i}", "reps": t.get("repsMax"), "rir": t.get("rirMax")}
+            sets = [{"id": f"w{n}-{d['id']}-{e['exerciseId']}-{i}", "reps": t.get("repsMax"), "rir": t.get("rirMax"), "load": {"value": 0.0, "unit": "KG", "basis": "PER_SIDE"}}
                     for i in range(t.get("sets") or e.get("sets") or 2)]
             exercises.append({"id": f"w{n}-{d['id']}-{e['exerciseId']}", "exerciseId": e["exerciseId"], "name": e["name"], "sets": sets})
         days.append({"id": f"w{n}-{d['id']}", "name": d["name"], "exercises": exercises})

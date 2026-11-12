@@ -5,7 +5,12 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
 @Serializable data class ProgramPackage(val schemaVersion: Int, val program: TrainingProgram)
-@Serializable data class TrainingProgram(val id: String, val name: String, val blocks: List<TrainingBlock>)
+@Serializable data class TrainingProgram(
+    val id: String, val name: String, val blocks: List<TrainingBlock>,
+    /** Cardio each day must carry in this program's distribution (contract §8). Empty = no distribution rule. */
+    val cardioRules: List<CardioRule> = emptyList()
+)
+@Serializable data class CardioRule(val dayId: String, val requiredSeconds: Int, val strengthAllowed: Boolean = true)
 @Serializable data class TrainingBlock(val id: String, val name: String, val weeks: List<WeekPlan>)
 @Serializable data class WeekPlan(val id: String, val name: String, val version: Int, val days: List<SessionPlan>)
 /**
