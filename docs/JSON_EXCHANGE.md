@@ -82,3 +82,16 @@ Una propuesta puede reemplazar una semana guardada solo con una aprobación expl
 - Esta app escribe los paquetes de intercambio con `schemaVersion: 2` y lee `1` y `2`. Los paquetes v1 siguen siendo válidos.
 - Una app anterior que lea un paquete v2 lo rechaza por versión (`Se requiere 1`); la solución es actualizar la aplicación.
 - Los programas (`ProgramPackage`) aceptan `1` y `2`. Los almacenes internos y el respaldo completo tienen versión propia y no cambian con esta regla.
+
+## Decisión: números entre comillas (se mantiene)
+
+La política estricta de la sección «Contract v1» aplica a campos desconocidos, valores de enumeración, versiones y campos obligatorios. Para los campos numéricos, la app usa el comportamiento por defecto de kotlinx.serialization, que acepta un número escrito entre comillas (por ejemplo `"restSeconds": "45"`) y lo decodifica como `45`. Esto afecta a todos los campos numéricos del intercambio, no solo a `restSeconds`.
+
+Decisión: **se mantiene así**. Endurecer el decoder cambiaría la importación de archivos que hoy se aceptan y exigiría una migración de compatibilidad, que no compensa el riesgo.
+
+Consecuencias:
+- El agente que escribe a través de MCP no puede introducir esta forma: el validador MCP rechaza cualquier número que no sea entero JSON.
+- Un archivo escrito a mano con números entre comillas se importa en la app como el número equivalente; las reglas de rango se aplican sobre ese número.
+- El mismo archivo puede pasar la app y fallar la validación de MCP. Solo importa si se valida con MCP y luego se importa en la app, o al revés.
+
+Si se quiere cerrar más adelante, debe hacerse como cambio aparte con prueba de importación de los ejemplos existentes.
