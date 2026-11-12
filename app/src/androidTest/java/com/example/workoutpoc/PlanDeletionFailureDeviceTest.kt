@@ -60,7 +60,7 @@ class PlanDeletionFailureDeviceTest {
             val session = WorkoutState(sessionId = "del-fail-session", cardioPlan = listOf(PlannedCardio("bike", "Bicicleta", 3600)), source = SessionSource(
                 programId = programId, programName = program.name, blockId = program.blocks.first().id,
                 weekId = program.blocks.first().weeks.first().id, weekName = "Semana", weekVersion = 1, dayId = "day", dayName = "Día"))
-            app.repository.replaceAll(WorkoutState(), WorkoutHistory(sessions = app.repository.archived.value.sessions + session))
+            app.repository.replaceAll(app.repository.state.value, WorkoutHistory(sessions = app.repository.archived.value.sessions + session))
             app.comments.add(SessionComment(id = "del-fail-comment", text = "Comentario de prueba", createdAtMillis = 1L, programId = programId))
             app.weekAnnotations.setDeload(programId, program.blocks.first().weeks.first().id, true)
             val decision = ProposalDecision(importId = "del-fail-import", proposalId = "del-fail-proposal", version = 1,
@@ -103,6 +103,11 @@ class PlanDeletionFailureDeviceTest {
         askForDeletion()
     }
 
+    private fun relaunch() {
+        app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        device.awaitHome()
+    }
+
     /** From the plan's detail (where the tab bar is hidden): asks for the deletion again. */
     private fun askForDeletion() {
         device.scrollToText("Borrar plan y entrenamientos")
@@ -117,6 +122,9 @@ class PlanDeletionFailureDeviceTest {
         assertTrue("dialog must count the weeks", device.hasObject(By.textContains("$weekCount semana(s)")))
         assertTrue("dialog must count the comment", device.hasObject(By.textContains("1 comentario(s)")))
         assertTrue("dialog must count the package", device.hasObject(By.textContains("1 paquete(s)")))
+        assertTrue("dialog must count the plan version", device.hasObject(By.textContains("1 versión(es)")))
+        assertTrue("dialog must count the annotation", device.hasObject(By.textContains("1 anotación(es)")))
+        assertTrue("dialog must count the proposal decision and expectation", device.hasObject(By.textContains("2 registro(s)")))
         device.clickText("Cancelar")
         runBlocking { restoreAll() }
         assertTrue("cancel must keep everything", app.outlines.outlines.value.active.any { it.programId == programId })
@@ -138,11 +146,14 @@ class PlanDeletionFailureDeviceTest {
         assertTrue("comment removed before the failure", app.comments.log.value.comments.none { it.programId == programId })
         assertTrue("decision removed before the failure", app.proposals.state.value.decisions.none { it.programId == programId })
         // ...but the plan itself is kept, so it is still listed and the deletion can be resumed from Plan.
+        assertTrue("annotation removed before the failure", app.weekAnnotations.annotations.value.deloads.none { it.programId == programId })
+        assertTrue("expectation removed before the failure", app.proposals.state.value.expectations.none { it.importId == "del-fail-import" })
         assertTrue("plan must still be listed", app.outlines.outlines.value.active.any { it.programId == programId })
         assertTrue("the plan's package must still be listed", app.exchanges.archive.value.packages.any { it.type.name == "PlanOutline" && it.outline?.programId == programId })
 
-        // 3. Deleting again finishes the rest.
-        askForDeletion()
+        // 3. Deleting again finishes the rest, from a freshly launched Plan list.
+        relaunch()
+        openDeletionDialog()
         assertTrue("the retry must offer what is left", device.hasObject(By.textContains("0 semana(s)")))
         device.clickText("Borrar")
         assertTrue("the retry must report success", device.wait(Until.hasObject(By.textContains("borrado")), 10_000))
