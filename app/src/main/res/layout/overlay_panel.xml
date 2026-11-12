@@ -36,4 +36,11 @@
             <Button android:id="@+id/overlay_skip" style="@style/OverlayAction" android:text="Saltar" android:textAllCaps="false"/>
         </LinearLayout>
     </LinearLayout>
+    <LinearLayout android:id="@+id/overlay_cardio" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+        <TextView android:id="@+id/overlay_cardio_countdown" android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center" android:textSize="36sp" android:textColor="#B4EE80"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="56dp">
+            <Button android:id="@+id/overlay_cardio_pause" style="@style/OverlayAction" android:text="Pausar" android:textAllCaps="false"/>
+            <Button android:id="@+id/overlay_cardio_finish" style="@style/OverlayAction" android:text="Terminar cardio" android:textAllCaps="false"/>
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

@@ -34,6 +34,6 @@ class WorkoutActionReceiver : BroadcastReceiver() {
         private val allowed: Set<WorkoutEvent> = setOf(WorkoutEvent.IncrementWeight, WorkoutEvent.DecrementWeight,
             WorkoutEvent.IncrementReps, WorkoutEvent.DecrementReps, WorkoutEvent.SelectRir,
             WorkoutEvent.CompleteSet, WorkoutEvent.AddRestTime, WorkoutEvent.ReduceRestTime, WorkoutEvent.SkipRest,
-            WorkoutEvent.ConfirmRest)
+            WorkoutEvent.ConfirmRest, WorkoutEvent.PauseSession, WorkoutEvent.ResumeSession, WorkoutEvent.FinishCardio)
     }
 }

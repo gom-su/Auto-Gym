@@ -133,6 +133,7 @@ object ExchangeCodec {
         r.demo?.let { d ->
             requireValid(d.loadUnit == "KG" && d.loadBasis == "UNSPECIFIED" && d.loadScale == 10, "Unidades de demo incompatibles.")
             val s = d.state
+            requireValid(s.phase != com.example.workoutpoc.domain.Phase.ActiveCardio, "El demo v1 no contiene pasos de cardio.")
             requireValid(s.index in 0..7 && s.revision >= 0, "Estado de demo fuera de rango.")
             fun values(v: DemoSetValuesV1) {
                 requireValid(v.weightTenths in 0..20000 && v.reps in 0..1000 && v.rir in 0..4, "Valores de demo fuera de rango.")

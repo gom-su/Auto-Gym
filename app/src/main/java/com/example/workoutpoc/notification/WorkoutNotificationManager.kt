@@ -52,10 +52,11 @@ class WorkoutNotificationManager(private val context: Context) {
 
     fun build(s: WorkoutState): Notification {
         val plan: List<PlannedSet> = s.activePlan()
-        val unit: WeightUnit = plan[s.index].unit
+        val unit = plan.getOrNull(s.index)?.unit ?: WeightUnit.KG
         val title: String = if (s.paused != null) "Sesión en pausa" else when (s.phase) {
             Phase.ActiveSet -> plan[s.index].let { "${it.exercise} · ${it.number}/${it.total}" }
-            Phase.Resting -> "Descanso · siguiente: ${plan[(s.index + 1).coerceAtMost(plan.lastIndex)].exercise}"
+            Phase.ActiveCardio -> s.currentCardio?.modality ?: "Cardio"
+            Phase.Resting -> "Descanso"
             Phase.Completed -> "Entrenamiento terminado"
             Phase.Idle -> "Preparando entrenamiento"
         }
@@ -63,11 +64,35 @@ class WorkoutNotificationManager(private val context: Context) {
             .setSmallIcon(R.drawable.ic_workout).setContentTitle(title)
             .setContentText(if (s.paused != null) "Abre la aplicación para reanudar" else "Abre para ver el entrenamiento")
             .setContentIntent(openEditor()).setOnlyAlertOnce(true)
-            .setOngoing(s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
+            .setOngoing(s.phase.inProgress)
             .setSilent(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS).setShowWhen(false)
-        // A paused session exposes no set controls: taps would be ignored and look broken.
+        if (s.phase == Phase.ActiveCardio) {
+            val remaining = s.cardioRemainingMillis(clockSnapshot(context)) ?: 0
+            val compact = RemoteViews(context.packageName, R.layout.notification_compact)
+            compact.setTextViewText(R.id.compact_title, s.currentCardio?.modality ?: "Cardio")
+            compact.setViewVisibility(R.id.compact_countdown, View.VISIBLE)
+            setCountdown(compact, R.id.compact_countdown, remaining, s.paused == null)
+            val pauseAction = if (s.paused == null) WorkoutEvent.PauseSession else WorkoutEvent.ResumeSession
+            compact.setTextViewText(R.id.compact_complete, if (s.paused == null) "Pausar" else "Reanudar")
+            compact.setOnClickPendingIntent(R.id.compact_complete, action(s, pauseAction))
+            compact.setOnClickPendingIntent(R.id.compact_edit, openEditor())
+            val expanded = RemoteViews(context.packageName, R.layout.notification_expanded)
+            expanded.setTextViewText(R.id.title, title)
+            expanded.setViewVisibility(R.id.set_controls, View.GONE)
+            expanded.setViewVisibility(R.id.rest_controls, View.VISIBLE)
+            expanded.setViewVisibility(R.id.rest_next, View.GONE)
+            expanded.setViewVisibility(R.id.reduce_rest, View.GONE)
+            expanded.setTextViewText(R.id.add_rest, if (s.paused == null) "Pausar" else "Reanudar")
+            expanded.setOnClickPendingIntent(R.id.add_rest, action(s, pauseAction))
+            expanded.setTextViewText(R.id.skip_rest, "Terminar cardio")
+            expanded.setOnClickPendingIntent(R.id.skip_rest, action(s, WorkoutEvent.FinishCardio))
+            setCountdown(expanded, R.id.countdown, remaining, s.paused == null)
+            return builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(compact).setCustomBigContentView(expanded).build()
+        }
+        // A paused strength session exposes no set controls.
         if (s.phase == Phase.Completed || s.phase == Phase.Idle || s.paused != null) return builder.build()
         val compact = RemoteViews(context.packageName, R.layout.notification_compact)
         val remaining = s.rest?.remainingMillis(clockSnapshot(context))
@@ -116,15 +141,16 @@ class WorkoutNotificationManager(private val context: Context) {
             .setCustomContentView(compact).setCustomBigContentView(expanded).build()
     }
 
-    private fun setCountdown(views: RemoteViews, id: Int, remaining: Long) {
+    private fun setCountdown(views: RemoteViews, id: Int, remaining: Long, running: Boolean = true) {
         views.setChronometerCountDown(id, true)
-        views.setChronometer(id, SystemClock.elapsedRealtime() + remaining, null, remaining > 0)
+        views.setChronometer(id, SystemClock.elapsedRealtime() + remaining, null, running && remaining > 0)
     }
 
     @Suppress("MissingPermission")
     @Synchronized
     fun update(s: WorkoutState, force: Boolean = false) {
-        val expired = s.paused == null && s.rest?.remainingMillis(clockSnapshot(context)) == 0L
+        val now = clockSnapshot(context)
+        val expired = s.paused == null && (s.rest?.remainingMillis(now) ?: s.cardioRemainingMillis(now)) == 0L
         if (!force && publishedState == s && publishedRestExpired == expired) return
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             NotificationManagerCompat.from(context).notify(ID, build(s))

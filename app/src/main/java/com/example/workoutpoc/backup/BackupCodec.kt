@@ -10,6 +10,7 @@ import com.example.workoutpoc.data.WorkoutHistorySerializer
 import com.example.workoutpoc.data.WorkoutSerializer
 import com.example.workoutpoc.domain.Phase
 import com.example.workoutpoc.domain.WorkoutState
+import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.exchange.ExchangeArchive
 import com.example.workoutpoc.exchange.ExchangeArchiveSerializer
 import com.example.workoutpoc.migration.MigrationArchive
@@ -55,7 +56,7 @@ data class BackupData(
     val migrations: MigrationArchive = MigrationArchive(), val settings: AppSettings = AppSettings()
 ) {
     /** A set is being recorded right now; such a session is never replaced by a restore. */
-    val sessionInProgress: Boolean get() = workout.phase == Phase.ActiveSet || workout.phase == Phase.Resting
+    val sessionInProgress: Boolean get() = workout.phase.inProgress
 
     /** False for a fresh install: nothing a restore could destroy. Preferences alone do not count. */
     val hasUserData: Boolean get() = copy(settings = AppSettings()) != BackupData()

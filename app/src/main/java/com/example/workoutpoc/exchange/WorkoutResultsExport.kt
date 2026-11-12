@@ -37,7 +37,7 @@ private fun iso(millis: Long?): String? = millis?.let { Instant.ofEpochMilli(it)
  */
 fun WorkoutState.toSessionResult(): SessionResult? {
     val src = source ?: return null
-    if (records.isEmpty()) return null
+    if (records.isEmpty() && cardio.isEmpty()) return null
     val finished = phase == Phase.Completed
     val sets = records.map { r ->
         val p = plan[r.index]
@@ -73,7 +73,7 @@ fun WorkoutState.toSessionResult(): SessionResult? {
     }
     return SessionResult(
         id = sessionId, sessionPlanId = src.dayId, programId = src.programId,
-        status = if (finished && !endedEarly && records.size == plan.size && records.all { it.status == SetStatus.COMPLETED })
+        status = if (finished && !endedEarly && records.size == plan.size && records.all { it.status == SetStatus.COMPLETED } && plannedCardioComplete)
             PerformanceStatus.COMPLETED else PerformanceStatus.PARTIAL,
         startedAt = iso(startedAtMillis), endedAt = if (finished) iso(endedAtMillis) else null,
         notes = "Programa ${src.programId} · semana ${src.weekId} v${src.weekVersion} · " +
@@ -82,7 +82,7 @@ fun WorkoutState.toSessionResult(): SessionResult? {
             (if (pausedMillis > 0) " Pausas: ${pausedMillis / 1000} s." else ""),
         sets = sets,
         cardio = cardio.map { c ->
-            CardioResult(id = c.id, status = PerformanceStatus.COMPLETED, durationSeconds = c.durationSeconds,
+            CardioResult(id = c.id, status = if (c.partial) PerformanceStatus.PARTIAL else PerformanceStatus.COMPLETED, durationSeconds = c.durationSeconds,
                 distance = c.distanceTenths?.let { it / 10.0 }, distanceUnit = c.distanceUnit?.name,
                 notes = listOfNotNull("Modalidad: ${c.modality}.", c.notes).joinToString(" "))
         }

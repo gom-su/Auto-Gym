@@ -13,6 +13,7 @@ import android.widget.TextView
 import com.example.workoutpoc.R
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
+import com.example.workoutpoc.presentation.durationLabel
 import com.example.workoutpoc.timer.clockSnapshot
 import kotlin.math.abs
 
@@ -43,9 +44,11 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
         if (view == null) rebuild()
         val root: View = view ?: return
         val plan: List<PlannedSet> = state.activePlan()
-        val current: PlannedSet = plan[state.index]
+        val current = plan.getOrNull(state.index)
+        val cardioRemaining = state.cardioRemainingMillis(clockSnapshot(context))
+        val cardioTime = cardioRemaining?.let { durationLabel((it + 999) / 1000 * 1000) }
         if (collapsed) {
-            (root as TextView).text = if (state.phase == Phase.Resting) "${seconds(state)}s" else "${state.records.size}/${plan.size}"
+            (root as TextView).text = cardioTime ?: if (state.phase == Phase.Resting) "${seconds(state)}s" else "${state.records.size}/${plan.size}"
             return
         }
         val paused: Boolean = state.paused != null
@@ -53,22 +56,27 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
         val resting: Boolean = state.phase == Phase.Resting && !paused
         root.findViewById<View>(R.id.overlay_set).visibility = if (active) View.VISIBLE else View.GONE
         root.findViewById<View>(R.id.overlay_rest).visibility = if (resting) View.VISIBLE else View.GONE
+        root.findViewById<View>(R.id.overlay_cardio).visibility = if (cardioTime == null) View.GONE else View.VISIBLE
         root.findViewById<TextView>(R.id.overlay_title).text = if (paused) "Sesión en pausa" else when (state.phase) {
-            Phase.ActiveSet -> current.exercise
+            Phase.ActiveSet -> current?.exercise.orEmpty()
+            Phase.ActiveCardio -> state.currentCardio?.modality ?: "Cardio"
             Phase.Resting -> "Descanso"
             Phase.Completed -> "Entrenamiento terminado"
             Phase.Idle -> "Inicia desde la aplicación"
         }
         root.findViewById<TextView>(R.id.overlay_subtitle).text = if (paused) "Reanuda desde la aplicación" else if (resting)
             "Siguiente: ${state.nextSetLabel(plan)}"
-        else "${state.records.size}/${plan.size} completadas · serie ${current.number}/${current.total}"
-        root.findViewById<TextView>(R.id.overlay_weight).text = loadLabel(state.values.weightTenths, current.unit)
+        else if (cardioTime != null) "Tiempo restante" else
+            current?.let { "${state.records.size}/${plan.size} completadas · serie ${it.number}/${it.total}" }.orEmpty()
+        root.findViewById<TextView>(R.id.overlay_cardio_countdown).text = cardioTime.orEmpty()
+        root.findViewById<Button>(R.id.overlay_cardio_pause).text = if (paused) "Reanudar" else "Pausar"
+        root.findViewById<TextView>(R.id.overlay_weight).text = current?.let { loadLabel(state.values.weightTenths, it.unit) }.orEmpty()
         root.findViewById<TextView>(R.id.overlay_reps).text = "${state.values.reps} reps"
         root.findViewById<Button>(R.id.overlay_complete).isEnabled = state.values.reps > 0
         val postpone: PostponeTarget? = state.postponeTarget(plan)
         root.findViewById<Button>(R.id.overlay_postpone).apply {
             visibility = if (postpone != null) View.VISIBLE else View.GONE
-            contentDescription = postpone?.let { "Posponer ${current.exercise}; siguiente: ${it.nextExercise}" }
+            contentDescription = postpone?.let { "Posponer ${current?.exercise}; siguiente: ${it.nextExercise}" }
         }
         root.findViewById<TextView>(R.id.overlay_countdown).text = "${seconds(state)} s"
         root.findViewById<Button>(R.id.overlay_reduce).visibility = if (state.openRestSegment == null) View.GONE else View.VISIBLE
@@ -114,6 +122,12 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
             }
             findViewById<View>(R.id.overlay_skip).setOnClickListener {
                 dispatch(snapshot.command(if (restExpired(snapshot)) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest))
+            }
+            findViewById<View>(R.id.overlay_cardio_pause).setOnClickListener {
+                dispatch(snapshot.command(if (snapshot.paused == null) WorkoutEvent.PauseSession else WorkoutEvent.ResumeSession))
+            }
+            findViewById<View>(R.id.overlay_cardio_finish).setOnClickListener {
+                dispatch(snapshot.command(WorkoutEvent.FinishCardio))
             }
             listOf(R.id.overlay_rir0, R.id.overlay_rir1, R.id.overlay_rir2, R.id.overlay_rir3, R.id.overlay_rir4)
                 .forEachIndexed { rir, id -> findViewById<View>(id).setOnClickListener {

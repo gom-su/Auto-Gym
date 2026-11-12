@@ -53,14 +53,15 @@ class WorkoutRepository(
     }
 
     /** Loads a planned day as the next session. Never replaces a session in progress. */
-    suspend fun load(plan: List<PlannedSet>, source: SessionSource, previousWeekId: String? = null): LoadResult = mutex.withLock {
+    suspend fun load(plan: List<PlannedSet>, source: SessionSource, previousWeekId: String? = null,
+                     cardioPlan: List<PlannedCardio> = emptyList()): LoadResult = mutex.withLock {
         loadLocked()
         val previous = mutableState.value
-        if (previous.phase == Phase.ActiveSet || previous.phase == Phase.Resting) return@withLock LoadResult.SESSION_IN_PROGRESS
+        if (previous.phase.inProgress) return@withLock LoadResult.SESSION_IN_PROGRESS
         val references = previousWeekId?.let {
             previousWorkSets(mutableHistory.value.sessions + previous, source.programId, it, plan)
         }.orEmpty()
-        val next = reducer.load(previous, plan, source, idFactory(), references)
+        val next = reducer.load(previous, plan, source, idFactory(), references, cardioPlan)
         WorkoutValidation.validate(next)
         archiveLocked(previous)
         storage.write(next)
@@ -112,7 +113,7 @@ class WorkoutRepository(
     /** Only backup rollback may replace an in-progress session. */
     suspend fun replaceAll(state: WorkoutState, archive: WorkoutHistory, allowInProgress: Boolean = false): LoadResult =
         withBackupAccess { access ->
-            if (!allowInProgress && (access.workout.phase == Phase.ActiveSet || access.workout.phase == Phase.Resting))
+            if (!allowInProgress && access.workout.phase.inProgress)
                 LoadResult.SESSION_IN_PROGRESS
             else { access.replace(state, archive); LoadResult.LOADED }
         }
@@ -131,6 +132,9 @@ class WorkoutRepository(
                 if (segment.id == state.openRestSegment?.id)
                     segment.copy(startedAtElapsedMillis = elapsedAt(segment.startedAtMillis), bootCount = now.bootCount)
                 else segment
+            },
+            cardioRun = state.cardioRun?.let { run ->
+                run.copy(started = run.started.copy(elapsedMillis = elapsedAt(run.started.wallMillis), bootCount = now.bootCount))
             },
             paused = state.paused?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) })
         val restored = reducer.reduce(portable, portable.command(WorkoutEvent.RestFinished), now, idFactory())
@@ -153,7 +157,7 @@ class WorkoutRepository(
     }
 
     private suspend fun archiveLocked(session: WorkoutState) {
-        if (session.records.isEmpty()) return
+        if (session.records.isEmpty() && session.cardio.isEmpty() && session.cardioRun == null) return
         // A session reset mid-way is archived as ended early, exactly as recorded so far.
         val now = clock()
         // An open pause is closed at archive time so its duration is not lost.

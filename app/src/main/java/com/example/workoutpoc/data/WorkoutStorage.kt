@@ -10,6 +10,9 @@ import com.example.workoutpoc.domain.SetValues
 import com.example.workoutpoc.domain.MAX_NOTE_LENGTH
 import com.example.workoutpoc.domain.MAX_SET_REVISIONS
 import com.example.workoutpoc.domain.WorkoutState
+import com.example.workoutpoc.domain.currentCardio
+import com.example.workoutpoc.domain.inProgress
+import com.example.workoutpoc.domain.nextCardio
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -28,7 +31,7 @@ class DataStoreWorkoutStorage(private val store: DataStore<WorkoutState>) : Work
     override suspend fun write(state: WorkoutState) { store.updateData { state } }
 }
 
-fun WorkoutState.activePlan(): List<PlannedSet> = plan.ifEmpty { DemoWorkout.sets }
+fun WorkoutState.activePlan(): List<PlannedSet> = if (source == null) DemoWorkout.sets else plan
 
 /** Invariants shared by the live snapshot and archived sessions. Throws IllegalArgumentException. */
 object WorkoutValidation {
@@ -43,9 +46,21 @@ object WorkoutValidation {
             require(!p.extra || (p.prescriptionId == null && !p.loadPrescribed))
             require(!p.warmup || p.extra)
         }
-        require((s.plan.isEmpty()) == (s.source == null))
-        require(s.index in plan.indices)
-        values(s.values, plan[s.index], allowZeroReps = true)
+        require(if (s.source == null) s.plan.isEmpty() && s.cardioPlan.isEmpty() else plan.isNotEmpty() || s.cardioPlan.isNotEmpty())
+        require(s.index in 0..if (s.phase == Phase.ActiveCardio) plan.size else plan.lastIndex.coerceAtLeast(0))
+        require((s.phase != Phase.ActiveSet && s.phase != Phase.Resting) || s.index in plan.indices)
+        if (s.phase != Phase.ActiveCardio) plan.getOrNull(s.index)?.let { values(s.values, it, allowZeroReps = true) }
+        val cardioIds = s.cardioPlan.map { it.stepId }
+        require(cardioIds.size <= 100 && cardioIds.distinct().size == cardioIds.size)
+        val strengthIds = plan.mapNotNull { it.prescriptionId }.toSet()
+        require(s.cardioPlan.all { step ->
+            step.stepId.matches(Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")) && step.stepId !in strengthIds &&
+                step.modality.isNotBlank() && step.modality == step.modality.trim() && step.modality.length <= 200 &&
+                step.plannedSeconds in 1..604_800 && (step.beforeSetId == null || step.beforeSetId in strengthIds)
+        })
+        require((s.phase == Phase.ActiveCardio) == (s.cardioRun != null))
+        require(s.cardioRun == null || (s.cardioRun.pausedMillis >= 0 && s.currentCardio != null &&
+            s.currentCardio == s.nextCardio(plan, s.index)))
         require(s.records.map { it.index } == (0 until s.records.size).toList())
         require(s.records.size <= plan.size)
         s.records.forEach { r ->
@@ -62,12 +77,15 @@ object WorkoutValidation {
             }
         }
         require((s.phase == Phase.Resting) == (s.rest != null))
-        require(s.paused == null || s.phase == Phase.ActiveSet || s.phase == Phase.Resting)
+        require(s.paused == null || s.phase.inProgress)
         require(s.pausedMillis >= 0)
         require(s.previousWorkSets.size <= 1000 && (s.source != null || s.previousWorkSets.isEmpty()))
         require(s.previousWorkSets.values.all { it.weightTenths in 0..1_000_000 && it.reps in 1..1000 &&
             (it.rir == null || it.rir in 0..4) })
         require(s.cardio.size <= 100 && s.cardio.map { it.id }.distinct().size == s.cardio.size)
+        require(s.cardio.count { it.plannedCardioId == null } + s.cardioPlan.size <= 100)
+        val recordedCardioIds = s.cardio.mapNotNull { it.plannedCardioId }
+        require(recordedCardioIds.distinct().size == recordedCardioIds.size && cardioIds.containsAll(recordedCardioIds))
         s.cardio.forEach { c ->
             try { com.example.workoutpoc.domain.validateCardio(c) }
             catch (e: com.example.workoutpoc.domain.WorkoutEditException) { throw IllegalArgumentException(e.message) }

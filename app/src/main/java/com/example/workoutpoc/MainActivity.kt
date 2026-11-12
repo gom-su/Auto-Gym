@@ -468,7 +468,7 @@ class MainActivity : ComponentActivity() {
                 val repo = workoutApp.repository
                 repo.restore()
                 if (repo.state.value.phase == Phase.Idle) repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-                if (repo.state.value.phase == Phase.ActiveSet || repo.state.value.phase == Phase.Resting) {
+                if (repo.state.value.phase.inProgress) {
                     startWorkoutService(mode)
                     if (notificationEnabled) message = if (mode == WorkoutOverlayService.SHOW)
                         "Panel flotante abierto. Puedes cambiar a otra aplicación." else "Despliega la notificación para registrar sin salir de tu aplicación."

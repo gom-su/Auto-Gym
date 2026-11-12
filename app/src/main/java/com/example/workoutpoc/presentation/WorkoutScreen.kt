@@ -40,7 +40,7 @@ fun WorkoutScreen(
     val plan: List<PlannedSet> = state.activePlan()
     val source: SessionSource? = state.source
     val demo: Boolean = source == null
-    val active = state.phase == Phase.ActiveSet || state.phase == Phase.Resting
+    val active = state.phase.inProgress
     val colors = MaterialTheme.colorScheme
     Scaffold(topBar = {
         Column {
@@ -63,8 +63,14 @@ fun WorkoutScreen(
                 if (state.phase != Phase.Completed)
                     ModeSection(demo, ready, compact = active, overlayGranted, onNotificationMode, onOverlayMode, overlayFirst)
                 when (state.phase) {
-                    Phase.Idle -> PlanPreview(plan, demo)
+                    Phase.Idle -> {
+                        if (plan.isNotEmpty()) PlanPreview(plan, demo)
+                        state.cardioPlan.forEach { step ->
+                            SupportingText("${step.modality} · ${durationLabel(step.plannedSeconds * 1000L)}")
+                        }
+                    }
                     Phase.ActiveSet -> ActiveSetCard(state, plan, demo, dispatch)
+                    Phase.ActiveCardio -> FocusCard { CardioTimer(state, now, dispatch) }
                     Phase.Resting -> state.paused.let { pause ->
                         if (pause == null) FocusCard { RestControls(state, plan, now, dispatch) }
                         else {
@@ -80,7 +86,7 @@ fun WorkoutScreen(
                     Phase.Completed -> CompletedCard(state, plan)
                 }
                 SessionStatus(state, now, dispatch)
-                if (state.paused == null) DeviationActions(state, dispatch)
+                if (state.paused == null && plan.isNotEmpty() && state.phase != Phase.ActiveCardio) DeviationActions(state, dispatch)
                 CardioSection(state, onAddCardio, onRemoveCardio)
                 if (state.records.isNotEmpty()) RecordList(state, plan, demo) { editing = it }
                 if (state.phase != Phase.Idle || !demo) SessionEndActions(state, demo, archivedCount, dispatch) {
@@ -111,6 +117,7 @@ fun WorkoutScreen(
                         Text(plan[state.index].exercise, style = MaterialTheme.typography.titleMedium)
                         WorkoutControls(state, dispatch)
                     }
+                    Phase.ActiveCardio -> CardioTimer(state, now, dispatch)
                     Phase.Resting -> RestControls(state, plan, now, dispatch)
                     Phase.Completed -> SupportingText("Entrenamiento terminado. Consulta el resumen.")
                     Phase.Idle -> SupportingText(if (demo) "Inicia el demo desde la pantalla principal." else "Inicia la sesión desde la pantalla principal.")
@@ -124,11 +131,16 @@ fun WorkoutScreen(
 private fun SessionHeader(state: WorkoutState, plan: List<PlannedSet>, source: SessionSource?, compact: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Eyebrow(if (source == null) "WORKOUT / POC" else "SESIÓN PLANIFICADA")
-        if (!compact) Text(if (state.phase == Phase.Completed) "Sesión completada." else "Tu siguiente serie.",
+        if (!compact) Text(when {
+            state.phase == Phase.Completed -> "Sesión terminada"
+            plan.isEmpty() -> "Cardio planificado"
+            else -> "Tu siguiente serie"
+        },
             style = MaterialTheme.typography.headlineMedium)
         SupportingText(if (source == null) "3 ejercicios · 7 series · descansos de 10 s"
             else "${source.programName} · ${source.weekName} · ${source.dayName}\n" +
-                "${plan.distinctBy { it.exerciseId to it.exercise }.size} ejercicios · ${plan.size} series")
+                listOfNotNull("${plan.distinctBy { it.exerciseId to it.exercise }.size} ejercicios · ${plan.size} series".takeIf { plan.isNotEmpty() },
+                    "${state.cardioPlan.size} de cardio".takeIf { state.cardioPlan.isNotEmpty() }).joinToString(" · "))
     }
 }
 
@@ -245,7 +257,8 @@ private fun CompletedCard(state: WorkoutState, plan: List<PlannedSet>) {
         Column(Modifier.padding(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Icon(AppIcons.CheckCircle, contentDescription = null, modifier = Modifier.size(32.dp))
             Text("Entrenamiento terminado", style = MaterialTheme.typography.headlineSmall)
-            Text(if (state.endedEarly) "Terminaste antes de completar el plan. ${state.records.size}/${plan.size} series registradas."
+            Text(if (state.endedEarly || !state.plannedCardioComplete) "Terminaste antes de completar el plan."
+                else if (plan.isEmpty()) "Completaste el cardio planificado."
                 else "Completaste las ${plan.size} series.", style = MaterialTheme.typography.bodyLarge)
         }
     }
@@ -288,7 +301,7 @@ private fun SessionEndActions(state: WorkoutState, demo: Boolean, archivedCount:
         HorizontalDivider(Modifier.padding(vertical = Spacing.sm), color = MaterialTheme.colorScheme.outlineVariant)
         if (state.phase != Phase.Idle) {
             SecondaryAction("Deshacer última serie", { dispatch(state.command(WorkoutEvent.UndoLastSet)) },
-                enabled = state.records.isNotEmpty(), icon = AppIcons.Undo)
+                enabled = state.records.isNotEmpty() && state.phase != Phase.ActiveCardio, icon = AppIcons.Undo)
             if (state.phase != Phase.Completed)
                 TonalAction("Terminar entrenamiento", { dispatch(state.command(WorkoutEvent.FinishWorkout)) }, icon = AppIcons.Stop)
         }
