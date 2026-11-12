@@ -77,6 +77,16 @@ class WeekAnnotationRepository(private val store: DataStore<WeekAnnotations>) {
     private suspend fun replaceAllLocked(annotations: WeekAnnotations) { WeekAnnotationsSerializer.validate(annotations); mutable.value = store.updateData { annotations } }
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(weekAnnotations = store.data.first()) }, { replaceAllLocked(it.weekAnnotations) })
+    /** Returns the total of removed deload and not-performed annotations. */
+    suspend fun removeProgram(programId: String): Int = mutex.withLock {
+        val current = store.data.first()
+        val deloads = current.deloads.filterNot { it.programId == programId }
+        val notPerformed = current.notPerformed.filterNot { it.programId == programId }
+        val removed = current.deloads.size - deloads.size + current.notPerformed.size - notPerformed.size
+        if (removed > 0) replaceAllLocked(current.copy(deloads = deloads, notPerformed = notPerformed))
+        removed
+    }
+
     suspend fun setDeload(programId: String, weekId: String, deload: Boolean) = mutex.withLock {
         val ref = WeekRef(programId, weekId)
         mutable.value = store.updateData { a ->

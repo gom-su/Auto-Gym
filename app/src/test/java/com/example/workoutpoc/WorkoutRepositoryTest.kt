@@ -62,6 +62,88 @@ class WorkoutRepositoryTest {
         assertEquals(Phase.ActiveSet, repo.state.value.phase)
     }
 
+    private fun source(program: String, week: String = "week") =
+        SessionSource(program, program, "block", week, week, 1, "day", "day")
+
+    private suspend fun WorkoutRepository.recordSession(program: String, week: String) {
+        load(DemoWorkout.sets.take(1), source(program, week))
+        dispatch(state.value.command(WorkoutEvent.StartWorkout))
+        dispatch(state.value.command(WorkoutEvent.CompleteSet))
+    }
+
+    @Test fun `program deletion removes current and archived sessions and returns their IDs`() = runTest {
+        val storage = MemoryStorage()
+        val history = MemorySessionHistory()
+        var ids = 0
+        val repository = WorkoutRepository(storage, { time }, { "session-${++ids}" }, history)
+        repository.recordSession("other", "week-one")
+        val kept = repository.state.value
+        repository.recordSession("target", "week-one")
+        val archivedId = repository.state.value.sessionId
+        repository.recordSession("target", "week-two")
+        val currentId = repository.state.value.sessionId
+
+        assertEquals(2 to listOf(archivedId, currentId), repository.deleteProgramRecords("target"))
+        assertEquals(listOf(kept), history.read().sessions)
+        assertEquals(history.read(), repository.archived.value)
+        assertEquals(WorkoutState(), storage.saved)
+        assertEquals(storage.saved, repository.state.value)
+        assertEquals(0 to emptyList<String>(), repository.deleteProgramRecords("target"))
+    }
+
+    @Test fun `program deletion refuses strength rest and cardio in progress only for the target`() = runTest {
+        for (phase in listOf(Phase.ActiveSet, Phase.Resting, Phase.ActiveCardio)) {
+            val storage = MemoryStorage()
+            val history = MemorySessionHistory()
+            var ids = 0
+            val repository = WorkoutRepository(storage, { time }, { "session-${++ids}" }, history)
+            repository.recordSession("other", "week-one")
+            repository.recordSession("target", "week-one")
+            if (phase == Phase.ActiveCardio) {
+                repository.load(emptyList(), source("target"), cardioPlan = listOf(PlannedCardio("bike", "Bici", 60)))
+            } else {
+                repository.load(DemoWorkout.sets.take(2), source("target"))
+            }
+            repository.dispatch(repository.state.value.command(WorkoutEvent.StartWorkout))
+            if (phase == Phase.Resting) repository.dispatch(repository.state.value.command(WorkoutEvent.CompleteSet))
+            val active = repository.state.value
+            val archive = history.read()
+            assertEquals(phase, active.phase)
+            try {
+                repository.deleteProgramRecords("target")
+                fail("Expected deletion to reject phase $phase")
+            } catch (_: IllegalStateException) { }
+            assertEquals(active, storage.saved)
+            assertEquals(archive, history.read())
+
+            val otherId = archive.sessions.single { it.source?.programId == "other" }.sessionId
+            assertEquals(1 to listOf(otherId), repository.deleteProgramRecords("other"))
+            assertEquals(active, repository.state.value)
+        }
+    }
+
+    @Test fun `program deletion restores the archive if clearing the current session fails`() = runTest {
+        val storage = MemoryStorage()
+        val history = MemorySessionHistory()
+        var ids = 0
+        val repository = WorkoutRepository(storage, { time }, { "session-${++ids}" }, history)
+        repository.recordSession("target", "week-one")
+        repository.recordSession("target", "week-two")
+        val archive = history.read()
+        val current = storage.saved
+        storage.fail = true
+        try {
+            repository.deleteProgramRecords("target")
+            fail("Expected IO error")
+        } catch (_: IOException) { }
+        assertEquals(archive, history.read())
+        assertEquals(archive, repository.archived.value)
+        assertEquals(current, storage.saved)
+        assertEquals(current, repository.state.value)
+        storage.fail = false
+        assertEquals(2, repository.deleteProgramRecords("target").first)
+    }
+
     @Test fun `real DataStore file restores edits records and deadline across instances`() = runTest {
         val file = folder.newFolder().resolve("workout.json")
         val scope1 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
