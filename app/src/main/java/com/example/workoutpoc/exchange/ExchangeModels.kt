@@ -38,7 +38,10 @@ import java.time.Instant
     val id: String, val version: Int, val programId: String, val blockId: String,
     val source: String, val week: WeekPlan, val differences: List<String>, val reasons: List<String>
 )
-@Serializable data class TrainingResults(val sessions: List<SessionResult>, val demo: DemoSnapshot? = null)
+@Serializable data class TrainingResults(val sessions: List<SessionResult>, val demo: DemoSnapshot? = null) {
+    /** History for an agent's context: recorded sessions only, never the built-in demo's fixed synthetic sets. */
+    fun forAgentContext() = copy(demo = null)
+}
 /** Legacy demo values are integer tenths of kg. Its load basis was never captured. */
 @Serializable data class DemoSnapshot(val state: DemoStateV1, val loadUnit: String = "KG", val loadBasis: String = "UNSPECIFIED", val loadScale: Int = 10)
 @Serializable enum class PerformanceStatus { COMPLETED, PARTIAL, NOT_PERFORMED, OMITTED }

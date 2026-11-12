@@ -37,6 +37,11 @@ class ExchangeTest {
                 "Agente ficticio", p.blocks[0].weeks[0], listOf("Cambio ficticio"), listOf("Razón ficticia"))),
             ExchangePackage(1, ExchangeType.TrainingResults, "results", date, results = results()))
     }
+    @Test fun `the history prepared for an agent keeps the recorded sessions and drops the demo snapshot`() {
+        val history = results().forAgentContext()
+        assertNull(history.demo)
+        assertEquals(results().sessions, history.sessions)
+    }
     @Test fun `all supported fields round trip including missing zero notes units dates and legacy snapshot`() {
         packages().forEach { assertEquals(it, ExchangeCodec.decode(ExchangeCodec.encode(it))) }
     }
