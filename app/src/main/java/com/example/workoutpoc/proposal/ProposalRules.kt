@@ -168,7 +168,13 @@ object ProposalRules {
             val topWork = exercise.workSets().mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } }
             nonWork.forEach { set ->
                 val load = set.load ?: return@forEach
-                val top = topWork[load.unit to load.basis] ?: return@forEach
+                val top = topWork[load.unit to load.basis]
+                if (top == null) {
+                    // Different unit or basis cannot be compared with the work load, so it is blocked rather than skipped.
+                    if (topWork.isNotEmpty()) add("NON_WORK_LOAD", Severity.BLOCKING,
+                        "${day.name} · ${exercise.name}: una serie de ${if (set.kind == SetKind.WARMUP) "calentamiento" else "aproximación"} usa ${load.unit} ${load.basis}, distinta de la carga de trabajo (${topWork.keys.label()}); no se puede comparar.")
+                    return@forEach
+                }
                 if (load.value > top) add("NON_WORK_LOAD", Severity.BLOCKING,
                     "${day.name} · ${exercise.name}: una serie de ${if (set.kind == SetKind.WARMUP) "calentamiento" else "aproximación"} pesa ${load.value.fmt()} ${load.unit} ${load.basis}, más que la carga de trabajo máxima (${top.fmt()}).")
             }

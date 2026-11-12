@@ -71,6 +71,15 @@ class ProposalLoadRulesTest {
         assertTrue(evaluate(proposal).blocking.any { it.code == "NON_WORK_LOAD" })
     }
 
+    @Test fun `a warm-up in another unit or basis than its work sets is blocked, not skipped`() {
+        val proposal = base.withFirstExercise { e ->
+            val warm = e.sets.first().copy(id = "${e.id}-warm", kind = SetKind.WARMUP,
+                load = PrescribedLoad(200.0, LoadUnit.LB, LoadBasis.TOTAL))
+            e.copy(sets = listOf(warm) + e.sets)
+        }
+        assertTrue(evaluate(proposal).blocking.any { it.code == "NON_WORK_LOAD" })
+    }
+
     @Test fun `more than four warm-up or approach sets on one exercise are blocked`() {
         val proposal = base.withFirstExercise { e ->
             val light = e.sets.first().copy(kind = SetKind.APPROACH)

@@ -120,6 +120,47 @@ class McpServerTest(unittest.TestCase):
                     "el rango que la persona puede ajustar durante la sesión.", message)
         self.assertEqual([], os.listdir(self.outbox))
 
+    def test_rejects_exercise_without_work_sets(self):
+        args = self.proposal()
+        sets = args["week"]["days"][0]["exercises"][0]["sets"]
+        sets[0]["kind"] = "WARMUP"
+        sets[1]["kind"] = "APPROACH"
+        error, message = self.tool("create_week_proposal", args)
+        self.assertTrue(error)
+        self.assertEqual("Error: Día MCP · Sentadilla ficticia: no tiene series de trabajo; "
+                         "solo calentamientos o aproximaciones no se pueden revisar.", message)
+        self.assertEqual([], os.listdir(self.outbox))
+
+    def test_non_work_load_is_bounded_by_work_load_in_same_unit(self):
+        work = self.proposal()["week"]["days"][0]["exercises"][0]["sets"][0]
+        heavier = dict(work, id="mcp-week-heavy", kind="WARMUP", load=dict(work["load"], value=work["load"]["value"] + 10))
+        other_unit = dict(work, id="mcp-week-unit", kind="APPROACH", load=dict(work["load"], unit="LB"))
+        for extra, fragment in ((heavier, "más que la carga de trabajo máxima"), (other_unit, "no se puede comparar")):
+            with self.subTest(fragment=fragment):
+                case = self.proposal()
+                case["week"]["days"][0]["exercises"][0]["sets"].insert(0, extra)
+                error, message = self.tool("create_week_proposal", case)
+                self.assertTrue(error)
+                self.assertIn(fragment, message)
+        ok = self.proposal()
+        ok["week"]["days"][0]["exercises"][0]["sets"].insert(0, dict(work, id="mcp-week-same", kind="APPROACH"))
+        error, message = self.tool("create_week_proposal", ok)
+        self.assertFalse(error, message)
+
+    def test_caps_combined_warmup_and_approach_sets_per_exercise(self):
+        args = self.proposal()
+        sets = args["week"]["days"][0]["exercises"][0]["sets"]
+        sets[:0] = [dict(sets[0], id=f"preparation-{i}", kind=kind)
+                    for i, kind in enumerate(("WARMUP", "WARMUP", "APPROACH", "APPROACH", "APPROACH"))]
+        error, message = self.tool("create_week_proposal", args)
+        self.assertTrue(error)
+        self.assertEqual("Error: Día MCP · Sentadilla ficticia: 5 series de calentamiento o aproximación; el máximo es 4.",
+                         message)
+        self.assertEqual([], os.listdir(self.outbox))
+        del sets[0]
+        error, message = self.tool("create_week_proposal", args)
+        self.assertFalse(error, message)
+
     def test_accepts_no_rest_range_endpoints_and_omitted_rest(self):
         args = self.proposal()
         sets = args["week"]["days"][0]["exercises"][0]["sets"]

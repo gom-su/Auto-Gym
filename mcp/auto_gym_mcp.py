@@ -36,6 +36,7 @@ ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 UNIT_BASES = {"KG": {"TOTAL", "PER_SIDE", "PER_HAND"}, "LB": {"TOTAL", "PER_SIDE", "PER_HAND"},
               "MACHINE_SETTING": {"MACHINE_SETTING"}, "BODYWEIGHT": {"BODYWEIGHT"}}
 MAX_BYTES = 1_048_576
+MAX_NON_WORK_SETS = 4
 
 
 class ToolError(Exception):
@@ -126,6 +127,28 @@ def validate_week(week):
                     _check(isinstance(load["value"], (int, float)) and not isinstance(load["value"], bool) and 0 <= load["value"] <= 100000,
                            f"{sp}: carga fuera de rango.")
                     _check(load["basis"] in UNIT_BASES.get(load["unit"], set()), f"{sp}: unidad y base de carga incompatibles.")
+            non_work_count = sum(s.get("kind", "WORK") != "WORK" for s in e["sets"])
+            exercise_label = f"{d['name']} · {e['name']}"
+            _check(non_work_count < len(e["sets"]),
+                   f"{exercise_label}: no tiene series de trabajo; solo calentamientos o aproximaciones no se pueden revisar.")
+            _check(non_work_count <= MAX_NON_WORK_SETS,
+                   f"{exercise_label}: {non_work_count} series de calentamiento o aproximación; el máximo es {MAX_NON_WORK_SETS}.")
+            # Same rule as the app's NON_WORK_LOAD: a warm-up or approach cannot be heavier than the heaviest work set
+            # of the exercise in the same unit and basis, and a different unit or basis cannot be compared, so it is blocked.
+            work_loads = {}
+            for s in e["sets"]:
+                if s.get("kind", "WORK") == "WORK" and s.get("load"):
+                    key = (s["load"]["unit"], s["load"]["basis"])
+                    work_loads[key] = max(work_loads.get(key, float("-inf")), s["load"]["value"])
+            for si, s in enumerate(e["sets"], 1):
+                if s.get("kind", "WORK") == "WORK" or not s.get("load") or not work_loads:
+                    continue
+                key = (s["load"]["unit"], s["load"]["basis"])
+                kind_label = "calentamiento" if s["kind"] == "WARMUP" else "aproximación"
+                if key not in work_loads:
+                    _check(False, f"{exercise_label}, serie {si}: una serie de {kind_label} usa {key[0]} {key[1]}, distinta de la carga de trabajo; no se puede comparar.")
+                _check(s["load"]["value"] <= work_loads[key],
+                       f"{exercise_label}, serie {si}: una serie de {kind_label} pesa {s['load']['value']} {key[0]} {key[1]}, más que la carga de trabajo máxima ({work_loads[key]}).")
             seen_ids = [e["id"]] + [s["id"] for s in e["sets"]]
             _check(not (set(seen_ids) & seen) and len(set(seen_ids)) == len(seen_ids), f"{ep}: ID duplicado.")
             seen.update(seen_ids)

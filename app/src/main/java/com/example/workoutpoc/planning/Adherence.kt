@@ -55,7 +55,11 @@ fun adherence(programs: List<TrainingProgram>, sessions: List<WorkoutState>, ann
             val done = best?.let(::completed) ?: 0
             val omitted = best?.let { workRecords(it, SetStatus.SKIPPED) } ?: 0
             val inProgress = list.any { it.phase.inProgress }
-            val fullyDone = list.any { s -> s.phase == Phase.Completed && !s.endedEarly && completed(s) == prescribed && s.plannedCardioComplete }
+            val fullyDone = list.any { s ->
+                val hasWorkOrPlannedCardio = prescribed > 0 || (day.cardio != null && s.cardioPlan.isNotEmpty())
+                hasWorkOrPlannedCardio && s.phase == Phase.Completed && !s.endedEarly &&
+                    completed(s) == prescribed && s.plannedCardioComplete
+            }
             val status = when {
                 fullyDone -> DayStatus.COMPLETED
                 done > 0 || inProgress || list.any { s -> s.cardio.any { it.plannedCardioId != null } } -> DayStatus.PARTIAL
