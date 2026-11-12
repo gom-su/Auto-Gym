@@ -24,6 +24,7 @@ import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.planning.DayAdherence
 import com.example.workoutpoc.planning.DayStatus
 import com.example.workoutpoc.planning.SessionPlan
+import com.example.workoutpoc.planning.trainingDescription
 import com.example.workoutpoc.ui.*
 import com.example.workoutpoc.ui.theme.Spacing
 
@@ -69,7 +70,7 @@ fun HomeScreen(
                 } else {
                     Text((if (shown == week.next) "Siguiente: " else "") + shown.name, style = MaterialTheme.typography.titleLarge)
                     SupportingText("${week.program.name} · ${week.week.name}")
-                    SupportingText("${plural(shown.exercises.size, "ejercicio", "ejercicios")} · ${plural(shown.exercises.sumOf { it.sets.size }, "serie", "series")}")
+                    SupportingText(shown.trainingDescription())
                     PrimaryAction("Entrenar ${shown.name}", { onTrain(week.program.id, week.week.id, shown.id) }, enabled = ready, icon = AppIcons.Play, tall = true)
                 }
             }
