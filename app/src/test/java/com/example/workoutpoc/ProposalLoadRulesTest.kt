@@ -55,4 +55,21 @@ class ProposalLoadRulesTest {
         }
         assertTrue(evaluate(proposal).blocking.none { it.code == "WARMUP_ORDER" })
     }
+
+    @Test fun `approach sets do not count as volume, reps or load against the base week`() {
+        val proposal = base.withFirstExercise { e ->
+            val first = e.sets.first()
+            val light = first.load?.let { it.copy(value = it.value / 2) }
+            val approach = (1..3).map { first.copy(id = "${e.id}-ap$it", kind = SetKind.APPROACH, reps = 1, rir = null, load = light) }
+            e.copy(sets = approach + e.sets)
+        }
+        val plain = evaluate(base)
+        val withApproach = evaluate(proposal)
+        assertEquals(plain.issues.map { it.code }, withApproach.issues.map { it.code })
+        assertEquals(plain.differences, withApproach.differences)
+        // The explained changes of the review use the same definition of a work set.
+        val saved = context.programs.flatMap { it.blocks }.flatMap { it.weeks }.last()
+        assertEquals(ProposalExplain.explain(base, saved, emptyList()).map { it.summary },
+            ProposalExplain.explain(proposal, saved, emptyList()).map { it.summary })
+    }
 }

@@ -45,9 +45,12 @@ data class ProposalEvaluation(
 private data class ExerciseSummary(val name: String, val sets: Int, val loads: Map<Pair<LoadUnit, LoadBasis>, Double>,
                                    val minReps: Int?, val maxReps: Int?, val minRir: Int?)
 
+/** Warm-up and approach sets are prescribed apart: they never count as volume, rep range or effort (contract §3). */
+internal fun ExercisePrescription.workSets() = sets.filter { it.kind == SetKind.WORK }
+
 private fun WeekPlan.summary(): Map<String, ExerciseSummary> =
     days.flatMap { it.exercises }.groupBy { it.exerciseId }.mapValues { (_, list) ->
-        val sets = list.flatMap { it.sets }
+        val sets = list.flatMap { it.workSets() }
         ExerciseSummary(list.first().name, sets.size,
             sets.mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } },
             sets.mapNotNull { it.reps }.minOrNull(), sets.mapNotNull { it.reps }.maxOrNull(), sets.mapNotNull { it.rir }.minOrNull())
@@ -133,7 +136,7 @@ object ProposalRules {
             sessions.filter { it.programId == null || it.programId == proposal.programId }, settings, ::add)
             else block?.weeks?.lastOrNull { it.id != week.id }
         val proposed = week.summary()
-        week.days.flatMap { it.exercises }.flatMap { e -> e.sets.filter { it.rir == 0 }.map { e.name } }.distinct().forEach {
+        week.days.flatMap { it.exercises }.flatMap { e -> e.workSets().filter { it.rir == 0 }.map { e.name } }.distinct().forEach {
             add("RIR_ZERO", settings.rirZero, "$it: prescribe series al fallo (RIR 0).")
         }
         // Contract §1: every strength set carries an explicit load before the proposal can be approved, and warm-up or
@@ -216,20 +219,20 @@ object ProposalRules {
         exercises.groupBy { it.exerciseId }.forEach { (id, list) ->
             val t = targetFor(id) ?: return@forEach
             val name = list.first().name
-            val sets = list.flatMap { it.sets }
+            val sets = list.flatMap { it.workSets() }
             val reps = sets.mapNotNull { it.reps }
             val rirs = sets.mapNotNull { it.rir }
             if ((t.repsMin != null && reps.any { it < t.repsMin }) || (t.repsMax != null && reps.any { it > t.repsMax }))
                 add("OUTLINE_REPS", settings.outlineTargets, "$name: repeticiones ${range(reps.minOrNull(), reps.maxOrNull())} fuera del objetivo ${range(t.repsMin, t.repsMax)} de ${t.label} (semana $position).")
             if (t.rirMin != null && rirs.any { it < t.rirMin })
                 add("OUTLINE_RIR", settings.outlineTargets, "$name: RIR ${rirs.min()} por debajo del mínimo ${t.rirMin} de ${t.label} (semana $position).")
-            if (t.sets != null && list.any { it.sets.size > t.sets })
-                add("OUTLINE_SETS", settings.outlineTargets, "$name: ${list.maxOf { it.sets.size }} series; el plan indica ${t.sets} en ${t.label} (semana $position).")
+            if (t.sets != null && list.any { it.workSets().size > t.sets })
+                add("OUTLINE_SETS", settings.outlineTargets, "$name: ${list.maxOf { it.workSets().size }} series; el plan indica ${t.sets} en ${t.label} (semana $position).")
         }
         val base = previous.withIndex().lastOrNull { (i, _) -> !plan.weeks[i].deload }?.value ?: previous.lastOrNull()
         if (target.deload && base != null) {
-            val before = base.days.sumOf { d -> d.exercises.sumOf { it.sets.size } }
-            val now = p.week.days.sumOf { d -> d.exercises.sumOf { it.sets.size } }
+            val before = base.days.sumOf { d -> d.exercises.sumOf { it.workSets().size } }
+            val now = p.week.days.sumOf { d -> d.exercises.sumOf { it.workSets().size } }
             if (now > before) add("OUTLINE_DELOAD", settings.outlineTargets, "La semana $position es de descarga y tiene $now series frente a $before de ${base.name}.")
         }
         return base
