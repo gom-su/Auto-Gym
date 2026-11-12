@@ -137,6 +137,11 @@ class WorkoutRepository(
             cardioRun = state.cardioRun?.let { run ->
                 run.copy(started = run.started.copy(elapsedMillis = elapsedAt(run.started.wallMillis), bootCount = now.bootCount))
             },
+            timing = state.timing?.let { timing ->
+                timing.copy(open = timing.open?.let { segment ->
+                    segment.copy(start = segment.start.copy(elapsedMillis = elapsedAt(segment.start.wallMillis), bootCount = now.bootCount))
+                })
+            },
             paused = state.paused?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) })
         val restored = reducer.reduce(portable, portable.command(WorkoutEvent.RestFinished), now, idFactory())
         WorkoutValidation.validate(restored)
@@ -158,7 +163,8 @@ class WorkoutRepository(
     }
 
     private suspend fun archiveLocked(session: WorkoutState) {
-        if (session.records.isEmpty() && session.cardio.isEmpty() && session.cardioRun == null) return
+        if (session.records.isEmpty() && session.cardio.isEmpty() && session.cardioRun == null &&
+            session.timing?.open == null && session.timing?.segments.isNullOrEmpty()) return
         // A session reset mid-way is archived as ended early, exactly as recorded so far.
         val now = clock()
         // An open pause is closed at archive time so its duration is not lost.

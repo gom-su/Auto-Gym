@@ -181,7 +181,8 @@ data class WorkoutState(
     /** Rest segments (contract §5). The legacy [rest] deadline remains until the reducer migrates. */
     val restSegments: List<RestSegment> = emptyList(),
     val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap(),
-    val cardioRun: CardioRun? = null
+    val cardioRun: CardioRun? = null,
+    val timing: SessionTiming? = null
 )
 
 enum class WorkoutEvent {

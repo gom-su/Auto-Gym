@@ -376,7 +376,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }, overlayFirst = workoutApp.settings.settings.collectAsStateWithLifecycle().value.loggingMode ==
-                    com.example.workoutpoc.settings.LoggingMode.OVERLAY)
+                    com.example.workoutpoc.settings.LoggingMode.OVERLAY, onFinalize = {
+                    lifecycleScope.launch {
+                        workoutApp.safely {
+                            workoutApp.repository.dispatch(state.command(WorkoutEvent.ResetDemo))
+                            if (workoutApp.repository.state.value.sessionId != state.sessionId) nav.select(Tab.Hoy)
+                        }
+                    }
+                })
     }
 
     /** Floating panel mode; asks for the overlay permission first when it is missing (granting then opens the panel). */

@@ -5,6 +5,7 @@ import com.example.workoutpoc.domain.SetStatus
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.domain.plannedCardioComplete
+import com.example.workoutpoc.domain.measuredDurationMillis
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -22,7 +23,8 @@ data class DayAdherence(
     val unrecordedSets: Int, val extraSets: Int, val cardioMinutes: Int, val sessions: Int, val inProgress: Boolean
 )
 
-data class WeekAdherence(val program: TrainingProgram, val week: WeekPlan, val days: List<DayAdherence>) {
+data class WeekAdherence(val program: TrainingProgram, val week: WeekPlan, val days: List<DayAdherence>,
+                         val measuredSessions: Int = 0, val averageSessionMillis: Long? = null) {
     fun count(status: DayStatus) = days.count { it.status == status }
 }
 
@@ -35,6 +37,8 @@ fun adherence(programs: List<TrainingProgram>, sessions: List<WorkoutState>, ann
     val byDay = sessions.filter { it.source != null && it.startedAtMillis != null }.distinctBy { it.sessionId }
         .groupBy { Triple(it.source!!.programId, it.source.weekId, it.source.dayId) }
     return programs.flatMap { program -> program.blocks.flatMap { it.weeks }.map { week ->
+        val durations = week.days.flatMap { day -> byDay[Triple(program.id, week.id, day.id)].orEmpty() }
+            .mapNotNull { it.measuredDurationMillis }
         WeekAdherence(program, week, week.days.map { day ->
             val list = byDay[Triple(program.id, week.id, day.id)].orEmpty()
             val prescribed = day.exercises.sumOf { it.sets.size }
@@ -54,7 +58,7 @@ fun adherence(programs: List<TrainingProgram>, sessions: List<WorkoutState>, ann
             DayAdherence(day, status, prescribed, done, omitted, (prescribed - done - omitted).coerceAtLeast(0),
                 best?.records?.count { best.plan[it.index].extra && it.status == SetStatus.COMPLETED } ?: 0,
                 list.sumOf { s -> s.cardio.sumOf { it.durationSeconds ?: 0 } } / 60, list.size, inProgress)
-        })
+        }, durations.size, durations.takeIf { it.isNotEmpty() }?.let { it.sum() / it.size })
     } }
 }
 

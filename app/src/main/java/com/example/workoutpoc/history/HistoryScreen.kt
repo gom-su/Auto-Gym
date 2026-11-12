@@ -135,6 +135,13 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
             item {
                 Text(statusLine(session), style = MaterialTheme.typography.titleSmall)
             }
+            session.review?.let { review ->
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        com.example.workoutpoc.presentation.SessionReviewContent(review)
+                    }
+                }
+            }
             item { SectionHeader("Series") }
             if (session.sets.isEmpty()) item { EmptyState("Sin series registradas.") }
             items(session.sets.size) { i ->
@@ -153,7 +160,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                         h.revisions.forEach { v ->
                             Text("Hasta ${format.format(Date(v.replacedAtMillis))}: " +
                                 (if (v.status == SetStatus.SKIPPED) "omitida" else
-                                    "${loadLabel(v.values.weightTenths, h.unit)} × ${v.values.reps} @ RIR ${rirLabel(v.values.rir)}") +
+                                    "${loadLabel(v.values.weightTenths, v.recordedUnit ?: h.prescribedUnit)} × ${v.values.reps} @ RIR ${rirLabel(v.values.rir)}") +
                                 (v.notes?.let { " · nota: $it" } ?: ""), style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
