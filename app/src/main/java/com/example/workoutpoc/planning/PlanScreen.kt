@@ -144,7 +144,8 @@ fun PlanScreen(ui: PlanUiState, onBack: () -> Unit, onRetry: () -> Unit, onSelec
                 ContentCard {
                     Text("${d.name}" + (d.focus?.let { " — $it" } ?: ""), style = MaterialTheme.typography.titleSmall)
                     d.exercises.forEach { e ->
-                        Text("• ${e.name}" + (e.sets?.let { " · $it series" } ?: "") + (e.notes?.let { " · $it" } ?: ""),
+                        Text("• ${e.name}" + (e.sets?.let { " · $it series" } ?: "") +
+                            (e.restSeconds?.let { " · ${if (it == 0) "sin descanso" else "descanso $it s"}" } ?: "") + (e.notes?.let { " · $it" } ?: ""),
                             style = MaterialTheme.typography.bodyMedium)
                     }
                 }

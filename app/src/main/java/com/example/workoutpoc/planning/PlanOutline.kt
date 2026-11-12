@@ -34,7 +34,13 @@ import java.io.OutputStream
     val weeks: List<OutlineWeek>
 )
 @Serializable data class DayTemplate(val id: String, val name: String, val focus: String? = null, val exercises: List<TemplateExercise>)
-@Serializable data class TemplateExercise(val exerciseId: String, val name: String, val sets: Int? = null, val notes: String? = null)
+/**
+ * [restSeconds] is the work-set rest the plan fixes for this exercise: 0 (no rest) or 45–120 s. Null means the plan does
+ * not fix one here. Weekly proposals are compared with it (OUTLINE_REST) when every entry of the exercise agrees.
+ */
+@Serializable data class TemplateExercise(
+    val exerciseId: String, val name: String, val sets: Int? = null, val notes: String? = null, val restSeconds: Int? = null
+)
 @Serializable data class OutlineBlock(val id: String, val name: String, val focus: String? = null)
 @Serializable data class OutlineWeek(
     val number: Int, val blockId: String, val phase: String, val microcycle: String, val deload: Boolean,
@@ -104,6 +110,8 @@ object PlanOutlines {
             d.exercises.forEach { e ->
                 id(e.exerciseId, "$p / ${e.name}"); name(e.name, "$p / ejercicio"); e.notes?.let { text(it, "$p / ${e.name}") }
                 check(e.sets == null || e.sets in 1..50, "$p / ${e.name}: series fuera de rango (1–50).")
+                check(e.restSeconds == null || e.restSeconds == 0 || e.restSeconds in 45..120,
+                    "Día ${d.name} · ${e.name}: restSeconds debe ser 0 o un entero entre 45 y 120.")
                 templateIds += e.exerciseId
             }
         }

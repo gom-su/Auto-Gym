@@ -244,6 +244,16 @@ object ProposalRules {
         exercises.map { it.exerciseId to it.name }.distinctBy { it.first }.filter { it.first !in templateIds }.forEach { (id, name) ->
             add("OUTLINE_EXERCISE", settings.outlineTargets, "$name ($id) no está en la distribución de días del plan.")
         }
+        // The plan's rest per exercise applies only when every template entry of that exercise fixes the same value; an
+        // open entry (null) or conflicting entries leave the exercise unchecked rather than guessing which day it is.
+        val planRest = plan.days.flatMap { it.exercises }.groupBy { it.exerciseId }
+            .mapNotNull { (id, entries) -> entries.map { it.restSeconds }.let { r -> if (r.all { it != null } && r.distinct().size == 1) id to r.first()!! else null } }.toMap()
+        exercises.forEach { e ->
+            val rest = planRest[e.exerciseId] ?: return@forEach
+            val off = e.workSets().count { it.restSeconds != rest }
+            if (off > 0) add("OUTLINE_REST", settings.outlineTargets,
+                "${e.name}: $off serie(s) de trabajo con descanso distinto de $rest s, que fija el plan (semana $position).")
+        }
         fun targetFor(exerciseId: String) = target.targets.find { exerciseId in it.exerciseIds } ?: target.targets.find { it.exerciseIds.isEmpty() }
         exercises.groupBy { it.exerciseId }.forEach { (id, list) ->
             val t = targetFor(id) ?: return@forEach
