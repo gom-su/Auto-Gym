@@ -169,6 +169,40 @@ class PlanOutlineTest {
         assertTrue("OUTLINE_DELOAD" in codes(proposal(4, w = withApproaches(week(4, sets = 4))), deloadSessions, deloadProgram))
     }
 
+    private fun withRest(w: WeekPlan, seconds: Int?) = w.copy(days = w.days.map { d -> d.copy(exercises = d.exercises.map { e ->
+        e.copy(sets = e.sets.map { it.copy(restSeconds = seconds) })
+    }) })
+
+    @Test fun `the plan fixes rest per exercise and proposals are compared with it`() {
+        fun rejects(o: PlanOutline) = assertThrows(ProgramValidationException::class.java) { PlanOutlines.validate(o) }
+        fun withFirstRest(seconds: Int?): PlanOutline {
+            val first = outline.days.first()
+            return outline.copy(days = listOf(first.copy(exercises = first.exercises.mapIndexed { i, e ->
+                if (i == 0) e.copy(restSeconds = seconds) else e })) + outline.days.drop(1))
+        }
+        rejects(withFirstRest(30))
+        rejects(withFirstRest(121))
+        PlanOutlines.validate(withFirstRest(0))
+        PlanOutlines.validate(withFirstRest(45))
+
+        val program = ProposalRules.appliedProgram(proposal(1), null, outline)!!
+        val sessions = trained(week(1))
+        fun issues(plan: PlanOutline, w: WeekPlan) =
+            ProposalRules.evaluate(proposal(2, w = w), library(program), emptySet(), RuleSettings(newExercise = Severity.OFF), plan, sessions).issues
+        // Every template entry fixes 90 s: work sets at 90 s pass; other or missing rest is flagged.
+        val planned = outline.copy(days = outline.days.map { d -> d.copy(exercises = d.exercises.map { it.copy(restSeconds = 90) }) })
+        assertTrue(issues(planned, withRest(week(2), 90)).none { it.code == "OUTLINE_REST" })
+        assertTrue(issues(planned, withRest(week(2), 120)).any { it.code == "OUTLINE_REST" })
+        assertTrue(issues(planned, week(2)).any { it.code == "OUTLINE_REST" })
+        // An open template entry (no rest fixed) leaves that exercise unchecked, while the others are still checked.
+        val openName = outline.days.first().exercises.first().name
+        val open = outline.copy(days = outline.days.mapIndexed { di, d -> d.copy(exercises = d.exercises.mapIndexed { i, e ->
+            if (di == 0 && i == 0) e else e.copy(restSeconds = 90) }) })
+        val openIssues = issues(open, withRest(week(2), 120)).filter { it.code == "OUTLINE_REST" }.map { it.message }
+        assertTrue(openIssues.isNotEmpty())
+        assertTrue(openIssues.none { it.startsWith("$openName:") })
+    }
+
     @Test fun `deload week with more volume than the last real week is flagged`() {
         var program: TrainingProgram? = null
         val sessions = mutableListOf<SessionResult>()

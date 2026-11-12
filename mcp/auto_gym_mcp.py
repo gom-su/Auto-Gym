@@ -210,9 +210,12 @@ def validate_outline(o):
         _check(isinstance(d["exercises"], list) and d["exercises"], f"Día {d['id']}: falta un ejercicio.")
         seen = set()
         for e in d["exercises"]:
-            fields(e, {"exerciseId", "name"}, {"sets", "notes"}, f"Día {d['id']} / ejercicio")
+            fields(e, {"exerciseId", "name"}, {"sets", "notes", "restSeconds"}, f"Día {d['id']} / ejercicio")
             ident(e["exerciseId"], f"Día {d['id']} / {e.get('name')}"); text(e["name"], f"Día {d['id']} / ejercicio", 200)
             integer(e.get("sets"), 1, 50, f"Día {d['id']} / {e['name']} series")
+            rest = e.get("restSeconds")
+            _check(rest is None or (isinstance(rest, int) and not isinstance(rest, bool) and (rest == 0 or 45 <= rest <= 120)),
+                   f"Día {d['name']} · {e['name']}: restSeconds debe ser 0 o un entero entre 45 y 120.")
             if e.get("notes") is not None:
                 text(e["notes"], f"Día {d['id']} / {e['name']}")
             _check(e["exerciseId"] not in seen, f"Día {d['id']}: ejercicio repetido.")
@@ -311,7 +314,7 @@ class Server:
         {"name": "create_plan_outline",
          "description": "Creates a v1 PlanOutline: the general structure of a multi-week plan (typically 12 weeks) for one program: goals, rules (progression, effort, pain, cardio, deloads), the day distribution (A–D) with its exercises, blocks, and one entry per week with block, phase, microcycle, deload flag, set/rep/RIR targets and cardio. Written to the outbox; the user activates it in the app. It contains no prescriptions: each week is then proposed with create_week_proposal, following get_next_week_brief.",
          "inputSchema": {"type": "object", "additionalProperties": False, "required": ["outline"],
-                         "properties": {"outline": {"type": "object", "description": "PlanOutline v1: id, version, programId, programName, name, goals[], rules[], days[ id, name, focus?, exercises[ exerciseId, name, sets?, notes? ] ], blocks[ id, name, focus? ], weeks[ number (1..N), blockId, phase, microcycle, deload, targets[ label, exerciseIds? (empty = all others), sets?, repsMin?, repsMax?, rirMin?, rirMax? ], cardio?{ modality, minutes?, sessions?, rpeMin?, rpeMax?, notes? }, notes? ]. To revise an active plan, reuse its id with a higher version."}}}},
+                         "properties": {"outline": {"type": "object", "description": "PlanOutline v1: id, version, programId, programName, name, goals[], rules[], days[ id, name, focus?, exercises[ exerciseId, name, sets?, restSeconds? (0 or 45-120), notes? ] ], blocks[ id, name, focus? ], weeks[ number (1..N), blockId, phase, microcycle, deload, targets[ label, exerciseIds? (empty = all others), sets?, repsMin?, repsMax?, rirMin?, rirMax? ], cardio?{ modality, minutes?, sessions?, rpeMin?, rpeMax?, notes? }, notes? ]. To revise an active plan, reuse its id with a higher version."}}}},
         {"name": "get_next_week_brief",
          "description": "For a program with an activated plan: which week to plan next (computed by the app from the saved weeks and real records), its block, week in block, phase, microcycle, deload flag, targets and cardio, the day templates and rules, and the reference week (highest week with real data) with its recorded sessions plus the week before it for trends. status READY means plan weekNumber now; ALREADY_PLANNED means that week exists and needs records first; CYCLE_COMPLETE means the plan is over (do not create another week).",
          "inputSchema": {"type": "object", "additionalProperties": False, "required": ["programId"],

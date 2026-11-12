@@ -283,6 +283,31 @@ class McpPlanTest(McpPlanBase):
         self.assertEqual(1, len(os.listdir(self.outbox)))
 
 
+    def test_outline_accepts_and_preserves_structured_rest(self):
+        self.outline["version"] = 2
+        exercises = [e for day in self.outline["days"] for e in day["exercises"]]
+        values = (0, 45, 120, None)
+        for exercise, rest in zip(exercises, values):
+            exercise["restSeconds"] = rest
+        error, text = self.tool("create_plan_outline", {"outline": self.outline})
+        self.assertFalse(error, text)
+        saved = load(json.loads(text)["file"])["outline"]
+        self.assertEqual(self.outline, saved)
+
+    def test_outline_rejects_invalid_structured_rest(self):
+        self.outline["version"] = 2
+        day = self.outline["days"][0]
+        exercise = day["exercises"][0]
+        for rest in (-1, 44, 121, 45.0, "45", False):
+            with self.subTest(rest=rest):
+                exercise["restSeconds"] = rest
+                error, text = self.tool("create_plan_outline", {"outline": self.outline})
+                self.assertTrue(error)
+                self.assertEqual(f"Error: Día {day['name']} · {exercise['name']}: "
+                                 "restSeconds debe ser 0 o un entero entre 45 y 120.", text)
+        self.assertEqual([], os.listdir(self.outbox))
+
+
 class McpPlanProgressTest(McpPlanBase):
     """Week 1 approved and trained: the brief moves to week 2, and only week 2 of block 1 is accepted."""
 
