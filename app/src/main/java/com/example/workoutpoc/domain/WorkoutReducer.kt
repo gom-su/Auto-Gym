@@ -91,7 +91,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
      * The prescription is untouched. Stale snapshots are ignored; out-of-range values are rejected.
      */
     fun edit(s: WorkoutState, sessionId: String, revision: Long, index: Int, status: SetStatus,
-             values: SetValues, notes: String?, now: ClockSnapshot): WorkoutState {
+             values: SetValues, notes: String?, now: ClockSnapshot, recordedUnit: WeightUnit? = null): WorkoutState {
         if (sessionId != s.sessionId || revision != s.revision || s.source == null) return s
         val record = s.records.getOrNull(index) ?: throw WorkoutEditException("La serie no está registrada.")
         val p = s.plan[index]
@@ -101,7 +101,9 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             throw WorkoutEditException(if (status == SetStatus.COMPLETED) "Una serie completada necesita entre 1 y ${p.maxReps} repeticiones." else "Repeticiones fuera de rango.")
         if (values.rir != null && values.rir !in 0..4) throw WorkoutEditException("RIR fuera de rango.")
         if (cleanNotes != null && cleanNotes.length > MAX_NOTE_LENGTH) throw WorkoutEditException("La nota supera $MAX_NOTE_LENGTH caracteres.")
-        val updated = record.copy(status = status, values = values, notes = cleanNotes)
+        // A unit other than the prescribed one is kept as the record's unit; null means the prescribed unit (contract §2).
+        val unitRecorded = recordedUnit?.takeIf { it != p.unit }
+        val updated = record.copy(status = status, values = values, notes = cleanNotes, recordedUnit = unitRecorded)
         if (updated == record) return s
         if (record.revisions.size >= MAX_SET_REVISIONS) throw WorkoutEditException("La serie alcanzó el máximo de $MAX_SET_REVISIONS ediciones.")
         // The replaced version is kept, never overwritten, so the edit trail stays complete.

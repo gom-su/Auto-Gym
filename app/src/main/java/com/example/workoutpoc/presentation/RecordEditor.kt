@@ -17,7 +17,9 @@ import androidx.compose.ui.semantics.*
 
 /** A recorded-set edit, bound to the snapshot it was opened from so a stale save cannot overwrite newer data. */
 data class RecordEdit(val sessionId: String, val revision: Long, val index: Int,
-                      val status: SetStatus, val values: SetValues, val notes: String?)
+                      val status: SetStatus, val values: SetValues, val notes: String?,
+                      /** Unit the values were actually used in when it differs from the prescribed one; null otherwise. */
+                      val recordedUnit: WeightUnit? = null)
 
 @Composable
 fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, onSave: (RecordEdit) -> Unit) {
@@ -28,6 +30,9 @@ fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, o
     var reps by remember(record) { mutableIntStateOf(record.values.reps) }
     var rir by remember(record) { mutableStateOf(record.values.rir) }
     var notes by remember(record) { mutableStateOf(record.notes.orEmpty()) }
+    // Only kg and lb can be corrected by the user; machine positions and bodyweight keep their own representation.
+    val switchable = planned.unit == WeightUnit.KG || planned.unit == WeightUnit.LB
+    var unit by remember(record) { mutableStateOf(record.recordedUnit ?: planned.unit) }
     val valid = (status == SetStatus.SKIPPED || reps > 0) && notes.length <= MAX_NOTE_LENGTH
     AlertDialog(onDismissRequest = onDismiss,
         icon = { Icon(AppIcons.Edit, contentDescription = null) },
@@ -42,7 +47,16 @@ fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, o
                     Spacer(Modifier.width(Spacing.sm)); Text("Serie omitida")
                 }
                 if (status == SetStatus.COMPLETED) {
-                    Stepper("Carga", loadLabel(weight, planned.unit), "Reducir carga", "Aumentar carga",
+                    if (switchable) {
+                        Text("Unidad de la carga", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            listOf(WeightUnit.KG, WeightUnit.LB).forEachIndexed { i, option ->
+                                SegmentedButton(unit == option, { unit = option }, SegmentedButtonDefaults.itemShape(i, 2), icon = {}) {
+                                    Text(if (option == WeightUnit.KG) "kg" else "lb") }
+                            }
+                        }
+                    }
+                    Stepper("Carga", loadLabel(weight, if (switchable) unit else planned.unit), "Reducir carga", "Aumentar carga",
                         { weight = (weight - planned.weightStepTenths).coerceAtLeast(0) },
                         { weight = (weight + planned.weightStepTenths).coerceAtMost(planned.maxWeightTenths) })
                     Stepper("Repeticiones", "$reps", "Reducir repeticiones", "Aumentar repeticiones", { reps = (reps - 1).coerceAtLeast(0) }, { reps = (reps + 1).coerceAtMost(planned.maxReps) })
@@ -61,8 +75,9 @@ fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, o
         },
         confirmButton = {
             Button(enabled = valid, onClick = {
+                val chosen = if (status == SetStatus.COMPLETED && switchable && unit != planned.unit) unit else null
                 onSave(RecordEdit(state.sessionId, state.revision, index, status,
-                    if (status == SetStatus.COMPLETED) SetValues(weight, reps, rir) else record.values, notes))
+                    if (status == SetStatus.COMPLETED) SetValues(weight, reps, rir) else record.values, notes, chosen))
             }) { Text("Guardar cambios") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })

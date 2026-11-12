@@ -70,11 +70,12 @@ class WorkoutRepository(
     }
 
     /** Edits one confirmed set of the current planned session. Returns false for a stale snapshot. */
-    suspend fun edit(sessionId: String, revision: Long, index: Int, status: SetStatus, values: SetValues, notes: String?): Boolean =
+    suspend fun edit(sessionId: String, revision: Long, index: Int, status: SetStatus, values: SetValues, notes: String?,
+                     recordedUnit: WeightUnit? = null): Boolean =
         mutex.withLock {
             loadLocked()
             val previous = mutableState.value
-            val next = reducer.edit(previous, sessionId, revision, index, status, values, notes, clock())
+            val next = reducer.edit(previous, sessionId, revision, index, status, values, notes, clock(), recordedUnit)
             if (next == previous) return@withLock false
             WorkoutValidation.validate(next)
             storage.write(next)
