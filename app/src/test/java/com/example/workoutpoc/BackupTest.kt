@@ -275,8 +275,11 @@ class BackupTest {
             val saved = rich().copy(workout = rich().workout.copy(phase = Phase.Resting,
                 rest = RestDeadline(9_000_000, time.wallMillis - 1, time.bootCount)))
             device.backup.restore(saved, device.backup.snapshot())
-            assertFalse(device.workout.state.value.phase == Phase.Resting)
-            assertNull(device.workout.state.value.rest)
+            val restored = device.workout.state.value
+            assertEquals(Phase.Resting, restored.phase)
+            assertEquals(0L, restored.rest!!.remainingMillis(time))
+            device.workout.dispatch(restored.command(WorkoutEvent.ConfirmRest))
+            assertEquals(Phase.ActiveSet, device.workout.state.value.phase)
             assertEquals(saved.workout.records, device.workout.state.value.records)
         } finally { device.close() }
     }

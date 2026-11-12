@@ -302,8 +302,8 @@ private fun SessionEndActions(state: WorkoutState, demo: Boolean, archivedCount:
 @Composable
 private fun RestControls(state: WorkoutState, plan: List<PlannedSet>, now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit) {
     var seconds: Long by remember(state.rest) { mutableLongStateOf(((state.rest?.remainingMillis(now()) ?: 0) + 999) / 1000) }
-    // The ring is relative to the rest as last set (+10 s restarts it from the new remaining time).
-    val peak = remember(state.rest) { seconds.coerceAtLeast(1) }
+    val peak = state.openRestSegment?.configuredSeconds?.toLong()?.coerceAtLeast(1)
+        ?: remember(state.rest) { seconds.coerceAtLeast(1) }
     LaunchedEffect(state.rest) {
         while (true) { seconds = ((state.rest?.remainingMillis(now()) ?: 0) + 999) / 1000; delay(250) }
     }
@@ -317,13 +317,23 @@ private fun RestControls(state: WorkoutState, plan: List<PlannedSet>, now: () ->
                 strokeWidth = 10.dp, trackColor = MaterialTheme.colorScheme.surfaceContainerHighest, gapSize = 0.dp)
             Text("$seconds s", style = MaterialTheme.typography.displayLarge.tabular(), color = MaterialTheme.colorScheme.primary)
         }
-        Text("Siguiente: ${plan[(state.index + 1).coerceAtMost(plan.lastIndex)].exercise}", style = MaterialTheme.typography.bodyLarge,
+        val next = plan[(state.index + 1).coerceAtMost(plan.lastIndex)]
+        Text("Siguiente: ${next.exercise} · ${next.number}/${next.total}\n${prescriptionLabel(next)}", style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.align(Alignment.Start))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.AddRestTime)) }, modifier = Modifier.weight(1f).height(56.dp)) {
-                Icon(AppIcons.Timer, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(Spacing.sm)); Text("+10 s")
+            if (state.openRestSegment != null) {
+                OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.ReduceRestTime)) }, modifier = Modifier.weight(1f)) {
+                    Text("−15 s")
+                }
             }
-            Button(onClick = { dispatch(state.command(WorkoutEvent.SkipRest)) }, modifier = Modifier.weight(1f).height(56.dp)) { Text("Saltar descanso") }
+            OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.AddRestTime)) }, modifier = Modifier.weight(1f)) {
+                Text(if (state.source == null) "+10 s" else "+15 s")
+            }
+        }
+        val expired = seconds == 0L && state.source != null
+        Button(onClick = { dispatch(state.command(if (expired) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest)) },
+            modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Text(if (expired) "OK" else "Saltar descanso")
         }
     }
 }

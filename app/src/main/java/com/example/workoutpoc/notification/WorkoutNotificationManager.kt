@@ -45,6 +45,7 @@ class WorkoutNotificationManager(private val context: Context) {
                 .appendPath(event.name).appendPath((rir ?: -1).toString()).build()
             putExtra("session", s.sessionId); putExtra("index", s.index)
             putExtra("revision", s.revision); putExtra("rir", rir ?: -1)
+            putExtra("restSegmentId", s.openRestSegment?.id)
         }
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }

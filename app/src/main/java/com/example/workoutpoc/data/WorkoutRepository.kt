@@ -124,6 +124,11 @@ class WorkoutRepository(
         fun elapsedAt(wallMillis: Long): Long = Math.addExact(now.elapsedMillis, Math.subtractExact(wallMillis, now.wallMillis))
         val portable = state.copy(
             rest = state.rest?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) },
+            restSegments = state.restSegments.map { segment ->
+                if (segment.id == state.openRestSegment?.id)
+                    segment.copy(startedAtElapsedMillis = elapsedAt(segment.startedAtMillis), bootCount = now.bootCount)
+                else segment
+            },
             paused = state.paused?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) })
         val restored = reducer.reduce(portable, portable.command(WorkoutEvent.RestFinished), now, idFactory())
         WorkoutValidation.validate(restored)
@@ -149,10 +154,8 @@ class WorkoutRepository(
         // A session reset mid-way is archived as ended early, exactly as recorded so far.
         val now = clock()
         // An open pause is closed at archive time so its duration is not lost.
-        if (history.archive(session.copy(phase = Phase.Completed, rest = null, paused = null,
-                pausedMillis = session.pausedMillis + (session.paused?.elapsedSince(now) ?: 0),
-                endedEarly = session.endedEarly || session.phase != Phase.Completed,
-                endedAtMillis = session.endedAtMillis ?: now.wallMillis)))
+        val closed = reducer.reduce(session, session.command(WorkoutEvent.FinishWorkout), now, session.sessionId)
+        if (history.archive(closed))
             mutableHistory.value = history.read()
     }
 

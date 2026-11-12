@@ -16,7 +16,7 @@ class WorkoutActionReceiver : BroadcastReceiver() {
         if (event !in allowed) return
         val session: String = intent.getStringExtra("session") ?: return
         val command = WorkoutCommand(event, session, intent.getIntExtra("index", -1),
-            intent.getLongExtra("revision", -1), intent.getIntExtra("rir", -1))
+            intent.getLongExtra("revision", -1), intent.getIntExtra("rir", -1), intent.getStringExtra("restSegmentId"))
         val pending: PendingResult = goAsync()
         val receivedAt: Long = SystemClock.elapsedRealtime()
         Log.d("WorkoutNotification", "received ${event.name} at=$receivedAt revision=${command.revision}")
@@ -33,6 +33,7 @@ class WorkoutActionReceiver : BroadcastReceiver() {
     companion object {
         private val allowed: Set<WorkoutEvent> = setOf(WorkoutEvent.IncrementWeight, WorkoutEvent.DecrementWeight,
             WorkoutEvent.IncrementReps, WorkoutEvent.DecrementReps, WorkoutEvent.SelectRir,
-            WorkoutEvent.CompleteSet, WorkoutEvent.AddRestTime, WorkoutEvent.SkipRest)
+            WorkoutEvent.CompleteSet, WorkoutEvent.AddRestTime, WorkoutEvent.ReduceRestTime, WorkoutEvent.SkipRest,
+            WorkoutEvent.ConfirmRest)
     }
 }

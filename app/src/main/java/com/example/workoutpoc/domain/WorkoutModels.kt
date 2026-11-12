@@ -94,8 +94,19 @@ data class RestSegment(
     val configuredSeconds: Int,
     val pausedMillis: Long = 0,
     val confirmedAtMillis: Long? = null,
-    val skipped: Boolean = false
-)
+    val skipped: Boolean = false,
+    val startedAtElapsedMillis: Long? = null,
+    val measuredMillis: Long? = null,
+    val interrupted: Boolean = false
+) {
+    val actualRestSeconds: Long? get() = measuredMillis?.div(1000)
+
+    fun elapsedMillis(now: ClockSnapshot): Long {
+        val elapsed = if (bootCount == now.bootCount && startedAtElapsedMillis != null)
+            now.elapsedMillis - startedAtElapsedMillis else now.wallMillis - startedAtMillis
+        return (elapsed - pausedMillis).coerceAtLeast(0)
+    }
+}
 
 /** Session or exercise comment that outlives the week it was written in (contract §7). */
 @Serializable
@@ -160,7 +171,7 @@ enum class WorkoutEvent {
     /** Planned sessions only (ENT-06). */
     PauseSession, ResumeSession, AddWarmupSet,
     /** Planned sessions only: on an exercise's first set, move all its unrecorded sets after the next exercise. */
-    PostponeExercise
+    PostponeExercise, ReduceRestTime, ConfirmRest
 }
 
 /** Plan positions [WorkoutState.index, currentEnd) are the current exercise and [currentEnd, nextEnd) the next one. */
@@ -188,12 +199,15 @@ fun WorkoutState.postponeTarget(plan: List<PlannedSet>): PostponeTarget? {
 
 /** Every command targets an exact snapshot. Old notification/overlay taps become no-ops. */
 data class WorkoutCommand(val event: WorkoutEvent, val sessionId: String,
-                          val index: Int, val revision: Long, val rir: Int? = null)
+                          val index: Int, val revision: Long, val rir: Int? = null, val restSegmentId: String? = null)
 
 data class ClockSnapshot(val elapsedMillis: Long, val wallMillis: Long, val bootCount: Int)
 
 fun WorkoutState.command(event: WorkoutEvent, rir: Int? = null): WorkoutCommand =
-    WorkoutCommand(event, sessionId, index, revision, rir)
+    WorkoutCommand(event, sessionId, index, revision, rir, openRestSegment?.id)
+
+val WorkoutState.openRestSegment: RestSegment?
+    get() = restSegments.lastOrNull()?.takeIf { it.confirmedAtMillis == null && !it.interrupted }
 
 fun weightLabel(tenths: Int): String = if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"
 
