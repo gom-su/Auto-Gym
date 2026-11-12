@@ -60,14 +60,15 @@ class PlanDeletion(
         // The sessions go first: they refuse while one of this program is in progress, before anything else is touched.
         val (sessions, _) = workout.deleteProgramRecords(programId)
         return try {
-            val outlineCount = outlines.removeProgram(programId)
+            // The plan itself goes last: while any step is left, the plan is still listed (as active or as an imported
+            // package), so the deletion can always be resumed from Plan.
             programs.removeProgram(programId)
-            val weekCount = before.weeks
             val annotations = weekAnnotations.removeProgram(programId)
             val decisions = proposals.removeProgram(programId)
             val commentCount = comments.removeProgram(programId)
             val packages = exchanges.removeProgram(programId)
-            PlanDeletionCounts(outlineVersions = outlineCount, weeks = weekCount, sessions = sessions,
+            val outlineCount = outlines.removeProgram(programId)
+            PlanDeletionCounts(outlineVersions = outlineCount, weeks = before.weeks, sessions = sessions,
                 weekAnnotations = annotations, proposalRecords = decisions, comments = commentCount, exchangePackages = packages)
         } catch (e: Exception) {
             throw IllegalStateException("El borrado se interrumpió y quedó a medias. Vuelve a intentarlo: lo ya borrado no se restaura y el reintento termina el resto.", e)

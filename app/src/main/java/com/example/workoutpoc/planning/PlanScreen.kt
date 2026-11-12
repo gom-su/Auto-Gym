@@ -70,6 +70,8 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun load() {
         app.outlines.restore(); app.exchanges.restore(); app.programs.restore(); app.repository.restore()
+        // The deletion counts read these stores too: restore them so the dialog never shows a stale, empty count.
+        app.weekAnnotations.restore(); app.proposals.restore(); app.comments.restore()
         val store = app.outlines.outlines.value
         val programs = app.programs.library.value.programs
         val sessions = (app.repository.archived.value.sessions + app.repository.state.value).distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() }
