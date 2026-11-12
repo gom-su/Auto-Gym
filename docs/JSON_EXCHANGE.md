@@ -65,3 +65,14 @@ Export an exchange through the normal installation into Downloads, then run (usi
 ```
 
 The script builds a uniquely identified test APK, checks its archive is initially empty, imports the actual exported file through the document picker, compares supported fields and verifies force-stop restoration. Existing installations are preserved, the test installation remains available for inspection, and normal APK build outputs are restored afterward. Source files and private evidence remain local; no export is uploaded. Supply the serial of a connected test phone for phone testing, then complete the manual checks above.
+
+## Campos añadidos por las mejoras de plan y entrenamiento
+
+Estos campos tienen valor por defecto. Los paquetes anteriores siguen siendo válidos.
+
+- `context.comments`: comentarios vigentes (sin `resolvedAtMillis`) del programa. Cada uno lleva `id`, `text`, `createdAtMillis`, `programId`, `weekId`, `sessionId`, `exerciseId` y `setIndex`. El agente los usa al generar la semana.
+- `context.preferredUnits`: lista de `{ "exerciseId": …, "unit": "KG" | "LB" }`. Unidad en la que el usuario registró cada ejercicio.
+- `SetPrescription.kind`: `"WORK"` (por defecto), `"WARMUP"` o `"APPROACH"`. Las series de calentamiento o aproximación van antes de las de trabajo de su ejercicio. Una serie de fuerza sin `load` bloquea la aprobación de la propuesta.
+- `SessionPlan.cardio`: `{ "modality": …, "durationSeconds": … }`. Un día puede tener solo cardio, sin ejercicios de fuerza.
+
+Una propuesta puede reemplazar una semana guardada solo con una aprobación explícita. Esa aprobación borra las sesiones registradas de esa semana.

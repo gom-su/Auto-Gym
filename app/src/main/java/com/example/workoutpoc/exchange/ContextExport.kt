@@ -28,7 +28,9 @@ suspend fun WorkoutApplication.localExchange(type: ExchangeType): ExchangePackag
             measurements = measurements.log.value.measurements.sortedBy { it.measuredAtMillis }.map { it.toContextMeasurement() },
             outlines = active,
             nextWeeks = active.map { o -> PlanOutlines.brief(o, saved.find { it.id == o.programId }, sessions) },
-            previousOutlines = (outlines.outlines.value.inactive + outlines.outlines.value.replaced).distinctBy { it.id to it.version })
+            previousOutlines = (outlines.outlines.value.inactive + outlines.outlines.value.replaced).distinctBy { it.id to it.version },
+            preferredUnits = catalog.catalog.value.exercises.mapNotNull { e ->
+                e.preferredUnit?.let { PreferredUnit(e.id, it.name) } })
     }
     return ExchangePackage(1, type, UUID.randomUUID().toString(), Instant.now().toString(), context = context,
         results = if (type == ExchangeType.TrainingResults) results else null).also { ExchangeCodec.encode(it) }

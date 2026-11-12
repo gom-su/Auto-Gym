@@ -21,8 +21,11 @@ import java.time.Instant
     /** For each plan: which week to plan next and its targets, computed by the app from programs and history. */
     val nextWeeks: List<NextWeekBrief> = emptyList(),
     /** Earlier cycles retained for planning the next one; never treated as active plans. */
-    val previousOutlines: List<PlanOutline> = emptyList()
+    val previousOutlines: List<PlanOutline> = emptyList(),
+    /** Unit the user recorded each exercise in, when it is kg or lb (contract §2). */
+    val preferredUnits: List<PreferredUnit> = emptyList()
 )
+@Serializable data class PreferredUnit(val exerciseId: String, val unit: String)
 @Serializable data class BodyMeasurement(
     val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String,
     val method: String? = null, val label: String? = null, val fasted: Boolean? = null,
