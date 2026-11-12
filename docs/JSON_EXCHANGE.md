@@ -82,3 +82,16 @@ Una propuesta puede reemplazar una semana guardada solo con una aprobación expl
 - Esta app escribe los paquetes de intercambio con `schemaVersion: 2` y lee `1` y `2`. Los paquetes v1 siguen siendo válidos.
 - Una app anterior que lea un paquete v2 lo rechaza por versión (`Se requiere 1`); la solución es actualizar la aplicación.
 - Los programas (`ProgramPackage`) aceptan `1` y `2`. Los almacenes internos y el respaldo completo tienen versión propia y no cambian con esta regla.
+
+## Decisión: números entre comillas (se mantiene)
+
+La política estricta de la sección «Contract v1» aplica a campos desconocidos, valores de enumeración, versiones y campos obligatorios. Para los campos numéricos, la app usa el comportamiento por defecto de kotlinx.serialization, que acepta un número escrito entre comillas (por ejemplo `"restSeconds": "45"`) y lo decodifica como `45`. Esto afecta a todos los campos numéricos del intercambio, no solo a `restSeconds`.
+
+Decisión: **se mantiene así**. Endurecer el decoder cambiaría la importación de archivos que hoy se aceptan y exigiría una migración de compatibilidad, que no compensa el riesgo.
+
+Consecuencias:
+- MCP rechaza una cadena donde el campo espera un número (por ejemplo `"restSeconds": "45"`) y acepta los números JSON decimales donde el campo los permite (por ejemplo `load.value: 22.5`). Así, el agente que escribe a través de MCP no puede introducir la forma entrecomillada.
+- Un archivo escrito a mano con números entre comillas se importa en la app como el número equivalente; las reglas de rango se aplican sobre ese número.
+- La diferencia también aparece al crear una propuesta o un plan mediante MCP: MCP valida los argumentos de la herramienta antes de escribir el paquete, así que la forma entrecomillada se rechaza y nunca llega a un archivo. Solo aparece en archivos escritos a mano o por otra herramienta, que la app acepta y MCP no valida.
+
+Si se quiere cerrar más adelante, debe hacerse como cambio aparte con prueba de importación de los ejemplos existentes.
