@@ -76,3 +76,9 @@ Estos campos tienen valor por defecto. Los paquetes anteriores siguen siendo vá
 - `SessionPlan.cardio`: `{ "modality": …, "durationSeconds": … }`. Un día puede tener solo cardio, sin ejercicios de fuerza.
 
 Una propuesta puede reemplazar una semana guardada solo con una aprobación explícita. Esa aprobación borra las sesiones registradas de esa semana.
+
+### Versión del formato
+
+- Esta app escribe los paquetes de intercambio con `schemaVersion: 2` y lee `1` y `2`. Los paquetes v1 siguen siendo válidos.
+- Una app anterior que lea un paquete v2 lo rechaza por versión (`Se requiere 1`); la solución es actualizar la aplicación.
+- Los programas (`ProgramPackage`) aceptan `1` y `2`. Los almacenes internos y el respaldo completo tienen versión propia y no cambian con esta regla.

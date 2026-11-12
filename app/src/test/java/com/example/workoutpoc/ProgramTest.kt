@@ -56,7 +56,7 @@ class ProgramTest {
 
     @Test fun `bad contracts cannot discard fields or infer required structure`() {
         rejected("{}"); rejected("not json")
-        rejected(fixture().replace("\"schemaVersion\": 1", "\"schemaVersion\": 2"))
+        rejected(fixture().replace("\"schemaVersion\": 1", "\"schemaVersion\": 3"))
         rejected(fixture().replace("\"schemaVersion\": 1", "\"extra\": 1, \"schemaVersion\": 1"))
         rejected(fixture().replace("\"version\": 1", "\"version\": 0"))
         rejected(fixture().replace("\"reps\": 8", "\"reps\": 0"))

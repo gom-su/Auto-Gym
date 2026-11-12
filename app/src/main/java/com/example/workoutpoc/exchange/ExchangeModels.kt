@@ -58,6 +58,10 @@ import java.time.Instant
 
 object ExchangeCodec {
     const val MAX_BYTES = 1_048_576
+    /** Version written by this app: packages carry comments, preferred units, set kinds and cardio days (v2). */
+    const val SCHEMA_VERSION = 2
+    /** Versions this app reads. v1 packages stay valid; an older app reading v2 reports the version it does not know. */
+    val READABLE_VERSIONS = setOf(1, SCHEMA_VERSION)
     val json = Json { encodeDefaults = true; ignoreUnknownKeys = false; prettyPrint = true }
     fun decode(text: String): ExchangePackage {
         requireValid(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES, "El archivo supera 1 MiB.")
@@ -74,7 +78,7 @@ object ExchangeCodec {
         }
     }
     fun validate(data: ExchangePackage) {
-        requireValid(data.schemaVersion == 1, "Versión de intercambio no compatible. Se requiere 1.")
+        requireValid(data.schemaVersion in READABLE_VERSIONS, "Versión de intercambio no compatible: ${data.schemaVersion}. Se aceptan ${READABLE_VERSIONS.joinToString(" y ")}. Actualiza la aplicación.")
         id(data.importId); date(data.createdAt)
         requireValid(listOfNotNull(data.context, data.proposal, data.results, data.outline).size == 1, "Incluye exactamente un contenido: contexto, propuesta, resultados o plan.")
         when (data.type) {

@@ -53,7 +53,7 @@ def load_context(path):
         raw = f.read(MAX_BYTES + 1)
     _check(len(raw) <= MAX_BYTES, "El contexto supera 1 MiB.")
     data = json.loads(raw.decode("utf-8"))
-    _check(data.get("schemaVersion") == 1 and data.get("type") == "TrainingContext" and isinstance(data.get("context"), dict),
+    _check(data.get("schemaVersion") in (1, 2) and data.get("type") == "TrainingContext" and isinstance(data.get("context"), dict),
            "El archivo autorizado no es un contexto de entrenamiento v1.")
     return data
 

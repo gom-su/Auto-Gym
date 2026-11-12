@@ -59,7 +59,7 @@ class ExchangeTest {
     }
     @Test fun `invalid version fields types units dates and discriminators rejected`() {
         val text = ExchangeCodec.encode(packages()[2])
-        val bad = listOf("{}", "not json", text.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2"),
+        val bad = listOf("{}", "not json", text.replace("\"schemaVersion\": 1", "\"schemaVersion\": 3"),
             text.replace("\"schemaVersion\": 1", "\"extra\": 1, \"schemaVersion\": 1"),
             text.replace("TrainingResults", "WeekProposal"), text.replace("2026-10-30T12:00:00Z", "yesterday"),
             text.replace("\"LB\"", "\"UNKNOWN\""), text.replace("\"PER_HAND\"", "\"BODYWEIGHT\""),

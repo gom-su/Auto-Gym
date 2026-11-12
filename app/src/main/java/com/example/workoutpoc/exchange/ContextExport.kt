@@ -32,7 +32,7 @@ suspend fun WorkoutApplication.localExchange(type: ExchangeType): ExchangePackag
             preferredUnits = catalog.catalog.value.exercises.mapNotNull { e ->
                 e.preferredUnit?.let { PreferredUnit(e.id, it.name) } })
     }
-    return ExchangePackage(1, type, UUID.randomUUID().toString(), Instant.now().toString(), context = context,
+    return ExchangePackage(ExchangeCodec.SCHEMA_VERSION, type, UUID.randomUUID().toString(), Instant.now().toString(), context = context,
         results = if (type == ExchangeType.TrainingResults) results else null).also { ExchangeCodec.encode(it) }
 }
 

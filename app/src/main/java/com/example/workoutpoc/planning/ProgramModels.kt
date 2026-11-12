@@ -47,7 +47,7 @@ object ProgramCodec {
         } catch (_: IllegalArgumentException) {
             throw ProgramValidationException("El archivo no contiene un programa JSON válido.")
         }
-        check(data.schemaVersion == 1, "Versión de formato no compatible: ${data.schemaVersion}. Se requiere 1.")
+        check(data.schemaVersion in setOf(1, 2), "Versión de formato no compatible: ${data.schemaVersion}. Se aceptan 1 y 2. Actualiza la aplicación.")
         validate(data.program)
         return data.program
     }
