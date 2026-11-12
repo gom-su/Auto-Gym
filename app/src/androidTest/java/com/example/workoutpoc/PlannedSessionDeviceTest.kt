@@ -89,7 +89,7 @@ class PlannedSessionDeviceTest {
         find(By.res(pkg, "overlay_complete"), "complete").click() // the single tap
         awaitState("Recorded") { it.records.size == 1 }
         val record = app.repository.state.value.records.single()
-        assertEquals(SetValues(200, 8, 3), record.values)
+        assertEquals(SetValues(200, 8, null), record.values)
         assertEquals("set-one-squat-1", record.prescriptionId)
         assertEquals(before.revision + 1, app.repository.state.value.revision)
 

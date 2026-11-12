@@ -53,11 +53,14 @@ class WorkoutRepository(
     }
 
     /** Loads a planned day as the next session. Never replaces a session in progress. */
-    suspend fun load(plan: List<PlannedSet>, source: SessionSource): LoadResult = mutex.withLock {
+    suspend fun load(plan: List<PlannedSet>, source: SessionSource, previousWeekId: String? = null): LoadResult = mutex.withLock {
         loadLocked()
         val previous = mutableState.value
         if (previous.phase == Phase.ActiveSet || previous.phase == Phase.Resting) return@withLock LoadResult.SESSION_IN_PROGRESS
-        val next = reducer.load(previous, plan, source, idFactory())
+        val references = previousWeekId?.let {
+            previousWorkSets(mutableHistory.value.sessions + previous, source.programId, it, plan)
+        }.orEmpty()
+        val next = reducer.load(previous, plan, source, idFactory(), references)
         WorkoutValidation.validate(next)
         archiveLocked(previous)
         storage.write(next)
@@ -161,5 +164,24 @@ class WorkoutRepository(
 
     suspend fun reconcileRest() {
         dispatch(state.value.command(WorkoutEvent.RestFinished))
+    }
+}
+
+private fun previousWorkSets(sessions: List<WorkoutState>, programId: String, weekId: String,
+                             plan: List<PlannedSet>): Map<String, PreviousWorkSet> = buildMap {
+    val exerciseIds = plan.mapNotNull { it.exerciseId }.toSet()
+    val previousSessions = sessions.filter {
+        it.source?.programId == programId && it.source.weekId == weekId
+    }.distinctBy { it.sessionId }.sortedBy { it.startedAtMillis ?: Long.MAX_VALUE }
+    for (session in previousSessions) {
+        val firstWorkSets = session.plan.withIndex()
+            .filter { it.value.setType == SetType.WORK && it.value.exerciseId in exerciseIds }
+            .distinctBy { it.value.exerciseId }
+        for ((index, step) in firstWorkSets) {
+            val exerciseId = step.exerciseId ?: continue
+            val record = session.records.getOrNull(index)?.takeIf { it.status == SetStatus.COMPLETED } ?: continue
+            putIfAbsent(exerciseId, PreviousWorkSet(record.values.weightTenths, record.recordedUnit ?: step.unit,
+                step.basis, record.values.reps, record.values.rir))
+        }
     }
 }

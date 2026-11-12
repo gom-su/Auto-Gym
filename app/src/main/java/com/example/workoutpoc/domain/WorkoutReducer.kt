@@ -69,11 +69,13 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
      * Loads a planned day without starting it. Only an idle or finished session may be replaced, so an
      * in-progress session can never be discarded by loading another day; callers archive finished records first.
      */
-    fun load(s: WorkoutState, plan: List<PlannedSet>, source: SessionSource, newSessionId: String): WorkoutState {
+    fun load(s: WorkoutState, plan: List<PlannedSet>, source: SessionSource, newSessionId: String,
+             previousWorkSets: Map<String, PreviousWorkSet> = emptyMap()): WorkoutState {
         require(plan.isNotEmpty()) { "El día no contiene series." }
         if (s.phase == Phase.ActiveSet || s.phase == Phase.Resting) return s
-        return WorkoutState(sessionId = newSessionId, revision = s.revision + 1, values = values(plan, 0),
-            plan = plan, source = source)
+        val loaded = WorkoutState(sessionId = newSessionId, revision = s.revision + 1, plan = plan, source = source,
+            previousWorkSets = previousWorkSets)
+        return loaded.copy(values = loaded.prefillSet(plan.first()))
     }
 
     /**
@@ -120,9 +122,9 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         val position = s.records.size
         val newPlan = plan.take(position) + extra + plan.drop(position)
         return when (s.phase) {
-            Phase.ActiveSet -> s.copy(plan = newPlan, values = values(newPlan, position))
+            Phase.ActiveSet -> s.copy(plan = newPlan, values = s.prefillSet(extra))
             Phase.Resting -> s.copy(plan = newPlan)
-            Phase.Completed -> s.copy(plan = newPlan, phase = Phase.ActiveSet, index = position, values = values(newPlan, position),
+            Phase.Completed -> s.copy(plan = newPlan, phase = Phase.ActiveSet, index = position, values = s.prefillSet(extra),
                 endedEarly = false, endedAtMillis = null)
             Phase.Idle -> s
         }
@@ -136,7 +138,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         val warmup = target.copy(number = count + 1, prescriptionId = null, extra = true, warmup = true,
             loadPrescribed = false, setType = SetType.APPROACH)
         val newPlan = plan.take(position) + warmup + plan.drop(position)
-        return if (s.phase == Phase.ActiveSet) s.copy(plan = newPlan, values = values(newPlan, position)) else s.copy(plan = newPlan)
+        return if (s.phase == Phase.ActiveSet) s.copy(plan = newPlan, values = s.prefillSet(warmup)) else s.copy(plan = newPlan)
     }
 
     fun addCardio(s: WorkoutState, sessionId: String, revision: Long, entry: CardioEntry): WorkoutState {
@@ -156,7 +158,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     private fun postpone(s: WorkoutState, plan: List<PlannedSet>, t: PostponeTarget): WorkoutState {
         val newPlan = plan.subList(0, s.index) + plan.subList(t.currentEnd, t.nextEnd) +
             plan.subList(s.index, t.currentEnd) + plan.subList(t.nextEnd, plan.size)
-        return s.copy(plan = newPlan, values = values(newPlan, s.index))
+        return s.copy(plan = newPlan, values = s.prefillSet(newPlan[s.index]))
     }
 
     private fun removeExtra(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {
@@ -164,14 +166,12 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         if (newPlan.isEmpty()) return s
         return if (s.index == newPlan.size)
             s.copy(plan = newPlan, phase = Phase.Completed, index = newPlan.lastIndex, rest = null, endedAtMillis = now.wallMillis)
-        else s.copy(plan = newPlan, values = values(newPlan, s.index))
+        else s.copy(plan = newPlan, values = s.prefillSet(newPlan[s.index]))
     }
 
     private fun start(s: WorkoutState, plan: List<PlannedSet>, id: String, now: ClockSnapshot): WorkoutState =
-        s.copy(sessionId = id, phase = Phase.ActiveSet, index = 0, values = values(plan, 0), records = emptyList(),
+        s.copy(sessionId = id, phase = Phase.ActiveSet, index = 0, values = s.prefillSet(plan.first()), records = emptyList(),
             rest = null, endedEarly = false, startedAtMillis = now.wallMillis, endedAtMillis = null)
-
-    private fun values(plan: List<PlannedSet>, index: Int): SetValues = plan[index].let { SetValues(it.weightTenths, it.reps, it.rir) }
 
     private fun active(s: WorkoutState, plan: List<PlannedSet>, c: WorkoutCommand, now: ClockSnapshot): WorkoutState {
         val p: PlannedSet = plan[s.index]

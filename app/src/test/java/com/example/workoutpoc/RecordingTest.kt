@@ -84,7 +84,7 @@ class RecordingTest {
         repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet)) // the single overlay/notification tap
         val saved = repo.state.value
         val record = saved.records.single()
-        assertEquals(SetValues(200, 8, 3), record.values)
+        assertEquals(SetValues(200, 8, null), record.values)
         assertEquals("set-one-squat-1", record.prescriptionId)
         assertEquals(90_000L, saved.rest!!.remainingMillis(time))
         scope1.cancel(); scope1.coroutineContext[Job]!!.join()
@@ -98,7 +98,7 @@ class RecordingTest {
         assertEquals(200, restored.state.value.plan[0].weightTenths)
         restored.dispatch(restored.state.value.command(WorkoutEvent.SkipRest))
         // A different prescribed load is prefilled as prescribed, not overridden by the previous set.
-        assertEquals(SetValues(225, 6, 2), restored.state.value.values)
+        assertEquals(SetValues(225, 6, null), restored.state.value.values)
         scope2.cancel(); scope2.coroutineContext[Job]!!.join()
     }
 
@@ -217,6 +217,7 @@ class RecordingTest {
         val c = day("week-two", "day-two-c")
         repo.load(c.day.toPlannedSets(), c.source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
+        repo.dispatch(repo.state.value.command(WorkoutEvent.SelectRir, 4))
         repeat(3) {
             repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
             repo.dispatch(repo.state.value.command(WorkoutEvent.SkipRest))

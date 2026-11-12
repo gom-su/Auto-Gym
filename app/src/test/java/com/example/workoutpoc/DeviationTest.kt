@@ -54,6 +54,7 @@ class DeviationTest {
     @Test fun `extra set is unprescribed, prefilled from the last real values and removable before recording`() = runTest {
         val (repo, _) = started()
         repo.go(WorkoutEvent.IncrementWeight)
+        repo.dispatch(repo.state.value.command(WorkoutEvent.SelectRir, 4))
         repo.go(WorkoutEvent.CompleteSet) // squat set 1, then resting
         repo.go(WorkoutEvent.AddSet)
         var s = repo.state.value

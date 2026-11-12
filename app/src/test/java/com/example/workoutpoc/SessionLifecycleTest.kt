@@ -101,7 +101,7 @@ class SessionLifecycleTest {
         repo.go(WorkoutEvent.SkipRest)
         s = repo.state.value
         assertEquals("set-one-squat-1", s.plan[s.index].prescriptionId)
-        assertEquals(SetValues(200, 8, 3), s.values)
+        assertEquals(SetValues(200, 8, null), s.values)
         assertEquals(100, s.records[0].values.weightTenths)
         // During rest a warm-up is inserted before the next set too.
         repo.go(WorkoutEvent.CompleteSet)

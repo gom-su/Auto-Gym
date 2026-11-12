@@ -138,6 +138,11 @@ data class SessionSource(
 )
 
 @Serializable
+data class PreviousWorkSet(
+    val weightTenths: Int, val unit: WeightUnit, val basis: String?, val reps: Int, val rir: Int?
+)
+
+@Serializable
 data class WorkoutState(
     val sessionId: String = "",
     val phase: Phase = Phase.Idle,
@@ -159,7 +164,8 @@ data class WorkoutState(
     /** Planned cardio steps, in the same single sequence as the strength plan (contract §6). */
     val cardioPlan: List<PlannedCardio> = emptyList(),
     /** Rest segments (contract §5). The legacy [rest] deadline remains until the reducer migrates. */
-    val restSegments: List<RestSegment> = emptyList()
+    val restSegments: List<RestSegment> = emptyList(),
+    val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap()
 )
 
 enum class WorkoutEvent {
@@ -214,7 +220,24 @@ fun WorkoutState.followingSetValues(current: PlannedSet, next: PlannedSet): SetV
         current.sameExercise(next) && current.unit == next.unit && current.basis == next.basis &&
         current.weightTenths == next.weightTenths && current.loadPrescribed == next.loadPrescribed
     val weight = if (carryLoad) values.weightTenths.coerceAtMost(next.maxWeightTenths) else next.weightTenths
-    return SetValues(weight, next.reps, next.rir)
+    return prefillSet(next, weight)
+}
+
+internal fun WorkoutState.prefillSet(step: PlannedSet, weight: Int = step.weightTenths): SetValues {
+    if (source == null) return SetValues(weight, step.reps, step.rir)
+    if (step.setType != SetType.WORK) return SetValues(weight, step.reps, null)
+    val previousToday = records.lastOrNull { record ->
+        plan.getOrNull(record.index)?.let { previous ->
+            val sameExercise = step.exerciseId?.let { it == previous.exerciseId } ?: previous.sameExercise(step)
+            previous.setType == SetType.WORK && sameExercise
+        } == true
+    }
+    val previousWeek = step.exerciseId?.let(previousWorkSets::get)
+    val rir = if (previousToday != null) previousToday.takeIf { it.status == SetStatus.COMPLETED }?.values?.rir else previousWeek?.takeIf {
+        step.loadPrescribed && step.reps > 0 && it.weightTenths == weight && it.unit == step.unit &&
+            it.basis == step.basis && it.reps == step.reps
+    }?.rir
+    return SetValues(weight, step.reps, rir)
 }
 
 fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
