@@ -22,8 +22,11 @@ import kotlinx.serialization.json.Json
 )
 @Serializable data class SetPrescription(
     val id: String, val reps: Int? = null, val rir: Int? = null,
-    val load: PrescribedLoad? = null, val restSeconds: Int? = null
+    val load: PrescribedLoad? = null, val restSeconds: Int? = null,
+    /** Warm-up or approach sets are prescribed apart from work sets (contract §3). */
+    val kind: SetKind = SetKind.WORK
 )
+@Serializable enum class SetKind { WORK, WARMUP, APPROACH }
 @Serializable data class PrescribedLoad(val value: Double, val unit: LoadUnit, val basis: LoadBasis)
 @Serializable enum class LoadUnit { KG, LB, MACHINE_SETTING, BODYWEIGHT }
 @Serializable enum class LoadBasis { TOTAL, PER_SIDE, PER_HAND, BODYWEIGHT, MACHINE_SETTING }
