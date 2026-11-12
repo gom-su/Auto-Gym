@@ -90,8 +90,8 @@ La política estricta de la sección «Contract v1» aplica a campos desconocido
 Decisión: **se mantiene así**. Endurecer el decoder cambiaría la importación de archivos que hoy se aceptan y exigiría una migración de compatibilidad, que no compensa el riesgo.
 
 Consecuencias:
-- El agente que escribe a través de MCP no puede introducir esta forma: el validador MCP rechaza cualquier número que no sea entero JSON.
+- MCP rechaza una cadena donde el campo espera un número (por ejemplo `"restSeconds": "45"`) y acepta los números JSON decimales donde el campo los permite (por ejemplo `load.value: 22.5`). Así, el agente que escribe a través de MCP no puede introducir la forma entrecomillada.
 - Un archivo escrito a mano con números entre comillas se importa en la app como el número equivalente; las reglas de rango se aplican sobre ese número.
-- El mismo archivo puede pasar la app y fallar la validación de MCP. Solo importa si se valida con MCP y luego se importa en la app, o al revés.
+- La diferencia también aparece al crear una propuesta o un plan mediante MCP: MCP valida los argumentos de la herramienta antes de escribir el paquete, así que la forma entrecomillada se rechaza y nunca llega a un archivo. Solo aparece en archivos escritos a mano o por otra herramienta, que la app acepta y MCP no valida.
 
 Si se quiere cerrar más adelante, debe hacerse como cambio aparte con prueba de importación de los ejemplos existentes.
