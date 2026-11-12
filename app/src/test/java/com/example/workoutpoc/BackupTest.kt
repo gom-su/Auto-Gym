@@ -107,10 +107,12 @@ class BackupTest {
         val annotations = WeekAnnotationRepository(store("week-annotations-v1.json", WeekAnnotationsSerializer))
         val migrations = MigrationRepository(store("migrations-v1.json", MigrationArchiveSerializer))
         val settings = AppSettingsRepository(store("app-settings-v1.json", AppSettingsSerializer))
-        val backup = BackupRepository(workout, programs, outlines, exchanges, proposals, measurements, catalog, answers, annotations, migrations, settings)
+        val comments = SessionCommentRepository(store("session-comments-v1.json", SessionCommentLogSerializer))
+        val backup = BackupRepository(workout, programs, outlines, exchanges, proposals, measurements, catalog, answers, annotations, migrations, settings, comments)
         suspend fun close() { scope.cancel(); scope.coroutineContext[Job]!!.join() }
         suspend fun readFiles(): BackupData {
-            val stores = JsonObject(BackupCodec.sections.associate { section ->
+            // A store never written to disk is absent here; optional stores then restore as their default.
+            val stores = JsonObject(BackupCodec.sections.filter { dir.resolve(it.file).exists() }.associate { section ->
                 section.key to Json.parseToJsonElement(dir.resolve(section.file).readText())
             })
             var data = BackupData()
@@ -145,7 +147,7 @@ class BackupTest {
             assertEquals(original, second.backup.snapshot())
             assertEquals(original.settings, second.settings.settings.value)
             assertEquals(original.exercises, second.catalog.catalog.value)
-            assertEquals(12, BackupCodec.sections.size)
+            assertEquals(13, BackupCodec.sections.size)
             assertFalse(second.dir.resolve("sync-v1.json").exists())
             // Emit synthetic data for the independent emulator/UI verification, never real user data.
             File("build/backup-fixture.json").apply { parentFile!!.mkdirs(); writeText(encoded) }

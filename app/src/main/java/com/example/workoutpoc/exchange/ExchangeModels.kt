@@ -1,5 +1,6 @@
 package com.example.workoutpoc.exchange
 
+import com.example.workoutpoc.domain.SessionComment
 import com.example.workoutpoc.planning.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -23,7 +24,9 @@ import java.time.Instant
     /** Earlier cycles retained for planning the next one; never treated as active plans. */
     val previousOutlines: List<PlanOutline> = emptyList(),
     /** Unit the user recorded each exercise in, when it is kg or lb (contract §2). */
-    val preferredUnits: List<PreferredUnit> = emptyList()
+    val preferredUnits: List<PreferredUnit> = emptyList(),
+    /** Comments still in force for the saved programs; the agent uses them when generating a week (contract §7). */
+    val comments: List<SessionComment> = emptyList()
 )
 @Serializable data class PreferredUnit(val exerciseId: String, val unit: String)
 @Serializable data class BodyMeasurement(

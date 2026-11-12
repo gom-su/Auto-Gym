@@ -20,15 +20,17 @@ suspend fun WorkoutApplication.localExchange(type: ExchangeType): ExchangePackag
         // Phase, goals and rules come only from the user's answers to the planning questions (AG-01); never invented.
         catalog.restore(); planningAnswers.restore()
         val (phase, goals, rules) = PlanningQuestions.context(PlanningQuestions.questions(catalog.catalog.value), planningAnswers.answers.value)
-        outlines.restore(); measurements.restore()
+        outlines.restore(); measurements.restore(); comments.restore()
         val active = outlines.outlines.value.active
         val saved = programs.library.value.programs
+        val inForce = comments.log.value.comments.filter { c -> c.resolvedAtMillis == null && saved.any { it.id == c.programId } }
         // The next week of each plan is computed here, deterministically, so the agent never guesses it.
         TrainingContext(saved, phase, results, rules, goals,
             measurements = measurements.log.value.measurements.sortedBy { it.measuredAtMillis }.map { it.toContextMeasurement() },
             outlines = active,
             nextWeeks = active.map { o -> PlanOutlines.brief(o, saved.find { it.id == o.programId }, sessions) },
             previousOutlines = (outlines.outlines.value.inactive + outlines.outlines.value.replaced).distinctBy { it.id to it.version },
+            comments = inForce,
             preferredUnits = catalog.catalog.value.exercises.mapNotNull { e ->
                 e.preferredUnit?.let { PreferredUnit(e.id, it.name) } })
     }

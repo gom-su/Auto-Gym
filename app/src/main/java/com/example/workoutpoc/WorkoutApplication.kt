@@ -16,7 +16,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class WorkoutApplication : Application() {
     val backups: com.example.workoutpoc.backup.BackupRepository by lazy {
         com.example.workoutpoc.backup.BackupRepository(repository, programs, outlines, exchanges, proposals,
-            measurements, catalog, planningAnswers, weekAnnotations, migrations, settings)
+            measurements, catalog, planningAnswers, weekAnnotations, migrations, settings, comments)
+    }
+    val comments: SessionCommentRepository by lazy {
+        SessionCommentRepository(DataStoreFactory.create(
+            com.example.workoutpoc.domain.SessionCommentLogSerializer,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) { dataStoreFile("session-comments-v1.json") })
     }
     val migrations: com.example.workoutpoc.migration.MigrationRepository by lazy {
         com.example.workoutpoc.migration.MigrationRepository(DataStoreFactory.create(
