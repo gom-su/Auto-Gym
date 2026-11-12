@@ -70,7 +70,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             WorkoutEvent.PostponeExercise -> s.postponeTarget(plan)?.let { postpone(s, plan, it, now) } ?: s
             else -> if (s.phase == Phase.ActiveSet) active(s, plan, c, now) else s
         }
-        return if (changed == s) s else changed.copy(revision = s.revision + 1)
+        return if (changed == s) s else changed.trackTiming(s, c.event, now).copy(revision = s.revision + 1)
     }
 
     /**

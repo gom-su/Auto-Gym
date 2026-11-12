@@ -14,16 +14,23 @@ import com.example.workoutpoc.R
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.presentation.durationLabel
+import com.example.workoutpoc.presentation.overlayText
+import com.example.workoutpoc.history.review
 import com.example.workoutpoc.timer.clockSnapshot
 import kotlin.math.abs
 
 /** Owns only the window. All user actions are commands against the displayed snapshot. */
-class WorkoutOverlayController(private val context: Context, private val dispatch: (WorkoutCommand) -> Unit) {
+class WorkoutOverlayController(private val context: Context, private val onDismiss: () -> Unit,
+                               private val dispatch: (WorkoutCommand) -> Unit) {
     private val manager: WindowManager = context.getSystemService(WindowManager::class.java)
     private var view: View? = null
     private var collapsed: Boolean = false
     private var wanted: Boolean = false
     private var snapshot: WorkoutState = WorkoutState()
+    private var completedSession: String? = null
+    private var completedState: WorkoutState? = null
+    private var completedText: String = ""
+    val isRequested get() = wanted
     private val params = WindowManager.LayoutParams(280.dp(), WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply {
@@ -41,8 +48,18 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
         val locked: Boolean = context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
         val awake: Boolean = context.getSystemService(PowerManager::class.java).isInteractive
         if (locked || !awake || !Settings.canDrawOverlays(context)) { remove(); return }
+        val reviewReady = state.source != null && state.phase == Phase.Completed
+        if (reviewReady && collapsed) { collapsed = false; rebuild() }
         if (view == null) rebuild()
         val root: View = view ?: return
+        if (!collapsed) {
+            root.findViewById<View>(R.id.overlay_summary).visibility = if (reviewReady) View.VISIBLE else View.GONE
+            root.findViewById<View>(R.id.collapse).visibility = if (reviewReady) View.INVISIBLE else View.VISIBLE
+        }
+        if (reviewReady) {
+            renderReview(root, state)
+            return
+        }
         val plan: List<PlannedSet> = state.activePlan()
         val current = plan.getOrNull(state.index)
         val cardioRemaining = state.cardioRemainingMillis(clockSnapshot(context))
@@ -92,6 +109,29 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
             }
     }
 
+    private fun renderReview(root: View, state: WorkoutState) {
+        root.findViewById<View>(R.id.overlay_set).visibility = View.GONE
+        root.findViewById<View>(R.id.overlay_rest).visibility = View.GONE
+        root.findViewById<View>(R.id.overlay_cardio).visibility = View.GONE
+        val partial = state.endedEarly || !state.plannedCardioComplete || state.records.size != state.plan.size ||
+            state.records.any { it.status == SetStatus.SKIPPED }
+        val title = root.findViewById<TextView>(R.id.overlay_title)
+        title.text = if (partial) "Entrenamiento parcial" else "¡Entrenamiento completado!"
+        root.findViewById<TextView>(R.id.overlay_subtitle).text = if (partial) "Resultado guardado" else "Buen trabajo"
+        if (completedState != state) {
+            completedText = state.review().overlayText()
+            completedState = state
+        }
+        root.findViewById<TextView>(R.id.overlay_summary_text).text = completedText
+        if (completedSession != state.sessionId) {
+            completedSession = state.sessionId
+            if (!partial) {
+                title.alpha = 0f
+                title.animate().alpha(1f).setDuration(280).start()
+            }
+        }
+    }
+
     private fun seconds(s: WorkoutState): Long = ((s.rest?.remainingMillis(clockSnapshot(context)) ?: 0) + 999) / 1000
 
     private fun restExpired(state: WorkoutState): Boolean =
@@ -108,7 +148,7 @@ class WorkoutOverlayController(private val context: Context, private val dispatc
             contentDescription = "Burbuja de entrenamiento. Toca para expandir, arrastra para mover"
             setOnClickListener { collapsed = false; rebuild() }
         } else LayoutInflater.from(context).inflate(R.layout.overlay_panel, null).apply {
-            findViewById<View>(R.id.close).setOnClickListener { close() }
+            findViewById<View>(R.id.close).setOnClickListener { close(); onDismiss() }
             findViewById<View>(R.id.collapse).setOnClickListener { collapsed = true; rebuild() }
             mapOf(R.id.overlay_weight_minus to WorkoutEvent.DecrementWeight,
                 R.id.overlay_weight_plus to WorkoutEvent.IncrementWeight,

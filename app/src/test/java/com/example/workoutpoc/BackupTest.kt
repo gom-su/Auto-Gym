@@ -273,13 +273,16 @@ class BackupTest {
         val device = Device(folder.newFolder())
         try {
             val saved = rich().copy(workout = rich().workout.copy(phase = Phase.Resting,
-                rest = RestDeadline(9_000_000, time.wallMillis - 1, time.bootCount)))
+                rest = RestDeadline(9_000_000, time.wallMillis - 1, time.bootCount),
+                timing = SessionTiming(open = OpenTimingSegment(TimingFocus(TimedActivity.REST, "exercise", "Ejercicio"),
+                    PauseMark(8_000_000, time.wallMillis - 95_000, time.bootCount)))))
             device.backup.restore(saved, device.backup.snapshot())
             val restored = device.workout.state.value
             assertEquals(Phase.Resting, restored.phase)
             assertEquals(0L, restored.rest!!.remainingMillis(time))
             device.workout.dispatch(restored.command(WorkoutEvent.ConfirmRest))
             assertEquals(Phase.ActiveSet, device.workout.state.value.phase)
+            assertEquals(95_000L, device.workout.state.value.timing!!.segments.single().durationMillis)
             assertEquals(saved.workout.records, device.workout.state.value.records)
         } finally { device.close() }
     }
@@ -289,13 +292,16 @@ class BackupTest {
         try {
             val saved = rich().copy(workout = rich().workout.copy(phase = Phase.Resting,
                 rest = RestDeadline(9_000_000, time.wallMillis - 15_000, time.bootCount),
-                paused = PauseMark(8_000_000, time.wallMillis - 20_000, time.bootCount)))
+                paused = PauseMark(8_000_000, time.wallMillis - 20_000, time.bootCount),
+                timing = SessionTiming(open = OpenTimingSegment(TimingFocus(TimedActivity.PAUSE, "exercise", "Ejercicio"),
+                    PauseMark(8_000_000, time.wallMillis - 20_000, time.bootCount)))))
             device.backup.restore(saved, device.backup.snapshot())
             val restored = device.workout.state.value
             assertEquals(20_000L, restored.paused!!.elapsedSince(time))
             device.workout.dispatch(restored.command(WorkoutEvent.ResumeSession))
             assertEquals(5_000L, device.workout.state.value.rest!!.remainingMillis(time))
             assertEquals(20_000L, device.workout.state.value.pausedMillis)
+            assertEquals(20_000L, device.workout.state.value.timing!!.segments.single().durationMillis)
             assertEquals(saved.workout.records, device.workout.state.value.records)
         } finally { device.close() }
     }

@@ -7,7 +7,7 @@ import com.example.workoutpoc.planning.DayStatus
 /** One recorded set as shown in history, with its prescription context. */
 data class HistorySet(val exercise: String, val number: Int, val unit: WeightUnit, val values: SetValues, val status: SetStatus,
                       val warmup: Boolean, val extra: Boolean, val notes: String?, val edited: Boolean,
-                      val revisions: List<SetRevision> = emptyList())
+                      val revisions: List<SetRevision> = emptyList(), val prescribedUnit: WeightUnit = unit)
 
 /**
  * Summary of one recorded session. Status uses the adherence categories: completed only when every prescribed set was
@@ -18,14 +18,16 @@ data class SessionSummary(
     val status: DayStatus, val inProgress: Boolean, val endedEarly: Boolean,
     val completedSets: Int, val omittedSets: Int, val unreachedSets: Int, val extraSets: Int, val warmupSets: Int,
     val cardio: List<CardioEntry>, val sets: List<HistorySet>, val demo: Boolean,
-    val programId: String? = null, val programName: String? = null
+    val programId: String? = null, val programName: String? = null,
+    val review: SessionReview? = null
 )
 
 fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: Int = 0): SessionSummary {
     val plan = s.activePlan()
     val sets = s.records.map { r ->
         val p = plan[r.index]
-        HistorySet(p.exercise, p.number, p.unit, r.values, r.status, p.warmup, p.extra, r.notes, r.editedAtMillis != null, r.revisions)
+        HistorySet(p.exercise, p.number, r.recordedUnit ?: p.unit, r.values, r.status,
+            p.setType != SetType.WORK, p.extra, r.notes, r.editedAtMillis != null, r.revisions, p.unit)
     }
     val prescribed = plan.count { !it.extra }
     val completed = s.records.count { !plan[it.index].extra && it.status == SetStatus.COMPLETED }
@@ -42,7 +44,7 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
         completed, omitted, (prescribed - completed - omitted).coerceAtLeast(0),
         s.records.count { plan[it.index].extra && !plan[it.index].warmup && it.status == SetStatus.COMPLETED },
         s.records.count { plan[it.index].warmup && it.status == SetStatus.COMPLETED },
-        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName)
+        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName, s.takeIf { it.source != null }?.review())
 }
 
 /** All sessions with at least one record or cardio entry, newest first; the current one is included if started. */

@@ -13,6 +13,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
+import com.example.workoutpoc.history.review
 import com.example.workoutpoc.ui.*
 import com.example.workoutpoc.ui.theme.AppTheme
 import com.example.workoutpoc.ui.theme.Spacing
@@ -33,7 +34,8 @@ fun WorkoutScreen(
     archivedCount: Int = 0, onEditRecord: (RecordEdit) -> Unit = {},
     onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {},
     /** The default logging mode in Ajustes is the floating panel: offer it first. */
-    overlayFirst: Boolean = false
+    overlayFirst: Boolean = false,
+    onFinalize: () -> Unit = {}
 ) {
     var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
     var confirmReset by remember(state.sessionId) { mutableStateOf(false) }
@@ -83,7 +85,10 @@ fun WorkoutScreen(
                             }
                         }
                     }
-                    Phase.Completed -> CompletedCard(state, plan)
+                    Phase.Completed -> {
+                        CompletedCard(state, plan)
+                        if (!demo) SessionReviewContent(remember(state) { state.review() })
+                    }
                 }
                 SessionStatus(state, now, dispatch)
                 if (state.paused == null && plan.isNotEmpty() && state.phase != Phase.ActiveCardio) DeviationActions(state, dispatch)
@@ -91,7 +96,9 @@ fun WorkoutScreen(
                 if (state.records.isNotEmpty()) RecordList(state, plan, demo) { editing = it }
                 if (state.phase != Phase.Idle || !demo) SessionEndActions(state, demo, archivedCount, dispatch) {
                     // Resetting the demo discards its records; closing a planned session archives them first.
-                    if (demo && state.records.isNotEmpty()) confirmReset = true else dispatch(state.command(WorkoutEvent.ResetDemo))
+                    if (!demo && state.phase == Phase.Completed) onFinalize()
+                    else if (demo && state.records.isNotEmpty()) confirmReset = true
+                    else dispatch(state.command(WorkoutEvent.ResetDemo))
                 } else if (archivedCount > 0) SupportingText("Sesiones archivadas en este dispositivo: $archivedCount", small = true)
             }
         }
@@ -253,11 +260,13 @@ private fun ActiveSetCard(state: WorkoutState, plan: List<PlannedSet>, demo: Boo
 @Composable
 private fun CompletedCard(state: WorkoutState, plan: List<PlannedSet>) {
     val x = AppTheme.extended
+    val partial = state.endedEarly || !state.plannedCardioComplete ||
+        state.records.size != plan.size || state.records.any { it.status == SetStatus.SKIPPED }
     Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, color = x.successContainer, contentColor = x.onSuccessContainer) {
         Column(Modifier.padding(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Icon(AppIcons.CheckCircle, contentDescription = null, modifier = Modifier.size(32.dp))
-            Text("Entrenamiento terminado", style = MaterialTheme.typography.headlineSmall)
-            Text(if (state.endedEarly || !state.plannedCardioComplete) "Terminaste antes de completar el plan."
+            Text(if (partial) "Entrenamiento parcial" else "Entrenamiento terminado", style = MaterialTheme.typography.headlineSmall)
+            Text(if (partial) "Resultado guardado."
                 else if (plan.isEmpty()) "Completaste el cardio planificado."
                 else "Completaste las ${plan.size} series.", style = MaterialTheme.typography.bodyLarge)
         }
@@ -306,7 +315,8 @@ private fun SessionEndActions(state: WorkoutState, demo: Boolean, archivedCount:
                 TonalAction("Terminar entrenamiento", { dispatch(state.command(WorkoutEvent.FinishWorkout)) }, icon = AppIcons.Stop)
         }
         if (archivedCount > 0) SupportingText("Sesiones archivadas en este dispositivo: $archivedCount", small = true)
-        QuietAction(if (demo) "Reiniciar demo" else "Cerrar sesión y volver al demo", onReset, destructive = demo, fill = true)
+        if (!demo && state.phase == Phase.Completed) PrimaryAction("Finalizar entrenamiento", onReset, icon = AppIcons.Check, tall = true)
+        else if (demo || state.phase == Phase.Idle) QuietAction(if (demo) "Reiniciar demo" else "Cerrar sesión", onReset, destructive = demo, fill = true)
         if (!demo && state.records.isNotEmpty())
             SupportingText("Las series registradas se archivan en este dispositivo antes de cerrar.", small = true)
     }

@@ -28,7 +28,10 @@ class WorkoutOverlayService : Service() {
         super.onCreate()
         notifications = workoutApp.notifications
         restHaptics = com.example.workoutpoc.timer.RestHaptics(this)
-        overlay = WorkoutOverlayController(this) { command -> scope.launch {
+        overlay = WorkoutOverlayController(this, onDismiss = {
+            val state = workoutApp.repository.state.value
+            if (state.phase == Phase.Completed) finishService(state)
+        }) { command -> scope.launch {
             workoutApp.safely { workoutApp.repository.dispatch(command) }
         } }
         val initial = notifications.build(workoutApp.repository.state.value)
@@ -50,14 +53,8 @@ class WorkoutOverlayService : Service() {
                     notifications.update(state)
                     restHaptics.update(state)
                     overlay.render(state)
-                    if (state.phase == Phase.Completed || state.phase == Phase.Idle) {
-                        overlay.close()
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        // stopForeground removed the notification: repost even if the
-                        // final snapshot has already been observed by the receiver.
-                        if (state.phase == Phase.Completed) notifications.update(state, force = true)
-                        stopSelf()
-                    }
+                    if (state.phase == Phase.Idle || (state.phase == Phase.Completed &&
+                        (state.source == null || !overlay.isRequested))) finishService(state)
                 }
             }
         }
@@ -72,10 +69,20 @@ class WorkoutOverlayService : Service() {
             }
         }
     }
+    private fun finishService(state: com.example.workoutpoc.domain.WorkoutState) {
+        overlay.close()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        if (state.phase == Phase.Completed) notifications.update(state, force = true)
+        stopSelf()
+    }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (::overlay.isInitialized) when (intent?.action) {
             SHOW -> overlay.show()
-            HIDE -> overlay.close()
+            HIDE -> {
+                overlay.close()
+                val state = workoutApp.repository.state.value
+                if (state.phase == Phase.Completed) finishService(state)
+            }
         }
         return START_NOT_STICKY
     }

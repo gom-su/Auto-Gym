@@ -85,6 +85,9 @@ fun AdherenceScreen(ui: AdherenceUiState, onBack: () -> Unit, onRetry: () -> Uni
                     Text("${w.program.name} · ${w.week.name}", style = MaterialTheme.typography.titleMedium)
                     Text(DayStatus.entries.joinToString(" · ") { "${it.label}: ${w.count(it)}" }, style = MaterialTheme.typography.bodySmall.tabular(),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    w.averageSessionMillis?.let { average ->
+                        SupportingText("Duración real promedio: ${com.example.workoutpoc.presentation.measuredTimeLabel(average)} · ${w.measuredSessions} sesiones medidas")
+                    }
                 }
             }
             items(w.days, key = { "${w.program.id}-${w.week.id}-${it.day.id}" }) { d ->

@@ -7,7 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.*
 import com.example.workoutpoc.data.WorkoutSerializer
 import com.example.workoutpoc.domain.*
-import com.example.workoutpoc.planning.ProgramCodec
+import com.example.workoutpoc.planning.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.After
@@ -98,6 +98,12 @@ class PlannedSessionDeviceTest {
         assertEquals(record, onDisk.records.single())
         assertEquals("day-one-a", onDisk.source!!.dayId)
         find(By.res(pkg, "overlay_title").text("Descanso"), "rest shown")
+        find(By.res(pkg, "collapse"), "minimize overlay").click()
+        runBlocking {
+            app.repository.dispatch(app.repository.state.value.command(WorkoutEvent.FinishWorkout))
+        }
+        find(By.res(pkg, "overlay_title").text("Entrenamiento parcial"), "completed overlay expanded")
+        find(By.res(pkg, "overlay_summary_text").textContains("Peso objetivo: 20 kg"), "persisted session summary")
         find(By.res(pkg, "close"), "close overlay").click()
     }
 
@@ -128,5 +134,32 @@ class PlannedSessionDeviceTest {
         find(By.res(pkg, "overlay_title").text("Press ficticio"), "press 2 shown")
         assertFalse("Postpone is only for an exercise's first set", device.hasObject(By.res(pkg, "overlay_postpone")))
         find(By.res(pkg, "close"), "close overlay").click()
+    }
+
+    @Test fun cardio_only_starts_from_hoy_and_plan_and_finalizes_to_hoy() {
+        runBlocking { app.outlines.restore() }
+        org.junit.Assume.assumeTrue("Hoy sigue el plan activo", app.outlines.outlines.value.active.isEmpty())
+        val suffix = java.util.UUID.randomUUID().toString().take(8)
+        val day = SessionPlan("cardio-qa-day", "Día D de prueba", emptyList(), CardioPrescription("Bicicleta", 3600))
+        val nextDay = day.copy(id = "cardio-qa-next", name = "Cardio siguiente")
+        val week = WeekPlan("cardio-qa-week", "Semana de cardio", 1, listOf(day, nextDay))
+        val program = TrainingProgram("cardio-qa-$suffix", "Cardio de prueba $suffix",
+            listOf(TrainingBlock("cardio-qa-block", "Bloque", listOf(week))))
+        runBlocking { app.programs.importProgram(program) }
+        app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        device.awaitHome()
+        device.openTab("Plan")
+        scrollTo(program.name).click()
+        scrollTo(week.name).click()
+        scrollTo(day.name).click()
+        scrollTo("Entrenar este día").click()
+        awaitState("Cardio from Plan started") { it.phase == Phase.ActiveCardio && it.source?.dayId == day.id && it.plan.isEmpty() }
+        scrollTo("Terminar cardio").click()
+        awaitState("Cardio saved") { it.phase == Phase.Completed && it.cardio.size == 1 }
+        scrollTo("Finalizar entrenamiento").click()
+        device.awaitHome()
+        awaitState("Cardio archived") { it.phase == Phase.Idle && app.repository.archived.value.sessions.any { s -> s.source?.programId == program.id } }
+        scrollTo("Entrenar Cardio siguiente").click()
+        awaitState("Cardio from Hoy started") { it.phase == Phase.ActiveCardio && it.source?.dayId == nextDay.id && it.plan.isEmpty() }
     }
 }

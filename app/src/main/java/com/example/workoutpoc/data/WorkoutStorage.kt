@@ -79,6 +79,8 @@ object WorkoutValidation {
         require((s.phase == Phase.Resting) == (s.rest != null))
         require(s.paused == null || s.phase.inProgress)
         require(s.pausedMillis >= 0)
+        require(s.timing == null || (s.source != null && (s.timing.open != null) == s.phase.inProgress &&
+            s.timing.segments.all { it.durationMillis >= 0 }))
         require(s.previousWorkSets.size <= 1000 && (s.source != null || s.previousWorkSets.isEmpty()))
         require(s.previousWorkSets.values.all { it.weightTenths in 0..1_000_000 && it.reps in 1..1000 &&
             (it.rir == null || it.rir in 0..4) })
