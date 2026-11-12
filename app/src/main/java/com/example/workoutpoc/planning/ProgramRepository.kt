@@ -39,6 +39,19 @@ class ProgramRepository(private val store: DataStore<ProgramLibrary>) {
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(programs = store.data.first()) }, { replaceAllLocked(it.programs) })
 
+    /**
+     * Replaces the saved content of one program with [program]. Only an explicit approval of a week replacement
+     * (contract §2) uses it. Returns the library as it was, so the caller can restore it if a later step fails.
+     */
+    suspend fun replaceProgram(program: TrainingProgram): ProgramLibrary = mutex.withLock {
+        ProgramCodec.validate(program)
+        val before = store.data.first()
+        val programs = if (before.programs.any { it.id == program.id }) before.programs.map { if (it.id == program.id) program else it }
+            else before.programs + program
+        replaceAllLocked(before.copy(programs = programs))
+        before
+    }
+
     /** What saving [program] would do against the current library, without writing anything. */
     fun preview(program: TrainingProgram): MergePlan = ProgramMerge.plan(library.value.programs.find { it.id == program.id }, program)
 

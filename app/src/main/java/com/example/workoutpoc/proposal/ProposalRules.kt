@@ -73,8 +73,16 @@ object ProposalRules {
         }
     }
 
+    /** The program with the proposed week replacing the saved week of the same ID in its block (contract §2). */
+    fun appliedReplacement(p: WeekProposal, program: TrainingProgram): TrainingProgram =
+        program.copy(blocks = program.blocks.map { b ->
+            if (b.id == p.blockId) b.copy(weeks = b.weeks.map { if (it.id == p.week.id) p.week else it }) else b
+        })
+
     fun evaluate(proposal: WeekProposal, library: ProgramLibrary, knownExerciseIds: Set<String>, settings: RuleSettings,
-                 outline: PlanOutline? = null, sessions: List<SessionResult> = emptyList()): ProposalEvaluation {
+                 outline: PlanOutline? = null, sessions: List<SessionResult> = emptyList(),
+                 /** The user asked to replace the saved week; [replacedRecords] is what its approval deletes. */
+                 replacing: Boolean = false, replacedRecords: Int = 0): ProposalEvaluation {
         val issues = mutableListOf<ValidationIssue>()
         fun add(code: String, severity: Severity, message: String) { if (severity != Severity.OFF) issues += ValidationIssue(code, severity, message) }
         val week = proposal.week
@@ -92,8 +100,17 @@ object ProposalRules {
             else -> {
                 val existing = program?.blocks?.flatMap { it.weeks }?.find { it.id == week.id }
                 if (existing != null && existing == week && block?.weeks?.any { it.id == week.id } == true) alreadyApplied = true
+                else if (existing != null && replacing && block?.weeks?.any { it.id == week.id } == true) {
+                    add("WEEK_REPLACEMENT", Severity.WARNING,
+                        "Reemplaza la semana ${existing.name} (${week.id}) de este bloque y borra $replacedRecords sesión(es) registrada(s) de esa semana. Esta acción no se puede deshacer.")
+                    differences += "Sustituye la semana ${existing.name} guardada."
+                    val applied = appliedReplacement(proposal, program!!)
+                    try { ProgramCodec.validate(applied) } catch (e: ProgramValidationException) {
+                        add("INTEGRITY", Severity.BLOCKING, "La semana propuesta no es válida: ${e.message}")
+                    }
+                }
                 else if (existing != null) add("WEEK_EXISTS", Severity.BLOCKING,
-                    "La semana ${week.id} ya existe en el programa con otro contenido. Una propuesta no reemplaza semanas guardadas; usa un ID nuevo.")
+                    "La semana ${week.id} ya existe en el programa con otro contenido. Una propuesta no reemplaza semanas guardadas; usa un ID nuevo o pide el reemplazo explícito.")
                 else {
                     // Appending must keep the program valid, e.g. no proposal ID may reuse a saved day or set ID.
                     val applied = appliedProgram(proposal, program, plan)!!

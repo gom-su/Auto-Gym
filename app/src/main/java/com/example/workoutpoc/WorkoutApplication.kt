@@ -39,7 +39,9 @@ class WorkoutApplication : Application() {
                 (programs.library.value.programs.flatMap { p -> p.blocks.flatMap { b -> b.weeks.flatMap { w -> w.days.flatMap { d -> d.exercises.map { it.exerciseId } } } } } +
                     catalog.catalog.value.exercises.map { it.id } + sessions.flatMap { s -> s.plan.mapNotNull { it.exerciseId } }).toSet()
             }, sessions = { repository.restore(); repository.archived.value.sessions + repository.state.value },
-            outlines = { outlines.restore(); outlines.outlines.value.active })
+            outlines = { outlines.restore(); outlines.outlines.value.active },
+            weekRecords = { programId, weekId -> repository.restore(); repository.weekRecordCount(programId, weekId) },
+            deleteWeekRecords = { programId, weekId -> repository.restore(); repository.deleteWeekRecords(programId, weekId) })
     }
     val outlines: com.example.workoutpoc.planning.PlanOutlineRepository by lazy {
         com.example.workoutpoc.planning.PlanOutlineRepository(DataStoreFactory.create(

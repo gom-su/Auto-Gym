@@ -173,6 +173,40 @@ class WorkoutRepository(
             mutableHistory.value = history.read()
     }
 
+    private fun WorkoutState.belongsTo(programId: String, weekId: String) =
+        source?.programId == programId && source?.weekId == weekId
+
+    /** Archived sessions and the current session that were recorded in one week of a program (contract §2). */
+    suspend fun weekRecordCount(programId: String, weekId: String): Int = mutex.withLock {
+        loadLocked()
+        val archived = mutableHistory.value.sessions.count { it.belongsTo(programId, weekId) }
+        archived + if (mutableState.value.belongsTo(programId, weekId)) 1 else 0
+    }
+
+    /**
+     * Deletes every record of one week: its archived sessions and the current session when it belongs to that week.
+     * Refused while that week's session is in progress. Returns how many sessions were removed.
+     */
+    suspend fun deleteWeekRecords(programId: String, weekId: String): Int = mutex.withLock {
+        loadLocked()
+        val current = mutableState.value
+        val currentMatches = current.belongsTo(programId, weekId)
+        if (currentMatches && (current.phase == Phase.ActiveSet || current.phase == Phase.Resting))
+            throw IllegalStateException("Hay una sesión en curso de esa semana. Termínala antes de reemplazarla.")
+        val archive = mutableHistory.value
+        val kept = archive.sessions.filterNot { it.belongsTo(programId, weekId) }
+        val removed = archive.sessions.size - kept.size + if (currentMatches) 1 else 0
+        if (removed == 0) return@withLock 0
+        history.replace(archive.copy(sessions = kept))
+        mutableHistory.value = archive.copy(sessions = kept)
+        if (currentMatches) {
+            val cleared = WorkoutState()
+            storage.write(cleared)
+            mutableState.value = cleared
+        }
+        removed
+    }
+
     suspend fun reconcileRest() {
         dispatch(state.value.command(WorkoutEvent.RestFinished))
     }
