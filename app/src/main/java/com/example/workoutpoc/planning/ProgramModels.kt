@@ -8,14 +8,25 @@ import kotlinx.serialization.json.Json
 @Serializable data class TrainingProgram(val id: String, val name: String, val blocks: List<TrainingBlock>)
 @Serializable data class TrainingBlock(val id: String, val name: String, val weeks: List<WeekPlan>)
 @Serializable data class WeekPlan(val id: String, val name: String, val version: Int, val days: List<SessionPlan>)
-@Serializable data class SessionPlan(val id: String, val name: String, val exercises: List<ExercisePrescription>)
+/**
+ * A day may carry one executable cardio block (contract §6). A day with cardio and no strength exercises is valid
+ * (for example a cardio-only day); the duration is the planned seconds of that step.
+ */
+@Serializable data class SessionPlan(
+    val id: String, val name: String, val exercises: List<ExercisePrescription>,
+    val cardio: CardioPrescription? = null
+)
+@Serializable data class CardioPrescription(val modality: String, val durationSeconds: Int)
 @Serializable data class ExercisePrescription(
     val id: String, val exerciseId: String, val name: String, val sets: List<SetPrescription>
 )
 @Serializable data class SetPrescription(
     val id: String, val reps: Int? = null, val rir: Int? = null,
-    val load: PrescribedLoad? = null, val restSeconds: Int? = null
+    val load: PrescribedLoad? = null, val restSeconds: Int? = null,
+    /** Warm-up or approach sets are prescribed apart from work sets (contract §3). */
+    val kind: SetKind = SetKind.WORK
 )
+@Serializable enum class SetKind { WORK, WARMUP, APPROACH }
 @Serializable data class PrescribedLoad(val value: Double, val unit: LoadUnit, val basis: LoadBasis)
 @Serializable enum class LoadUnit { KG, LB, MACHINE_SETTING, BODYWEIGHT }
 @Serializable enum class LoadBasis { TOTAL, PER_SIDE, PER_HAND, BODYWEIGHT, MACHINE_SETTING }
@@ -36,7 +47,7 @@ object ProgramCodec {
         } catch (_: IllegalArgumentException) {
             throw ProgramValidationException("El archivo no contiene un programa JSON válido.")
         }
-        check(data.schemaVersion == 1, "Versión de formato no compatible: ${data.schemaVersion}. Se requiere 1.")
+        check(data.schemaVersion in setOf(1, 2), "Versión de formato no compatible: ${data.schemaVersion}. Se aceptan 1 y 2. Actualiza la aplicación.")
         validate(data.program)
         return data.program
     }
@@ -64,7 +75,11 @@ object ProgramCodec {
                 week.days.forEachIndexed { d, day ->
                     val dp = "$wp / día ${d + 1}"
                     identity(day.id, dp); name(day.name, dp)
-                    check(day.exercises.isNotEmpty(), "$dp: falta un ejercicio.")
+                    check(day.exercises.isNotEmpty() || day.cardio != null, "$dp: falta un ejercicio o un bloque de cardio.")
+                    day.cardio?.let { c ->
+                        check(c.modality.isNotBlank() && c.modality.length <= 200, "$dp: modalidad de cardio no válida.")
+                        check(c.durationSeconds in 1..86400, "$dp: duración de cardio fuera de rango (1–86400 s).")
+                    }
                     day.exercises.forEachIndexed { e, exercise ->
                         val ep = "$dp / ejercicio ${e + 1}"
                         identity(exercise.id, ep); name(exercise.name, ep)

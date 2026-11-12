@@ -17,11 +17,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.workoutpoc.data.activePlan
+import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.domain.Phase
+import com.example.workoutpoc.domain.currentCardio
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.planning.DayAdherence
 import com.example.workoutpoc.planning.DayStatus
 import com.example.workoutpoc.planning.SessionPlan
+import com.example.workoutpoc.planning.trainingDescription
 import com.example.workoutpoc.ui.*
 import com.example.workoutpoc.ui.theme.Spacing
 
@@ -40,7 +43,7 @@ fun HomeScreen(
 ) {
     val source = state.source
     // Only a running session takes over the card. A finished or prepared one is a row: the next day still comes first.
-    val loaded = state.phase == Phase.ActiveSet || state.phase == Phase.Resting
+    val loaded = state.phase.inProgress
     val week = home.summary?.week
     var chosen by rememberSaveable(week?.week?.id) { mutableStateOf<String?>(null) }
     val shown: SessionPlan? = week?.days?.find { it.day.id == chosen }?.day ?: week?.next
@@ -67,7 +70,7 @@ fun HomeScreen(
                 } else {
                     Text((if (shown == week.next) "Siguiente: " else "") + shown.name, style = MaterialTheme.typography.titleLarge)
                     SupportingText("${week.program.name} · ${week.week.name}")
-                    SupportingText("${plural(shown.exercises.size, "ejercicio", "ejercicios")} · ${plural(shown.exercises.sumOf { it.sets.size }, "serie", "series")}")
+                    SupportingText(shown.trainingDescription())
                     PrimaryAction("Entrenar ${shown.name}", { onTrain(week.program.id, week.week.id, shown.id) }, enabled = ready, icon = AppIcons.Play, tall = true)
                 }
             }
@@ -133,8 +136,8 @@ private fun SessionCard(state: WorkoutState, ready: Boolean, onSession: () -> Un
         Eyebrow(if (source == null) "DEMO EN CURSO" else "SESIÓN EN CURSO")
         Text(source?.dayName ?: "Demo", style = MaterialTheme.typography.titleLarge)
         source?.let { SupportingText("${it.programName} · ${it.weekName}") }
-        SupportingText("Serie ${(state.index + 1).coerceAtMost(plan.size)} de ${plan.size}" +
-            if (state.phase == Phase.Resting) " · descansando" else "")
+        SupportingText(state.currentCardio?.let { "${it.modality} · cardio" } ?: ("Serie ${(state.index + 1).coerceAtMost(plan.size)} de ${plan.size}" +
+            if (state.phase == Phase.Resting) " · descansando" else ""))
         PrimaryAction("Volver a la sesión", onSession, enabled = ready, icon = AppIcons.Play, tall = true)
     }
 }

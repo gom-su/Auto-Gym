@@ -21,8 +21,11 @@ import java.time.Instant
     /** For each plan: which week to plan next and its targets, computed by the app from programs and history. */
     val nextWeeks: List<NextWeekBrief> = emptyList(),
     /** Earlier cycles retained for planning the next one; never treated as active plans. */
-    val previousOutlines: List<PlanOutline> = emptyList()
+    val previousOutlines: List<PlanOutline> = emptyList(),
+    /** Unit the user recorded each exercise in, when it is kg or lb (contract §2). */
+    val preferredUnits: List<PreferredUnit> = emptyList()
 )
+@Serializable data class PreferredUnit(val exerciseId: String, val unit: String)
 @Serializable data class BodyMeasurement(
     val id: String, val measuredAt: String, val metric: String, val value: Double, val unit: String,
     val method: String? = null, val label: String? = null, val fasted: Boolean? = null,
@@ -55,6 +58,10 @@ import java.time.Instant
 
 object ExchangeCodec {
     const val MAX_BYTES = 1_048_576
+    /** Version written by this app: packages carry comments, preferred units, set kinds and cardio days (v2). */
+    const val SCHEMA_VERSION = 2
+    /** Versions this app reads. v1 packages stay valid; an older app reading v2 reports the version it does not know. */
+    val READABLE_VERSIONS = setOf(1, SCHEMA_VERSION)
     val json = Json { encodeDefaults = true; ignoreUnknownKeys = false; prettyPrint = true }
     fun decode(text: String): ExchangePackage {
         requireValid(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES, "El archivo supera 1 MiB.")
@@ -71,7 +78,7 @@ object ExchangeCodec {
         }
     }
     fun validate(data: ExchangePackage) {
-        requireValid(data.schemaVersion == 1, "Versión de intercambio no compatible. Se requiere 1.")
+        requireValid(data.schemaVersion in READABLE_VERSIONS, "Versión de intercambio no compatible: ${data.schemaVersion}. Se aceptan ${READABLE_VERSIONS.joinToString(" y ")}. Actualiza la aplicación.")
         id(data.importId); date(data.createdAt)
         requireValid(listOfNotNull(data.context, data.proposal, data.results, data.outline).size == 1, "Incluye exactamente un contenido: contexto, propuesta, resultados o plan.")
         when (data.type) {
@@ -133,6 +140,7 @@ object ExchangeCodec {
         r.demo?.let { d ->
             requireValid(d.loadUnit == "KG" && d.loadBasis == "UNSPECIFIED" && d.loadScale == 10, "Unidades de demo incompatibles.")
             val s = d.state
+            requireValid(s.phase != com.example.workoutpoc.domain.Phase.ActiveCardio, "El demo v1 no contiene pasos de cardio.")
             requireValid(s.index in 0..7 && s.revision >= 0, "Estado de demo fuera de rango.")
             fun values(v: DemoSetValuesV1) {
                 requireValid(v.weightTenths in 0..20000 && v.reps in 0..1000 && v.rir in 0..4, "Valores de demo fuera de rango.")

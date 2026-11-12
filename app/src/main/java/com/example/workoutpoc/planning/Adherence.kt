@@ -3,6 +3,8 @@ package com.example.workoutpoc.planning
 import com.example.workoutpoc.domain.Phase
 import com.example.workoutpoc.domain.SetStatus
 import com.example.workoutpoc.domain.WorkoutState
+import com.example.workoutpoc.domain.inProgress
+import com.example.workoutpoc.domain.plannedCardioComplete
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -40,11 +42,11 @@ fun adherence(programs: List<TrainingProgram>, sessions: List<WorkoutState>, ann
             val best = list.maxByOrNull { completed(it) }
             val done = best?.let(::completed) ?: 0
             val omitted = best?.records?.count { r -> !best.plan[r.index].extra && r.status == SetStatus.SKIPPED } ?: 0
-            val inProgress = list.any { it.phase == Phase.ActiveSet || it.phase == Phase.Resting }
-            val fullyDone = list.any { s -> s.phase == Phase.Completed && !s.endedEarly && completed(s) == prescribed }
+            val inProgress = list.any { it.phase.inProgress }
+            val fullyDone = list.any { s -> s.phase == Phase.Completed && !s.endedEarly && completed(s) == prescribed && s.plannedCardioComplete }
             val status = when {
                 fullyDone -> DayStatus.COMPLETED
-                done > 0 || inProgress -> DayStatus.PARTIAL
+                done > 0 || inProgress || list.any { s -> s.cardio.any { it.plannedCardioId != null } } -> DayStatus.PARTIAL
                 list.isNotEmpty() -> DayStatus.NOT_PERFORMED
                 annotations.isNotPerformed(program.id, week.id, day.id) -> DayStatus.NOT_PERFORMED
                 else -> DayStatus.NO_RECORD
@@ -68,8 +70,8 @@ fun goalProgress(sessions: List<WorkoutState>, goals: Goals, nowMillis: Long, zo
     val start = cal.timeInMillis
     val end = cal.apply { add(Calendar.DAY_OF_MONTH, 7) }.timeInMillis
     val inWeek = sessions.distinctBy { it.sessionId }.filter { s -> s.startedAtMillis?.let { it in start until end } == true }
-    // A session counts toward the goal only if at least one set was completed in it.
-    val trained = inWeek.count { s -> s.records.any { it.status == SetStatus.COMPLETED } }
+    val trained = inWeek.count { s -> s.records.any { it.status == SetStatus.COMPLETED } ||
+        s.cardio.any { it.plannedCardioId != null && (it.durationSeconds ?: 0) > 0 } }
     val cardio = inWeek.sumOf { s -> s.cardio.sumOf { it.durationSeconds ?: 0 } } / 60
     return GoalProgress(trained, goals.sessionsPerWeek, cardio, goals.cardioMinutesPerWeek, start)
 }

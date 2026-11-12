@@ -45,8 +45,27 @@ fun SessionStatus(state: WorkoutState, now: () -> ClockSnapshot, dispatch: (Work
                 PrimaryAction("Reanudar sesión", { dispatch(state.command(WorkoutEvent.ResumeSession)) }, icon = AppIcons.Play, tall = true)
             }
         }
-    } else if (state.phase == Phase.ActiveSet || state.phase == Phase.Resting) {
+    } else if (state.phase.inProgress && state.phase != Phase.ActiveCardio) {
         TonalAction("Pausar sesión", { dispatch(state.command(WorkoutEvent.PauseSession)) }, icon = AppIcons.Pause)
+    }
+}
+
+@Composable
+fun CardioTimer(state: WorkoutState, now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit) {
+    val step = state.currentCardio ?: return
+    var remaining by remember(state) { mutableLongStateOf(state.cardioRemainingMillis(now()) ?: 0) }
+    LaunchedEffect(state) {
+        while (state.paused == null) {
+            remaining = state.cardioRemainingMillis(now()) ?: 0
+            delay(250)
+        }
+    }
+    Text(step.modality, style = MaterialTheme.typography.titleLarge)
+    Text(durationLabel((remaining + 999) / 1000 * 1000), style = MaterialTheme.typography.displayLarge.tabular())
+    SupportingText(if (state.paused != null) "Cardio en pausa" else "Tiempo restante")
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        if (state.paused == null) OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.PauseSession)) }) { Text("Pausar") }
+        Button(onClick = { dispatch(state.command(WorkoutEvent.FinishCardio)) }) { Text("Terminar cardio") }
     }
 }
 
@@ -62,10 +81,11 @@ fun CardioSection(state: WorkoutState, onAdd: (CardioAdd) -> Unit, onRemove: (Ca
             ContentCard {
                 Text(c.modality, style = MaterialTheme.typography.titleMedium)
                 Text(listOfNotNull(c.durationSeconds?.let { "Duración ${durationLabel(it * 1000L)}" },
-                    c.distanceTenths?.let { "${weightLabel(it)} ${c.distanceUnit!!.name.lowercase()}" }).joinToString(" · ").ifBlank { "Sin duración ni distancia" },
+                    c.distanceTenths?.let { "${weightLabel(it)} ${c.distanceUnit!!.name.lowercase()}" },
+                    "Parcial".takeIf { c.partial }).joinToString(" · ").ifBlank { "Sin duración ni distancia" },
                     style = MaterialTheme.typography.bodyMedium.tabular())
                 c.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (c.plannedCardioId == null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     QuietAction("Quitar cardio: ${c.modality}", { onRemove(c) }, icon = AppIcons.Delete, destructive = true)
                 }
             }

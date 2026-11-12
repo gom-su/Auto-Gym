@@ -86,3 +86,19 @@ class CatalogRepository(private val store: DataStore<ExerciseCatalog>) {
         mutableCatalog.value = saved
     }
 }
+
+/**
+ * Remembers the unit the user recorded an exercise in (contract §2). Only kg and lb are kept; an exercise that is not
+ * in the catalog keeps no preference, and nothing else in its entry changes.
+ */
+suspend fun CatalogRepository.rememberPreferredUnit(exerciseId: String, unit: com.example.workoutpoc.domain.WeightUnit) {
+    val preferred = when (unit) {
+        com.example.workoutpoc.domain.WeightUnit.KG -> com.example.workoutpoc.planning.LoadUnit.KG
+        com.example.workoutpoc.domain.WeightUnit.LB -> com.example.workoutpoc.planning.LoadUnit.LB
+        else -> return
+    }
+    restore()
+    val existing = catalog.value.exercises.find { it.id == exerciseId } ?: return
+    if (existing.preferredUnit == preferred) return
+    update(existing.copy(preferredUnit = preferred))
+}

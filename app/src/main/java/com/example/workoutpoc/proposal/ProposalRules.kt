@@ -115,6 +115,17 @@ object ProposalRules {
         week.days.flatMap { it.exercises }.flatMap { e -> e.sets.filter { it.rir == 0 }.map { e.name } }.distinct().forEach {
             add("RIR_ZERO", settings.rirZero, "$it: prescribe series al fallo (RIR 0).")
         }
+        // Contract §1: every strength set carries an explicit load before the proposal can be approved, and warm-up or
+        // approach sets come before the work sets of their exercise.
+        week.days.forEach { day -> day.exercises.forEach { exercise ->
+            exercise.sets.forEachIndexed { index, set ->
+                if (set.load == null) add("LOAD_MISSING", Severity.BLOCKING,
+                    "${day.name} · ${exercise.name}, serie ${index + 1}: falta la carga prescrita (valor, unidad y base; 0 solo si es la carga prescrita).")
+            }
+            val firstWork = exercise.sets.indexOfFirst { it.kind == SetKind.WORK }
+            if (firstWork >= 0 && exercise.sets.drop(firstWork).any { it.kind != SetKind.WORK })
+                add("WARMUP_ORDER", Severity.BLOCKING, "${day.name} · ${exercise.name}: las series de calentamiento o aproximación deben ir antes de las de trabajo.")
+        } }
         proposed.forEach { (id, p) -> if (id !in knownExerciseIds) add("NEW_EXERCISE", settings.newExercise, "${p.name} ($id) no aparece en programas, historial ni catálogo.") }
         if (base == null) {
             differences += "Sin semana base guardada en el bloque: no hay comparación de progresión."

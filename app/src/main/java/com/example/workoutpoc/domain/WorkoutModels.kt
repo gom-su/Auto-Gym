@@ -3,7 +3,9 @@ package com.example.workoutpoc.domain
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class Phase { Idle, ActiveSet, Resting, Completed }
+enum class Phase { Idle, ActiveSet, Resting, Completed, ActiveCardio }
+
+val Phase.inProgress: Boolean get() = this == Phase.ActiveSet || this == Phase.Resting || this == Phase.ActiveCardio
 
 /** Recording unit. Values are integer tenths of this unit; BODYWEIGHT tenths are added external load in kg. */
 @Serializable
@@ -75,12 +77,25 @@ data class CardioEntry(
     val id: String, val modality: String, val durationSeconds: Int?, val distanceTenths: Int?,
     val distanceUnit: DistanceUnit?, val notes: String?, val recordedAtMillis: Long,
     /** Planned cardio step this entry executed (contract §6); null for manual cardio. */
-    val plannedCardioId: String? = null
+    val plannedCardioId: String? = null,
+    val partial: Boolean = false
 )
 
 /** Executable cardio step of a planned session, run by duration (contract §6). */
 @Serializable
-data class PlannedCardio(val stepId: String, val modality: String, val plannedSeconds: Int)
+data class PlannedCardio(
+    val stepId: String, val modality: String, val plannedSeconds: Int,
+    /** The stable prescription ID of the following strength set; null places this step after strength. */
+    val beforeSetId: String? = null
+)
+
+@Serializable
+data class CardioRun(val stepId: String, val started: PauseMark, val pausedMillis: Long = 0) {
+    fun activeMillis(now: ClockSnapshot, pause: PauseMark?): Long {
+        val end = pause?.let { ClockSnapshot(it.elapsedMillis, it.wallMillis, it.bootCount) } ?: now
+        return (started.elapsedSince(end) - pausedMillis).coerceAtLeast(0)
+    }
+}
 
 /**
  * Rest between two steps, kept outside [SetRecord] (contract §5). Actual rest is
@@ -165,7 +180,8 @@ data class WorkoutState(
     val cardioPlan: List<PlannedCardio> = emptyList(),
     /** Rest segments (contract §5). The legacy [rest] deadline remains until the reducer migrates. */
     val restSegments: List<RestSegment> = emptyList(),
-    val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap()
+    val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap(),
+    val cardioRun: CardioRun? = null
 )
 
 enum class WorkoutEvent {
@@ -177,7 +193,7 @@ enum class WorkoutEvent {
     /** Planned sessions only (ENT-06). */
     PauseSession, ResumeSession, AddWarmupSet,
     /** Planned sessions only: on an exercise's first set, move all its unrecorded sets after the next exercise. */
-    PostponeExercise, ReduceRestTime, ConfirmRest
+    PostponeExercise, ReduceRestTime, ConfirmRest, FinishCardio
 }
 
 /** Plan positions [WorkoutState.index, currentEnd) are the current exercise and [currentEnd, nextEnd) the next one. */
@@ -241,6 +257,7 @@ internal fun WorkoutState.prefillSet(step: PlannedSet, weight: Int = step.weight
 }
 
 fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
+    nextCardio(plan, index + 1)?.let { return "${it.modality} · ${it.plannedSeconds / 60} min de cardio" }
     val current = plan.getOrNull(index) ?: return ""
     val next = plan.getOrNull(index + 1) ?: return ""
     val prefill = followingSetValues(current, next)
@@ -253,6 +270,27 @@ fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
     val load = if (next.loadPrescribed || prefill.weightTenths != 0) loadLabel(prefill.weightTenths, next.unit) + basis else "carga sin indicar"
     val reps = if (prefill.reps > 0) "${prefill.reps} reps" else "reps sin indicar"
     return "${next.exercise} · ${next.number}/${next.total}\n$load · $reps"
+}
+
+val WorkoutState.currentCardio: PlannedCardio?
+    get() = cardioRun?.let { run -> cardioPlan.firstOrNull { it.stepId == run.stepId } }
+
+val WorkoutState.plannedCardioComplete: Boolean
+    get() = cardioPlan.all { step -> cardio.any { it.plannedCardioId == step.stepId && !it.partial } }
+
+fun WorkoutState.cardioRemainingMillis(now: ClockSnapshot): Long? {
+    val step = currentCardio ?: return null
+    val elapsed = cardioRun?.activeMillis(now, paused) ?: return null
+    return (step.plannedSeconds * 1000L - elapsed).coerceAtLeast(0)
+}
+
+fun WorkoutState.nextCardio(plan: List<PlannedSet>, nextSetIndex: Int): PlannedCardio? {
+    val nextSet = plan.getOrNull(nextSetIndex)
+    return cardioPlan.firstOrNull { step ->
+        val inPosition = if (nextSet == null) step.beforeSetId == null else step.beforeSetId != null &&
+            step.beforeSetId == nextSet.prescriptionId
+        inPosition && cardio.none { it.plannedCardioId == step.stepId }
+    }
 }
 
 fun weightLabel(tenths: Int): String = if (tenths % 10 == 0) "${tenths / 10}" else "${tenths / 10},${tenths % 10}"

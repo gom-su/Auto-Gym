@@ -1,8 +1,11 @@
 package com.example.workoutpoc.planning
 
 import com.example.workoutpoc.domain.PlannedSet
+import com.example.workoutpoc.domain.PlannedCardio
+import com.example.workoutpoc.data.WorkoutRepository
 import com.example.workoutpoc.domain.SessionSource
 import com.example.workoutpoc.domain.WeightUnit
+import java.util.UUID
 import kotlin.math.roundToInt
 
 /** Rest used only for the timer when a prescription omits it; it is shown as a default, never exported as prescribed. */
@@ -21,6 +24,23 @@ fun TrainingProgram.findDay(weekId: String, dayId: String): DaySelection? {
     for (block in blocks) for (week in block.weeks) if (week.id == weekId)
         week.days.find { it.id == dayId }?.let { return DaySelection(this, block, week, it) }
     return null
+}
+
+suspend fun WorkoutRepository.loadDay(selection: DaySelection) = load(
+    plan = selection.day.toPlannedSets(),
+    source = selection.source,
+    previousWeekId = selection.previousWeekId,
+    cardioPlan = listOfNotNull(selection.day.toPlannedCardio())
+)
+
+fun SessionPlan.toPlannedCardio(): PlannedCardio? {
+    val prescription = cardio ?: return null
+    val strengthIds = exercises.flatMap { exercise -> exercise.sets.map { it.id } }.toSet()
+    val prefix = "cardio:${UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))}"
+    val stepId = generateSequence(0) { it + 1 }
+        .map { suffix -> if (suffix == 0) prefix else "$prefix:$suffix" }
+        .first { it !in strengthIds }
+    return PlannedCardio(stepId, prescription.modality.trim(), prescription.durationSeconds)
 }
 
 /**

@@ -30,10 +30,10 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
     val prescribed = plan.count { !it.extra }
     val completed = s.records.count { !plan[it.index].extra && it.status == SetStatus.COMPLETED }
     val omitted = s.records.count { !plan[it.index].extra && it.status == SetStatus.SKIPPED }
-    val inProgress = s.phase == Phase.ActiveSet || s.phase == Phase.Resting
+    val inProgress = s.phase.inProgress
     val status = when {
-        s.phase == Phase.Completed && !s.endedEarly && completed == prescribed -> DayStatus.COMPLETED
-        completed > 0 || inProgress -> DayStatus.PARTIAL
+        s.phase == Phase.Completed && !s.endedEarly && completed == prescribed && s.plannedCardioComplete -> DayStatus.COMPLETED
+        completed > 0 || inProgress || s.cardio.any { it.plannedCardioId != null } -> DayStatus.PARTIAL
         else -> DayStatus.NOT_PERFORMED
     }
     val title = s.source?.let { "${it.programName} · ${it.weekName} · ${it.dayName}" } ?: "Demo"

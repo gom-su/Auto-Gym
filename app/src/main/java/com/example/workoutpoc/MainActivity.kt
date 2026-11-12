@@ -1,5 +1,6 @@
 package com.example.workoutpoc
 
+import com.example.workoutpoc.catalog.rememberPreferredUnit
 import com.example.workoutpoc.exchange.*
 import com.example.workoutpoc.migration.*
 import android.Manifest
@@ -327,7 +328,7 @@ class MainActivity : ComponentActivity() {
                 workoutApp.programs.restore()
                 val selection = workoutApp.programs.library.value.programs.find { it.id == programId }?.findDay(weekId, dayId)
                 if (selection == null) programModel.showMessage("El día ya no existe en el programa guardado.")
-                else when (workoutApp.repository.load(selection.day.toPlannedSets(), selection.source, selection.previousWeekId)) {
+                else when (workoutApp.repository.loadDay(selection)) {
                     com.example.workoutpoc.data.LoadResult.LOADED -> {
                         message = null; nav.openSession()
                         if (workoutApp.settings.settings.value.loggingMode == com.example.workoutpoc.settings.LoggingMode.OVERLAY) startOverlay()
@@ -347,8 +348,13 @@ class MainActivity : ComponentActivity() {
                 { editorVisible = false }, { requestMode(WorkoutOverlayService.HIDE) }, ::startOverlay, ::openNotificationSettings, model::retry, { clockSnapshot(this) }, ::dispatch, nav::back, archived.sessions.size, { edit ->
                     lifecycleScope.launch {
                         try {
-                            if (!workoutApp.repository.edit(edit.sessionId, edit.revision, edit.index, edit.status, edit.values, edit.notes))
+                            if (!workoutApp.repository.edit(edit.sessionId, edit.revision, edit.index, edit.status, edit.values, edit.notes, edit.recordedUnit))
                                 message = "La sesión cambió mientras editabas. Vuelve a abrir la serie; no se guardó nada."
+                            else edit.recordedUnit?.let { unit ->
+                                // The unit the user corrected to becomes the exercise's preference for future prescriptions (§2).
+                                val exerciseId = workoutApp.repository.state.value.plan.getOrNull(edit.index)?.exerciseId
+                                if (exerciseId != null) workoutApp.catalog.rememberPreferredUnit(exerciseId, unit)
+                            }
                         } catch (e: WorkoutEditException) { message = e.message }
                         catch (e: kotlinx.coroutines.CancellationException) { throw e }
                         catch (e: Exception) { workoutApp.safely { throw e } }
@@ -468,7 +474,7 @@ class MainActivity : ComponentActivity() {
                 val repo = workoutApp.repository
                 repo.restore()
                 if (repo.state.value.phase == Phase.Idle) repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-                if (repo.state.value.phase == Phase.ActiveSet || repo.state.value.phase == Phase.Resting) {
+                if (repo.state.value.phase.inProgress) {
                     startWorkoutService(mode)
                     if (notificationEnabled) message = if (mode == WorkoutOverlayService.SHOW)
                         "Panel flotante abierto. Puedes cambiar a otra aplicación." else "Despliega la notificación para registrar sin salir de tu aplicación."

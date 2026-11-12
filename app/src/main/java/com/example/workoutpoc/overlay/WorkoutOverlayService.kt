@@ -65,7 +65,7 @@ class WorkoutOverlayService : Service() {
         scope.launch {
             while (isActive) {
                 val state = workoutApp.repository.state.value
-                if (state.phase == Phase.Resting) notifications.update(state)
+                if (state.phase == Phase.Resting || state.phase == Phase.ActiveCardio) notifications.update(state)
                 restHaptics.update(state)
                 overlay.render(state)
                 delay(250)

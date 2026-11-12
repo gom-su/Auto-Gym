@@ -141,8 +141,7 @@ private fun LazyListScope.programBrowser(
         if (day == null) {
             item { Eyebrow("DÍAS", Modifier.padding(top = Spacing.sm)) }
             items(week.days, key = { "day-${it.id}" }) { d ->
-                NavRow("${d.name} · ${d.exercises.size} ${if (d.exercises.size == 1) "ejercicio" else "ejercicios"} · ${d.exercises.sumOf { it.sets.size }} series",
-                    { onDay(d.id) }, icon = AppIcons.Fitness)
+                NavRow("${d.name} · ${d.trainingDescription()}", { onDay(d.id) }, icon = AppIcons.Fitness)
             }
         } else {
             item { Text(day.name, style = MaterialTheme.typography.titleLarge) }
@@ -161,8 +160,25 @@ private fun LazyListScope.programBrowser(
                     }
                 }
             }
+            day.cardio?.let { cardio ->
+                item { ContentCard { Text(cardio.trainingDescription(), style = MaterialTheme.typography.titleMedium) } }
+            }
         }
     }
+}
+
+internal fun SessionPlan.trainingDescription(): String = listOfNotNull(
+    exercises.takeIf { it.isNotEmpty() }?.let {
+        "${it.size} ${if (it.size == 1) "ejercicio" else "ejercicios"} · ${it.sumOf { exercise -> exercise.sets.size }} series"
+    },
+    cardio?.trainingDescription()
+).joinToString(" · ")
+
+private fun CardioPrescription.trainingDescription(): String {
+    val minutes = durationSeconds / 60
+    val seconds = durationSeconds % 60
+    val duration = listOfNotNull("$minutes min".takeIf { minutes > 0 }, "$seconds s".takeIf { seconds > 0 }).joinToString(" ")
+    return "Cardio: ${modality.trim()} · $duration"
 }
 
 @Composable

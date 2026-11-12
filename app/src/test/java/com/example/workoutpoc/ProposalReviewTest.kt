@@ -58,8 +58,10 @@ class ProposalReviewTest {
                 SetPrescription("$id-s2", 5, 3, PrescribedLoad(0.0, squatUnit, LoadBasis.PER_SIDE), 60))),
             ExercisePrescription("$id-press", "machine-press", "Press ficticio", listOf(
                 SetPrescription("$id-p1", 10, 0, PrescribedLoad(4.0, LoadUnit.MACHINE_SETTING, LoadBasis.MACHINE_SETTING), 90),
-                SetPrescription("$id-p2", 10, 2, null, 90), SetPrescription("$id-p3", 10, 2, null, 90))),
-            ExercisePrescription("$id-lunge", "lunge-new", "Zancada ficticia", listOf(SetPrescription("$id-l1", 8, 2, null, 60)))
+                SetPrescription("$id-p2", 10, 2, PrescribedLoad(4.0, LoadUnit.MACHINE_SETTING, LoadBasis.MACHINE_SETTING), 90),
+                SetPrescription("$id-p3", 10, 2, PrescribedLoad(4.0, LoadUnit.MACHINE_SETTING, LoadBasis.MACHINE_SETTING), 90))),
+            ExercisePrescription("$id-lunge", "lunge-new", "Zancada ficticia", listOf(
+                SetPrescription("$id-l1", 8, 2, PrescribedLoad(0.0, LoadUnit.BODYWEIGHT, LoadBasis.BODYWEIGHT), 60)))
         ))))
 
     private suspend fun Env.importProposal(importId: String, week: WeekPlan, version: Int = 1, programId: String = program.id): String {
