@@ -80,7 +80,9 @@ When the proposal's program has an active plan, [proposal review](PROPOSAL_REVIE
 
 The warnings share one setting, **Fuera de los objetivos del plan**, which can be set to off, warning or block. With a plan, the **base week** for comparisons is the previous week of the plan, skipping deloads, so week 5 is compared with week 3, not with the deload.
 
-Cardio is prescribed by the plan week. `WeekPlan` v1 has no cardio field, so the agent states cardio adjustments in `reasons`.
+These checks, and the set, load, rep and RIR comparisons with the base week, count **work sets only**. Warm-up and approach sets are prescribed apart, so adding them never looks like extra volume or reps outside the range.
+
+Cardio is prescribed by the plan week. When the plan distributes it per day, each day of the proposal carries its own `cardio` block (modality and seconds), and a cardio-only day has no exercises. `PlanOutline` v1 has no per-day cardio, reference-load or rest fields: the plan states them in `rules`, in the exercise `notes` and in the week's `cardio`, and the weekly prompt reads them there. The agent still explains cardio adjustments in `reasons`.
 
 ## MCP tools
 

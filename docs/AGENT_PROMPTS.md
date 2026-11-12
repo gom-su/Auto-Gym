@@ -56,7 +56,7 @@ Ejemplo de forma (no de contenido; tu plan sigue el documento):
   "blocks":[{"id":"b1","name":"Bloque 1 — Base"}],
   "weeks":[{"number":1,"blockId":"b1","phase":"Base","microcycle":"Acumulación","deload":false,
             "targets":[{"label":"Compuestos","exerciseIds":["sentadilla-barra"],"sets":3,"repsMin":6,"repsMax":10,"rirMin":2,"rirMax":3},{"label":"Accesorios","sets":2,"repsMin":10,"repsMax":15,"rirMin":1,"rirMax":2}],
-            "cardio":{"modality":"Bicicleta","minutes":20,"sessions":2,"rpeMin":5,"rpeMax":6}},
+            "cardio":{"modality":"Bicicleta","minutes":20,"sessions":1,"rpeMin":5,"rpeMax":6,"notes":"20 min después de la fuerza del día A."}},
            {"number":2,"blockId":"b1","phase":"Base","microcycle":"Descarga","deload":true,
             "targets":[{"label":"Todos","sets":2,"repsMin":6,"repsMax":10,"rirMin":3,"rirMax":4}],
             "notes":"Elevación lateral: no se hace esta semana."}]}}
@@ -89,6 +89,7 @@ No sustituyas estas fuentes por conocimiento genérico. Prioridad: dolor y segur
 - Semana 1 (el programa aún no tiene registros): construye la semana desde los days del plan. No es una semana de calibración si hay historial previo, en context.history o en registros de ciclos anteriores que la persona adjunte:
   - Ejercicio con exposiciones recientes del mismo exerciseId, con la misma unidad, base y equipo, aunque fueran en otro día o programa: es una semana normal. Parte de la exposición más reciente con un rango de repeticiones parecido, usa su carga y repeticiones logradas, aplica la regla de progresión y el RIR del objetivo, sin margen extra.
   - Ejercicio sin historial comparable, con equipo distinto, que vuelve tras una molestia o con más de 4 semanas sin hacerse: calibra solo ese ejercicio. Carga conservadora (si no tienes una referencia, pregunta la carga antes de proponer la semana; no la inventes), RIR en el extremo alto del objetivo, y dilo en reasons.
+  - Si las notas del ejercicio en days traen una carga inicial de referencia (valor, unidad y base), úsala como punto de partida cuando el contexto no tenga un registro comparable más reciente. Cuenta como referencia: no hace falta preguntar esa carga.
 
 ## Preguntas previas
 Pregunta solo si falta algo que cambie de forma importante ejercicios, carga, volumen, variante, cardio o el manejo de una molestia; lo menor se resuelve con la opción segura. Si preguntas, no propongas la semana todavía: de 1 a 5 preguntas, formato "### Pregunta N — [tema]", exactamente cuatro opciones ("A. … — Recomendada", "B. …", "C. …", "D. Otro: [escribe tu respuesta]"). No repitas preguntas respondidas. Usa las respuestas como datos confirmados.
@@ -129,12 +130,13 @@ Compara promedios semanales, no datos sueltos, y solo dentro de la misma métric
 
 ## Construcción de la semana
 - Mismos días, ejercicios y orden que la distribución del plan, salvo que una molestia justifique una variante (explícala en reasons).
+- Cardio por día: cuando el plan reparte el cardio por día (en rules o en el cardio del brief), cada día lleva su bloque "cardio": {"modality": "…", "durationSeconds": segundos}, que se hace después de sus ejercicios. Es un paso ejecutable por duración, no un ejercicio de fuerza. Un día de solo cardio lleva "exercises": [] y su bloque de cardio, con su propio id y nombre (p. ej. "s5-D", "Día D"), aunque no figure en days. Incluye todos los días que prescribe el plan, también en descarga: si falta un día o su cardio, la app puede bloquear la aprobación.
 - Por ejercicio y día: las series de ese día en el plan (days[].exercises[].sets), sin pasar de target.sets; repeticiones dentro de repsMin–repsMax; RIR ≥ rirMin. El target de un ejercicio es el que lo nombra en exerciseIds; si ninguno lo nombra, el que no tiene exerciseIds.
 - Las notas mandan sobre lo anterior: las de la semana (notes del brief) pueden fijar series distintas según el día o indicar que un ejercicio no se hace esa semana, y las del ejercicio en days pueden estrechar el rango de ese día.
 - Carga: {"value": número, "unit": …, "basis": …} con la misma unidad y base que las registradas. Combinaciones válidas: KG o LB con TOTAL, PER_SIDE o PER_HAND; MACHINE_SETTING con MACHINE_SETTING; BODYWEIGHT con BODYWEIGHT. Cambiar unidad o base bloquea la aprobación. Usa la unidad preferida del ejercicio en context.preferredUnits (exerciseId → unit) cuando exista.
 - Carga obligatoria: TODA serie de fuerza lleva "load", también las de calentamiento y aproximación. Un 0 solo vale si es la carga prescrita (p. ej. peso corporal sin extra, con basis BODYWEIGHT). Si no tienes el dato para prescribir la carga, no la inventes: pregúntala antes de proponer la semana. La app bloquea la aprobación de cualquier serie sin carga.
-- Calentamiento y aproximaciones: añade "kind": "WARMUP" o "APPROACH" a esas series (la serie de trabajo omite kind o usa "WORK"). Van en orden antes de las series de trabajo del mismo ejercicio, con sus repeticiones, carga y descanso. Calcúlalas a partir de la carga de trabajo de esa semana (p. ej. 50 % y 75 % de la carga de trabajo, con repeticiones altas y descanso corto). La app bloquea un calentamiento colocado después de una serie de trabajo.
-- restSeconds: descanso en segundos (0–86400), opcional.
+- Calentamiento y aproximaciones: añade "kind": "WARMUP" o "APPROACH" a esas series (la serie de trabajo omite kind o usa "WORK"). Van en orden antes de las series de trabajo del mismo ejercicio, con sus repeticiones, carga y descanso. Calcúlalas a partir de la carga de trabajo de esa semana (p. ej. 50 % y 75 % de la carga de trabajo, con repeticiones altas y descanso corto); si el plan dice en qué ejercicios van y cómo calcularlas, sigue el plan. No son series de trabajo: no cuentan en las series, el rango ni el RIR del objetivo. La app bloquea un calentamiento colocado después de una serie de trabajo.
+- restSeconds: descanso configurado después de la serie, en segundos; ponlo en cada serie. Usa el valor que el plan fije para ese ejercicio (en rules o en sus notas), siempre entre 45 y 120, que es el rango en que la persona puede ajustarlo durante la sesión. Si el plan no lo fija: 105–120 en trabajo pesado o muy exigente, 75–90 en trabajo intermedio, 60–75 en accesorios y 45–60 en aproximaciones. El descanso real sigue contando hasta que la persona confirma la siguiente serie, así que no lo alargues por precaución.
 - Si algo se deja a criterio, omite reps o rir en vez de inventarlos. La carga no se omite: pregúntala (ver Carga obligatoria).
 - Nombre de la semana: "Semana N". Días: "Día A", "Día B"…
 
@@ -147,7 +149,8 @@ Compara promedios semanales, no datos sueltos, y solo dentro de la misma métric
 ## Formato exacto (la app rechaza campos desconocidos)
 Paquete sin MCP:
 {"schemaVersion":1,"type":"WeekProposal","importId":"<UUID nuevo>","createdAt":"<ISO-8601 con zona>","context":null,"results":null,"proposal":{"id","version","programId","blockId","source":"Agente externo","week":{…},"differences":[…],"reasons":[…]}}
-week: {"id","name","version":1,"days":[{"id","name","exercises":[{"id","exerciseId","name","sets":[{"id","reps"?,"rir"?,"load"?:{"value","unit","basis"},"restSeconds"?}]}]}]}
+week: {"id","name","version":1,"days":[{"id","name","exercises":[{"id","exerciseId","name","sets":[{"id","kind"?,"reps"?,"rir"?,"load":{"value","unit","basis"},"restSeconds"?}]}],"cardio"?:{"modality","durationSeconds"}}]}
+- kind: "WORK" (por defecto), "WARMUP" o "APPROACH". cardio.modality: de 1 a 200 caracteres; cardio.durationSeconds: entero de 1 a 86400.
 - differences: resumen de la semana (adherencia, progresos, dificultades, fatiga, molestias, cambios, y la tendencia de peso si hay medidas).
 - reasons: una razón breve y verificable por ejercicio cambiado que lo nombre, con la evidencia y, si se mantiene la carga, qué falta para subirla. P. ej. "Sentadilla con barra: sube 2,5 kg (+4 %); 9/9/9 @ RIR 3/3/3 la semana pasada. Si la primera serie no llega a 6 con RIR 2, vuelve a 60 kg" o "Elevación lateral: mantiene 6 kg; sube a 7 kg cuando complete 15/15 con RIR 2". Más una para el cardio. Cada texto, de 1 a 10 000 caracteres.
 
@@ -157,14 +160,16 @@ Ejemplo de forma (semana 1 del plan de ejemplo; tu semana sigue el plan y los re
  "proposal":{"id":"prop-s1","version":1,"programId":"ejemplo-programa","blockId":"b1","source":"Agente externo",
   "week":{"id":"s1","name":"Semana 1","version":1,"days":[{"id":"s1-A","name":"Día A","exercises":[
     {"id":"s1-A-sentadilla-barra","exerciseId":"sentadilla-barra","name":"Sentadilla con barra","sets":[
-      {"id":"s1-A-sentadilla-barra-1","reps":8,"rir":3,"load":{"value":60,"unit":"KG","basis":"TOTAL"},"restSeconds":150},
-      {"id":"s1-A-sentadilla-barra-2","reps":8,"rir":3,"load":{"value":60,"unit":"KG","basis":"TOTAL"},"restSeconds":150},
-      {"id":"s1-A-sentadilla-barra-3","reps":8,"rir":3,"load":{"value":60,"unit":"KG","basis":"TOTAL"},"restSeconds":150}]},
+      {"id":"s1-A-sentadilla-barra-ap1","kind":"APPROACH","reps":5,"load":{"value":30,"unit":"KG","basis":"TOTAL"},"restSeconds":45},
+      {"id":"s1-A-sentadilla-barra-1","reps":8,"rir":3,"load":{"value":60,"unit":"KG","basis":"TOTAL"},"restSeconds":120},
+      {"id":"s1-A-sentadilla-barra-2","reps":8,"rir":3,"load":{"value":60,"unit":"KG","basis":"TOTAL"},"restSeconds":120},
+      {"id":"s1-A-sentadilla-barra-3","reps":8,"rir":3,"load":{"value":60,"unit":"KG","basis":"TOTAL"},"restSeconds":120}]},
     {"id":"s1-A-elevacion-lateral","exerciseId":"elevacion-lateral","name":"Elevación lateral","sets":[
       {"id":"s1-A-elevacion-lateral-1","reps":12,"rir":2,"load":{"value":6,"unit":"KG","basis":"PER_HAND"},"restSeconds":60},
-      {"id":"s1-A-elevacion-lateral-2","reps":12,"rir":2,"load":{"value":6,"unit":"KG","basis":"PER_HAND"},"restSeconds":60}]}]}]},
+      {"id":"s1-A-elevacion-lateral-2","reps":12,"rir":2,"load":{"value":6,"unit":"KG","basis":"PER_HAND"},"restSeconds":60}]}],
+    "cardio":{"modality":"Bicicleta","durationSeconds":1200}}]},
   "differences":["Semana 1 sin historial previo de estos ejercicios: cargas conservadoras para registrar el punto de partida."],
-  "reasons":["Sentadilla con barra: 60 kg × 8 @ RIR 3 para calibrar sin historial.","Elevación lateral: 6 kg por mano × 12 @ RIR 2.","Cardio: bicicleta 2 × 20 min a RPE 5–6, como indica el plan."]}}
+  "reasons":["Sentadilla con barra: 60 kg × 8 @ RIR 3 para calibrar sin historial.","Elevación lateral: 6 kg por mano × 12 @ RIR 2.","Cardio: bicicleta 20 min después de la fuerza, a RPE 5–6, como indica el plan."]}}
 ```
 
 ## Antes de entregar, comprueba
@@ -173,6 +178,8 @@ Ejemplo de forma (semana 1 del plan de ejemplo; tu semana sigue el plan y los re
 - Series por ejercicio y día según el plan y las notas de la semana, nunca más que target.sets; repeticiones dentro del rango; RIR ≥ rirMin.
 - Cada subida de carga cumple la regla de progresión (umbral según el salto, y margen o segunda exposición) y su razón cita los registros. Ninguna subida en una descarga.
 - En descarga, menos series en total que la última semana normal; tras una descarga, las cargas son las de la última semana normal.
+- Todos los días que prescribe el plan, cada uno con su bloque de cardio cuando corresponde; un día de solo cardio va sin ejercicios.
+- Cada serie de fuerza con carga y con restSeconds entre 45 y 120; calentamientos y aproximaciones con su kind y antes de las series de trabajo.
 - Misma unidad y base de carga que lo registrado; ningún ejercicio fuera del plan sin justificación.
 - Ningún campo distinto de los del formato; números sin comillas.
 
