@@ -2,6 +2,7 @@ package com.example.workoutpoc.planning
 
 import com.example.workoutpoc.domain.Phase
 import com.example.workoutpoc.domain.SetStatus
+import com.example.workoutpoc.domain.SetType
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.domain.plannedCardioComplete
@@ -16,7 +17,7 @@ enum class DayStatus(val label: String) {
 
 /**
  * Adherence of one planned day. Set counts refer to the day's prescribed sets in its most complete session:
- * completed, explicitly omitted, and never reached (no record). Extra and warm-up sets are counted apart.
+ * completed, explicitly omitted, and never reached (no record). Extra work sets are counted apart.
  */
 data class DayAdherence(
     val day: SessionPlan, val status: DayStatus, val prescribedSets: Int, val completedSets: Int, val omittedSets: Int,
@@ -41,11 +42,18 @@ fun adherence(programs: List<TrainingProgram>, sessions: List<WorkoutState>, ann
             .mapNotNull { it.measuredDurationMillis }
         WeekAdherence(program, week, week.days.map { day ->
             val list = byDay[Triple(program.id, week.id, day.id)].orEmpty()
-            val prescribed = day.exercises.sumOf { it.sets.size }
-            fun completed(s: WorkoutState) = s.records.count { r -> s.plan[r.index].let { !it.extra } && r.status == SetStatus.COMPLETED }
+            val prescriptions = day.exercises.flatMap { it.sets }
+            val prescribed = prescriptions.count { it.kind == SetKind.WORK }
+            // Older session snapshots did not preserve the kind of prescribed warm-ups or approaches.
+            val nonWorkIds = prescriptions.filter { it.kind != SetKind.WORK }.map { it.id }.toSet()
+            fun workRecords(s: WorkoutState, status: SetStatus) = s.records.count { record ->
+                val set = s.plan[record.index]
+                record.status == status && !set.extra && set.setType == SetType.WORK && set.prescriptionId !in nonWorkIds
+            }
+            fun completed(s: WorkoutState) = workRecords(s, SetStatus.COMPLETED)
             val best = list.maxByOrNull { completed(it) }
             val done = best?.let(::completed) ?: 0
-            val omitted = best?.records?.count { r -> !best.plan[r.index].extra && r.status == SetStatus.SKIPPED } ?: 0
+            val omitted = best?.let { workRecords(it, SetStatus.SKIPPED) } ?: 0
             val inProgress = list.any { it.phase.inProgress }
             val fullyDone = list.any { s -> s.phase == Phase.Completed && !s.endedEarly && completed(s) == prescribed && s.plannedCardioComplete }
             val status = when {

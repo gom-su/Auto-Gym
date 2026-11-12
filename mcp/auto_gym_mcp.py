@@ -111,9 +111,15 @@ def validate_week(week):
                 _check(s.get("kind", "WORK") in {"WORK", "WARMUP", "APPROACH"}, f"{sp}: kind debe ser WORK, WARMUP o APPROACH.")
                 _check(s.get("load") is not None, f"{sp}: falta la carga prescrita (0 solo si es la carga prescrita).")
                 ident(s["id"], sp)
-                for key, lo, hi in (("reps", 1, 1000), ("rir", 0, 10), ("restSeconds", 0, 86400)):
+                for key, lo, hi in (("reps", 1, 1000), ("rir", 0, 10)):
                     v = s.get(key)
                     _check(v is None or (isinstance(v, int) and not isinstance(v, bool) and lo <= v <= hi), f"{sp}: {key} fuera de rango ({lo}–{hi}).")
+                rest = s.get("restSeconds")
+                if rest is not None:
+                    _check(isinstance(rest, int) and not isinstance(rest, bool), f"{sp}: restSeconds debe ser un entero.")
+                    _check(rest == 0 or 45 <= rest <= 120,
+                           f"{d['name']} · {e['name']}, serie {si}: descanso {rest} s fuera de 45–120 s, "
+                           "el rango que la persona puede ajustar durante la sesión.")
                 load = s.get("load")
                 if load is not None:
                     _check(isinstance(load, dict) and set(load) == {"value", "unit", "basis"}, f"{sp}: carga con value, unit y basis.")

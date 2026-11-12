@@ -57,6 +57,11 @@ private fun WeekPlan.summary(): Map<String, ExerciseSummary> =
     }
 
 object ProposalRules {
+    /** Most warm-up and approach sets one exercise may carry (blocking). */
+    const val MAX_NON_WORK_SETS = 4
+    /** Rest the person can adjust during a session (WorkoutReducer clamps to the same range). */
+    val REST_RANGE_SECONDS = 45..120
+
     /**
      * Evaluates [proposal] against the saved [library]. Comparisons use the base week: the last saved week of the
      * target block. [knownExerciseIds] are IDs seen in programs, history or the catalog.
@@ -145,10 +150,28 @@ object ProposalRules {
             exercise.sets.forEachIndexed { index, set ->
                 if (set.load == null) add("LOAD_MISSING", Severity.BLOCKING,
                     "${day.name} · ${exercise.name}, serie ${index + 1}: falta la carga prescrita (valor, unidad y base; 0 solo si es la carga prescrita).")
+                // 0 is the app's own "no rest" value (WorkoutReducer skips the timer) and the shipped examples use it.
+                set.restSeconds?.takeIf { it != 0 && it !in REST_RANGE_SECONDS }?.let {
+                    add("REST_RANGE", Severity.BLOCKING, "${day.name} · ${exercise.name}, serie ${index + 1}: descanso $it s fuera de ${REST_RANGE_SECONDS.first}–${REST_RANGE_SECONDS.last} s, el rango que la persona puede ajustar durante la sesión.")
+                }
             }
             val firstWork = exercise.sets.indexOfFirst { it.kind == SetKind.WORK }
             if (firstWork >= 0 && exercise.sets.drop(firstWork).any { it.kind != SetKind.WORK })
                 add("WARMUP_ORDER", Severity.BLOCKING, "${day.name} · ${exercise.name}: las series de calentamiento o aproximación deben ir antes de las de trabajo.")
+            // Warm-up and approach sets are outside the volume and load checks, so they get their own bounds: an exercise
+            // needs work sets to be judged at all, a warm-up cannot be heavier than the work it leads into, and their number is capped.
+            if (exercise.workSets().isEmpty())
+                add("NO_WORK_SETS", Severity.BLOCKING, "${day.name} · ${exercise.name}: no tiene series de trabajo; solo calentamientos o aproximaciones no se pueden revisar.")
+            val nonWork = exercise.sets.filter { it.kind != SetKind.WORK }
+            if (nonWork.size > MAX_NON_WORK_SETS)
+                add("NON_WORK_CAP", Severity.BLOCKING, "${day.name} · ${exercise.name}: ${nonWork.size} series de calentamiento o aproximación; el máximo es $MAX_NON_WORK_SETS.")
+            val topWork = exercise.workSets().mapNotNull { it.load }.groupBy { it.unit to it.basis }.mapValues { (_, l) -> l.maxOf { it.value } }
+            nonWork.forEach { set ->
+                val load = set.load ?: return@forEach
+                val top = topWork[load.unit to load.basis] ?: return@forEach
+                if (load.value > top) add("NON_WORK_LOAD", Severity.BLOCKING,
+                    "${day.name} · ${exercise.name}: una serie de ${if (set.kind == SetKind.WARMUP) "calentamiento" else "aproximación"} pesa ${load.value.fmt()} ${load.unit} ${load.basis}, más que la carga de trabajo máxima (${top.fmt()}).")
+            }
         } }
         // Contract §8: the distribution the program prescribes (A/B/C with 30 min, D with 60 min and no strength) must hold.
         val cardioRules = program?.cardioRules.orEmpty().map { CardioDayRule(it.dayId, it.requiredSeconds, it.strengthAllowed) }

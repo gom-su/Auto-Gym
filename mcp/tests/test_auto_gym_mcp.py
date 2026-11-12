@@ -104,6 +104,34 @@ class McpServerTest(unittest.TestCase):
             self.assertTrue(error, f"{label}: {text}")
         self.assertEqual([], os.listdir(self.outbox))
 
+    def test_rejects_rest_outside_range_for_all_set_kinds(self):
+        for kind, seconds in ((None, 44), ("WORK", 44), ("WORK", 121),
+                              ("APPROACH", 44), ("APPROACH", 121), ("WARMUP", 44)):
+            with self.subTest(seconds=seconds, kind=kind):
+                args = self.proposal()
+                prescribed_set = args["week"]["days"][0]["exercises"][0]["sets"][0]
+                prescribed_set["restSeconds"] = seconds
+                if kind is not None:
+                    prescribed_set["kind"] = kind
+                error, message = self.tool("create_week_proposal", args)
+                self.assertTrue(error)
+                self.assertEqual(
+                    f"Error: Día MCP · Sentadilla ficticia, serie 1: descanso {seconds} s fuera de 45–120 s, "
+                    "el rango que la persona puede ajustar durante la sesión.", message)
+        self.assertEqual([], os.listdir(self.outbox))
+
+    def test_accepts_no_rest_range_endpoints_and_omitted_rest(self):
+        args = self.proposal()
+        sets = args["week"]["days"][0]["exercises"][0]["sets"]
+        sets[0].update(kind="APPROACH", restSeconds=0)
+        sets[1].update(kind="WORK", restSeconds=0)
+        sets.append(dict(sets[1], id="mcp-week-s3", restSeconds=45))
+        sets.append(dict(sets[1], id="mcp-week-s4", restSeconds=120))
+        sets.append(dict(sets[1], id="mcp-week-s5"))
+        del sets[-1]["restSeconds"]
+        error, message = self.tool("create_week_proposal", args)
+        self.assertFalse(error, message)
+
 
 PLAN_CONTEXT = os.path.join(ROOT, "mcp", "examples", "training-context-with-plan.json")
 OUTLINE = os.path.join(ROOT, "app", "src", "main", "assets", "examples", "plan-outline-v1.json")
