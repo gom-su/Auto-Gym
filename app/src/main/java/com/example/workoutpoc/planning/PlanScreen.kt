@@ -50,6 +50,8 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 load()
+                // Only the confirmation needs these stores, so a read failure here cannot hide the plans list.
+                app.weekAnnotations.restore(); app.proposals.restore(); app.comments.restore()
                 mutableUi.value = mutableUi.value.copy(deleteTarget = entry, deleteCounts = deletion.preview(entry.outline.programId), message = null)
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo leer los datos del plan. Reintenta.") }
@@ -70,8 +72,6 @@ class PlanViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun load() {
         app.outlines.restore(); app.exchanges.restore(); app.programs.restore(); app.repository.restore()
-        // The deletion counts read these stores too: restore them so the dialog never shows a stale, empty count.
-        app.weekAnnotations.restore(); app.proposals.restore(); app.comments.restore()
         val store = app.outlines.outlines.value
         val programs = app.programs.library.value.programs
         val sessions = (app.repository.archived.value.sessions + app.repository.state.value).distinctBy { it.sessionId }.mapNotNull { it.toSessionResult() }
