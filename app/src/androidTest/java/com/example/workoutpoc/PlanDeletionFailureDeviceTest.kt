@@ -127,7 +127,15 @@ class PlanDeletionFailureDeviceTest {
         assertTrue("dialog must count the proposal decision and expectation", device.hasObject(By.textContains("2 registro(s)")))
         device.clickText("Cancelar")
         runBlocking { restoreAll() }
-        assertTrue("cancel must keep everything", app.outlines.outlines.value.active.any { it.programId == programId })
+        // Cancel must keep every seeded record, not only the plan.
+        assertTrue("cancel must keep the plan", app.outlines.outlines.value.active.any { it.programId == programId })
+        assertTrue("cancel must keep the program", app.programs.library.value.programs.any { it.id == programId })
+        assertTrue("cancel must keep the session", app.repository.archived.value.sessions.any { it.source?.programId == programId })
+        assertTrue("cancel must keep the comment", app.comments.log.value.comments.any { it.programId == programId })
+        assertTrue("cancel must keep the annotation", app.weekAnnotations.annotations.value.deloads.any { it.programId == programId })
+        assertTrue("cancel must keep the decision", app.proposals.state.value.decisions.any { it.programId == programId })
+        assertTrue("cancel must keep the expectation", app.proposals.state.value.expectations.any { it.importId == "del-fail-import" })
+        assertTrue("cancel must keep the package", app.exchanges.archive.value.packages.any { it.outline?.programId == programId })
 
         // 2. A real write failure in the middle: the exchange archive cannot be written, after the earlier steps.
         askForDeletion()
