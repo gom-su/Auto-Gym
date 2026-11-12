@@ -38,6 +38,20 @@ class ExchangeRepository(private val store: DataStore<ExchangeArchive>) {
         val current = store.data.first()
         replaceAllLocked(current.copy(packages = current.packages.filterNot { it.importId == importId }))
     }
+    suspend fun removeProgram(programId: String): Int = mutex.withLock {
+        val current = store.data.first()
+        val kept = current.packages.filterNot {
+            when (it.type) {
+                ExchangeType.PlanOutline -> it.outline?.programId == programId
+                ExchangeType.WeekProposal -> it.proposal?.programId == programId
+                else -> false
+            }
+        }
+        val removed = current.packages.size - kept.size
+        if (removed > 0) replaceAllLocked(current.copy(packages = kept))
+        removed
+    }
+
     private suspend fun replaceAllLocked(archive: ExchangeArchive) { ExchangeArchiveSerializer.validate(archive); mutableArchive.value = store.updateData { archive } }
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(exchanges = store.data.first()) }, { replaceAllLocked(it.exchanges) })

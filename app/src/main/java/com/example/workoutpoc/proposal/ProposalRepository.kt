@@ -90,6 +90,17 @@ class ProposalRepository(
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(proposals = store.data.first()) }, { replaceAllLocked(it.proposals) })
 
+    /** Returns the total of removed decisions and their expectations. */
+    suspend fun removeProgram(programId: String): Int = mutex.withLock {
+        val current = store.data.first()
+        val (removedDecisions, decisions) = current.decisions.partition { it.programId == programId }
+        if (removedDecisions.isEmpty()) return@withLock 0
+        val importIds = removedDecisions.map { it.importId }.toSet()
+        val expectations = current.expectations.filterNot { it.importId in importIds }
+        replaceAllLocked(current.copy(decisions = decisions, expectations = expectations))
+        removedDecisions.size + current.expectations.size - expectations.size
+    }
+
     suspend fun evaluate(importId: String, replacing: Boolean = false): ProposalEvaluation {
         programs.restore(); exchanges.restore()
         val pkg = exchanges.archive.value.packages.find { it.importId == importId && it.type == ExchangeType.WeekProposal }

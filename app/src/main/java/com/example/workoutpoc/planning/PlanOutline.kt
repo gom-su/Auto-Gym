@@ -280,6 +280,19 @@ class PlanOutlineRepository(private val store: DataStore<PlanOutlineStore>) {
     internal val backupStore get() = com.example.workoutpoc.backup.BackupStore(mutex,
         { it.copy(planOutlines = store.data.first()) }, { replaceAllLocked(it.planOutlines) })
 
+    suspend fun removeProgram(programId: String): Int = mutex.withLock {
+        val current = store.data.first()
+        val kept = current.copy(
+            active = current.active.filterNot { it.programId == programId },
+            replaced = current.replaced.filterNot { it.programId == programId },
+            inactive = current.inactive.filterNot { it.programId == programId }
+        )
+        val removed = current.active.size - kept.active.size +
+            current.replaced.size - kept.replaced.size + current.inactive.size - kept.inactive.size
+        if (removed > 0) replaceAllLocked(kept)
+        removed
+    }
+
     /**
      * Explicit activation by the user. The plan must agree with the weeks already saved in its program; a plan for a
      * program with an active plan is only accepted as a newer version of that same plan.

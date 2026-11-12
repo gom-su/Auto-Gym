@@ -275,7 +275,8 @@ class MainActivity : ComponentActivity() {
             }
             Destination.Plans -> {
                 val planUi by planModel.ui.collectAsStateWithLifecycle()
-                PlanScreen(planUi, nav::back, planModel::refresh, planModel::select, planModel::activate)
+                PlanScreen(planUi, nav::back, planModel::refresh, planModel::select, planModel::activate,
+                    planModel::askDelete, planModel::cancelDelete, planModel::confirmDelete)
             }
             Destination.Questions -> {
                 val questionsUi by questionsModel.ui.collectAsStateWithLifecycle()

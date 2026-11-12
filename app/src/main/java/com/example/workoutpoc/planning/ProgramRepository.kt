@@ -52,6 +52,14 @@ class ProgramRepository(private val store: DataStore<ProgramLibrary>) {
         before
     }
 
+    suspend fun removeProgram(programId: String): Int = mutex.withLock {
+        val current = store.data.first()
+        val kept = current.programs.filterNot { it.id == programId }
+        val removed = current.programs.size - kept.size
+        if (removed > 0) replaceAllLocked(current.copy(programs = kept))
+        removed
+    }
+
     /** What saving [program] would do against the current library, without writing anything. */
     fun preview(program: TrainingProgram): MergePlan = ProgramMerge.plan(library.value.programs.find { it.id == program.id }, program)
 

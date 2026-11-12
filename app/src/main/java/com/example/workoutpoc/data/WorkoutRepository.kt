@@ -1,11 +1,13 @@
 package com.example.workoutpoc.data
 
 import com.example.workoutpoc.domain.*
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 enum class LoadResult { LOADED, SESSION_IN_PROGRESS }
@@ -193,23 +195,56 @@ class WorkoutRepository(
         val currentMatches = current.belongsTo(programId, weekId)
         if (currentMatches && (current.phase == Phase.ActiveSet || current.phase == Phase.Resting))
             throw IllegalStateException("Hay una sesión en curso de esa semana. Termínala antes de reemplazarla.")
-        val archive = mutableHistory.value
-        val kept = archive.sessions.filterNot { it.belongsTo(programId, weekId) }
-        val removed = archive.sessions.size - kept.size + if (currentMatches) 1 else 0
-        if (removed == 0) return@withLock 0
-        history.replace(archive.copy(sessions = kept))
-        mutableHistory.value = archive.copy(sessions = kept)
-        if (currentMatches) {
-            // The archive and the current session are two stores: if clearing the session fails, the archive is restored.
-            try { storage.write(WorkoutState()) }
-            catch (e: Exception) {
-                history.replace(archive)
-                mutableHistory.value = archive
-                throw e
-            }
-            mutableState.value = WorkoutState()
+        deleteRecordsLocked(currentMatches) { it.belongsTo(programId, weekId) }.size
+    }
+
+    /** Deletes a program's saved sessions and returns the count and session IDs. */
+    suspend fun deleteProgramRecords(programId: String): Pair<Int, List<String>> = mutex.withLock {
+        loadLocked()
+        val current = mutableState.value
+        val currentMatches = current.source?.programId == programId
+        check(!currentMatches || !current.phase.inProgress) {
+            "Hay una sesión en curso de ese programa. Termínala antes de borrarlo."
         }
-        removed
+        val removed = deleteRecordsLocked(currentMatches) { it.source?.programId == programId }
+        removed.size to removed
+    }
+
+    private suspend fun deleteRecordsLocked(
+        currentMatches: Boolean,
+        matches: (WorkoutState) -> Boolean
+    ): List<String> {
+        val current = mutableState.value
+        val archive = mutableHistory.value
+        val (removed, kept) = archive.sessions.partition(matches)
+        if (removed.isEmpty() && !currentMatches) return emptyList()
+        val nextArchive = archive.copy(sessions = kept)
+        val cleared = WorkoutState()
+        withContext(NonCancellable) {
+            if (removed.isNotEmpty()) history.replace(nextArchive)
+            if (currentMatches) {
+                try {
+                    storage.write(cleared)
+                } catch (failure: Exception) {
+                    if (removed.isNotEmpty()) {
+                        try {
+                            history.replace(archive)
+                        } catch (rollbackFailure: Exception) {
+                            failure.addSuppressed(rollbackFailure)
+                            try {
+                                mutableHistory.value = history.read()
+                            } catch (readFailure: Exception) {
+                                failure.addSuppressed(readFailure)
+                            }
+                        }
+                    }
+                    throw failure
+                }
+                mutableState.value = cleared
+            }
+            mutableHistory.value = nextArchive
+        }
+        return removed.map { it.sessionId } + listOfNotNull(current.sessionId.takeIf { currentMatches })
     }
 
     suspend fun reconcileRest() {

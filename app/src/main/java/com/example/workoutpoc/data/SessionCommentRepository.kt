@@ -23,6 +23,14 @@ class SessionCommentRepository(private val store: DataStore<SessionCommentLog>) 
         mutable.value = store.updateData { l -> l.copy(comments = l.comments + comment).also(SessionCommentLogSerializer::validate) }
     }
 
+    suspend fun removeProgram(programId: String): Int = mutex.withLock {
+        val current = store.data.first()
+        val kept = current.comments.filterNot { it.programId == programId }
+        val removed = current.comments.size - kept.size
+        if (removed > 0) replaceAllLocked(current.copy(comments = kept))
+        removed
+    }
+
     /** Marks a comment as no longer in force. Resolving a resolved comment changes nothing. */
     suspend fun resolve(id: String, atMillis: Long) = mutex.withLock {
         mutable.value = store.updateData { l ->
