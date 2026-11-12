@@ -131,6 +131,21 @@ class McpServerTest(unittest.TestCase):
                          "solo calentamientos o aproximaciones no se pueden revisar.", message)
         self.assertEqual([], os.listdir(self.outbox))
 
+    def test_warmup_must_precede_work_sets_and_load_messages_match_the_app(self):
+        work = self.proposal()["week"]["days"][0]["exercises"][0]["sets"][0]
+        late = self.proposal()
+        late["week"]["days"][0]["exercises"][0]["sets"].append(dict(work, id="mcp-week-late", kind="APPROACH"))
+        error, message = self.tool("create_week_proposal", late)
+        self.assertTrue(error)
+        self.assertIn("deben ir antes de las de trabajo", message)
+        heavy = self.proposal()
+        heavy_load = dict(work["load"], value=float(work["load"]["value"]) + 1)
+        heavy["week"]["days"][0]["exercises"][0]["sets"].insert(0, dict(work, id="mcp-week-h", kind="WARMUP", load=heavy_load))
+        error, message = self.tool("create_week_proposal", heavy)
+        self.assertTrue(error)
+        self.assertIn(f"pesa {int(heavy_load['value'])} {work['load']['unit']} {work['load']['basis']}, más que la carga de trabajo máxima ({int(work['load']['value'])})", message)
+        self.assertNotIn(".0 ", message)
+
     def test_non_work_load_is_bounded_by_work_load_in_same_unit(self):
         work = self.proposal()["week"]["days"][0]["exercises"][0]["sets"][0]
         heavier = dict(work, id="mcp-week-heavy", kind="WARMUP", load=dict(work["load"], value=work["load"]["value"] + 10))

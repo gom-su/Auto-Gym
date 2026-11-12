@@ -73,6 +73,16 @@ def _all_ids(program):
     return ids
 
 
+
+def _load_key_label(key):
+    return f"{key[0]} {key[1]}"
+
+
+def _num(value):
+    """Formats a load like the app: whole numbers without a decimal point."""
+    return str(int(value)) if float(value).is_integer() else str(value)
+
+
 def validate_week(week):
     """Mirrors the app's ProgramPackage v1 rules for one week (types, ranges, IDs, unit/basis pairs)."""
     def name(v, path):
@@ -133,22 +143,29 @@ def validate_week(week):
                    f"{exercise_label}: no tiene series de trabajo; solo calentamientos o aproximaciones no se pueden revisar.")
             _check(non_work_count <= MAX_NON_WORK_SETS,
                    f"{exercise_label}: {non_work_count} series de calentamiento o aproximación; el máximo es {MAX_NON_WORK_SETS}.")
-            # Same rule as the app's NON_WORK_LOAD: a warm-up or approach cannot be heavier than the heaviest work set
-            # of the exercise in the same unit and basis, and a different unit or basis cannot be compared, so it is blocked.
+            # Mirrors the app's WARMUP_ORDER: warm-up and approach sets come before the work sets of their exercise.
+            first_work = next((i for i, s in enumerate(e["sets"]) if s.get("kind", "WORK") == "WORK"), None)
+            _check(first_work is None or all(s.get("kind", "WORK") == "WORK" for s in e["sets"][first_work:]),
+                   f"{exercise_label}: las series de calentamiento o aproximación deben ir antes de las de trabajo.")
+            # Mirrors the app's NON_WORK_LOAD: a warm-up or approach cannot be heavier than the heaviest work set of the
+            # exercise in the same unit and basis; a different unit or basis cannot be compared, so it is blocked.
             work_loads = {}
             for s in e["sets"]:
                 if s.get("kind", "WORK") == "WORK" and s.get("load"):
                     key = (s["load"]["unit"], s["load"]["basis"])
                     work_loads[key] = max(work_loads.get(key, float("-inf")), s["load"]["value"])
-            for si, s in enumerate(e["sets"], 1):
+            for s in e["sets"]:
                 if s.get("kind", "WORK") == "WORK" or not s.get("load") or not work_loads:
                     continue
-                key = (s["load"]["unit"], s["load"]["basis"])
+                load = s["load"]
+                key = (load["unit"], load["basis"])
                 kind_label = "calentamiento" if s["kind"] == "WARMUP" else "aproximación"
                 if key not in work_loads:
-                    _check(False, f"{exercise_label}, serie {si}: una serie de {kind_label} usa {key[0]} {key[1]}, distinta de la carga de trabajo; no se puede comparar.")
-                _check(s["load"]["value"] <= work_loads[key],
-                       f"{exercise_label}, serie {si}: una serie de {kind_label} pesa {s['load']['value']} {key[0]} {key[1]}, más que la carga de trabajo máxima ({work_loads[key]}).")
+                    _check(False, f"{exercise_label}: una serie de {kind_label} usa {_load_key_label(key)}, distinta de la carga de trabajo ("
+                                  f"{', '.join(_load_key_label(k) for k in work_loads)}); no se puede comparar.")
+                _check(load["value"] <= work_loads[key],
+                       f"{exercise_label}: una serie de {kind_label} pesa {_num(load['value'])} {_load_key_label(key)}, "
+                       f"más que la carga de trabajo máxima ({_num(work_loads[key])}).")
             seen_ids = [e["id"]] + [s["id"] for s in e["sets"]]
             _check(not (set(seen_ids) & seen) and len(set(seen_ids)) == len(seen_ids), f"{ep}: ID duplicado.")
             seen.update(seen_ids)
