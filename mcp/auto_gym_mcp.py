@@ -89,9 +89,17 @@ def validate_week(week):
     seen = {week["id"]}
     for di, d in enumerate(week["days"], 1):
         p = f"Día {di}"
-        _check(isinstance(d, dict) and set(d) == {"id", "name", "exercises"}, f"{p}: campos id, name, exercises.")
+        _check(isinstance(d, dict) and set(d) <= {"id", "name", "exercises", "cardio"} and {"id", "name", "exercises"} <= set(d),
+               f"{p}: campos id, name, exercises y cardio opcional.")
         ident(d["id"], p); name(d["name"], p)
-        _check(isinstance(d["exercises"], list) and d["exercises"], f"{p}: falta un ejercicio.")
+        _check(isinstance(d["exercises"], list), f"{p}: exercises debe ser una lista.")
+        if "cardio" in d:
+            c = d["cardio"]
+            _check(isinstance(c, dict) and set(c) == {"modality", "durationSeconds"}, f"{p}: cardio con modality y durationSeconds.")
+            _check(isinstance(c.get("modality"), str) and c["modality"].strip() and len(c["modality"]) <= 200, f"{p}: modalidad de cardio no válida.")
+            _check(isinstance(c.get("durationSeconds"), int) and not isinstance(c.get("durationSeconds"), bool)
+                   and 1 <= c["durationSeconds"] <= 86400, f"{p}: duración de cardio fuera de rango (1–86400 s).")
+        _check(d["exercises"] or "cardio" in d, f"{p}: falta un ejercicio o un bloque de cardio.")
         for ei, e in enumerate(d["exercises"], 1):
             ep = f"{p} / ejercicio {ei}"
             _check(isinstance(e, dict) and set(e) == {"id", "exerciseId", "name", "sets"}, f"{ep}: campos id, exerciseId, name, sets.")
@@ -99,7 +107,9 @@ def validate_week(week):
             _check(isinstance(e["sets"], list) and e["sets"], f"{ep}: falta una serie.")
             for si, s in enumerate(e["sets"], 1):
                 sp = f"{ep} / serie {si}"
-                _check(isinstance(s, dict) and set(s) <= {"id", "reps", "rir", "load", "restSeconds"} and "id" in s, f"{sp}: campos no válidos.")
+                _check(isinstance(s, dict) and set(s) <= {"id", "reps", "rir", "load", "restSeconds", "kind"} and "id" in s, f"{sp}: campos no válidos.")
+                _check(s.get("kind", "WORK") in {"WORK", "WARMUP", "APPROACH"}, f"{sp}: kind debe ser WORK, WARMUP o APPROACH.")
+                _check(s.get("load") is not None, f"{sp}: falta la carga prescrita (0 solo si es la carga prescrita).")
                 ident(s["id"], sp)
                 for key, lo, hi in (("reps", 1, 1000), ("rir", 0, 10), ("restSeconds", 0, 86400)):
                     v = s.get(key)

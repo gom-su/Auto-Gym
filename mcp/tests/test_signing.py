@@ -26,7 +26,7 @@ class SigningTest(unittest.TestCase):
             return json.loads(proc.stdout.readline())
         rpc(1, "initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}})
         week = {"id": "signed-week", "name": "Semana firmada", "version": 1, "days": [{"id": "signed-day", "name": "Día", "exercises": [
-            {"id": "signed-squat", "exerciseId": "squat", "name": "Sentadilla ficticia", "sets": [{"id": "signed-s1", "reps": 6, "rir": 2}]}]}]}
+            {"id": "signed-squat", "exerciseId": "squat", "name": "Sentadilla ficticia", "sets": [{"id": "signed-s1", "reps": 6, "rir": 2, "load": {"value": 0.0, "unit": "KG", "basis": "PER_SIDE"}}]}]}]}
         r = rpc(2, "tools/call", {"name": "create_week_proposal", "arguments": {"proposalId": "signed", "version": 1, "programId": "fictional-program",
             "blockId": "block-base", "week": week, "differences": ["x"], "reasons": ["Sentadilla ficticia: prueba"]}})
         proc.stdin.close(); proc.wait(timeout=10); proc.stdout.close()

@@ -200,9 +200,14 @@ class WorkoutRepository(
         history.replace(archive.copy(sessions = kept))
         mutableHistory.value = archive.copy(sessions = kept)
         if (currentMatches) {
-            val cleared = WorkoutState()
-            storage.write(cleared)
-            mutableState.value = cleared
+            // The archive and the current session are two stores: if clearing the session fails, the archive is restored.
+            try { storage.write(WorkoutState()) }
+            catch (e: Exception) {
+                history.replace(archive)
+                mutableHistory.value = archive
+                throw e
+            }
+            mutableState.value = WorkoutState()
         }
         removed
     }

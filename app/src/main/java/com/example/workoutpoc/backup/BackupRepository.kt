@@ -2,6 +2,7 @@ package com.example.workoutpoc.backup
 
 import com.example.workoutpoc.body.MeasurementRepository
 import com.example.workoutpoc.catalog.CatalogRepository
+import com.example.workoutpoc.data.SessionCommentRepository
 import com.example.workoutpoc.data.WorkoutRepository
 import com.example.workoutpoc.exchange.ExchangeRepository
 import com.example.workoutpoc.migration.MigrationRepository
@@ -25,11 +26,11 @@ class BackupRepository internal constructor(private val workout: WorkoutReposito
     constructor(workout: WorkoutRepository, programs: ProgramRepository, outlines: PlanOutlineRepository,
                 exchanges: ExchangeRepository, proposals: ProposalRepository, measurements: MeasurementRepository,
                 catalog: CatalogRepository, answers: PlanningAnswerRepository, annotations: WeekAnnotationRepository,
-                migrations: MigrationRepository, settings: AppSettingsRepository) : this(workout, listOf(
+                migrations: MigrationRepository, settings: AppSettingsRepository, comments: SessionCommentRepository) : this(workout, listOf(
         // Proposal approval calls other repositories while holding its own mutex: acquire it first.
         proposals.backupStore, programs.backupStore, outlines.backupStore, exchanges.backupStore,
         measurements.backupStore, catalog.backupStore, answers.backupStore, annotations.backupStore,
-        migrations.backupStore, settings.backupStore
+        migrations.backupStore, settings.backupStore, comments.backupStore
     ))
 
     private suspend fun <T> withStoreLocks(index: Int = 0, block: suspend () -> T): T =

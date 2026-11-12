@@ -100,6 +100,10 @@ object ProposalRules {
             else -> {
                 val existing = program?.blocks?.flatMap { it.weeks }?.find { it.id == week.id }
                 if (existing != null && existing == week && block?.weeks?.any { it.id == week.id } == true) alreadyApplied = true
+                else if (existing != null && replacing && block?.weeks?.lastOrNull()?.id != week.id) {
+                    // Only the latest week of a block can be regenerated: later weeks are built on this one (decision §2).
+                    add("WEEK_NOT_LAST", Severity.BLOCKING, "Solo se puede regenerar la última semana del bloque. La semana ${week.id} tiene semanas posteriores que dependen de ella.")
+                }
                 else if (existing != null && replacing && block?.weeks?.any { it.id == week.id } == true) {
                     add("WEEK_REPLACEMENT", Severity.WARNING,
                         "Reemplaza la semana ${existing.name} (${week.id}) de este bloque y borra $replacedRecords sesión(es) registrada(s) de esa semana. Esta acción no se puede deshacer.")
@@ -143,6 +147,9 @@ object ProposalRules {
             if (firstWork >= 0 && exercise.sets.drop(firstWork).any { it.kind != SetKind.WORK })
                 add("WARMUP_ORDER", Severity.BLOCKING, "${day.name} · ${exercise.name}: las series de calentamiento o aproximación deben ir antes de las de trabajo.")
         } }
+        // Contract §8: the distribution the program prescribes (A/B/C with 30 min, D with 60 min and no strength) must hold.
+        val cardioRules = program?.cardioRules.orEmpty().map { CardioDayRule(it.dayId, it.requiredSeconds, it.strengthAllowed) }
+        cardioDistributionViolations(week, cardioRules).forEach { add("CARDIO_DISTRIBUTION", Severity.BLOCKING, it) }
         proposed.forEach { (id, p) -> if (id !in knownExerciseIds) add("NEW_EXERCISE", settings.newExercise, "${p.name} ($id) no aparece en programas, historial ni catálogo.") }
         if (base == null) {
             differences += "Sin semana base guardada en el bloque: no hay comparación de progresión."

@@ -35,7 +35,9 @@ fun WorkoutScreen(
     onAddCardio: (CardioAdd) -> Unit = {}, onRemoveCardio: (CardioEntry) -> Unit = {},
     /** The default logging mode in Ajustes is the floating panel: offer it first. */
     overlayFirst: Boolean = false,
-    onFinalize: () -> Unit = {}
+    onFinalize: () -> Unit = {},
+    /** Saves a comment for the planned session (contract §7); exerciseId is null for a general comment. */
+    onSaveComment: (text: String, exerciseId: String?) -> Unit = { _, _ -> }
 ) {
     var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
     var confirmReset by remember(state.sessionId) { mutableStateOf(false) }
@@ -93,6 +95,8 @@ fun WorkoutScreen(
                 SessionStatus(state, now, dispatch)
                 if (state.paused == null && plan.isNotEmpty() && state.phase != Phase.ActiveCardio) DeviationActions(state, dispatch)
                 CardioSection(state, onAddCardio, onRemoveCardio)
+                // Comments during a planned session are linked to an exercise or the whole session (§5, decision 2).
+                if (!demo && state.source != null && state.phase != Phase.Idle) SessionCommentCard(state, onSaveComment)
                 if (state.records.isNotEmpty()) RecordList(state, plan, demo) { editing = it }
                 if (state.phase != Phase.Idle || !demo) SessionEndActions(state, demo, archivedCount, dispatch) {
                     // Resetting the demo discards its records; closing a planned session archives them first.
@@ -194,7 +198,7 @@ private fun ModeButton(text: String, icon: androidx.compose.ui.graphics.vector.I
 
 /** The one card that holds what to do right now; visually the strongest element on the screen. */
 @Composable
-private fun FocusCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun FocusCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md), content = content)
     }

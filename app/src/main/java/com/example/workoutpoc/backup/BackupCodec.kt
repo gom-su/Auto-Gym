@@ -9,6 +9,8 @@ import com.example.workoutpoc.data.WorkoutHistory
 import com.example.workoutpoc.data.WorkoutHistorySerializer
 import com.example.workoutpoc.data.WorkoutSerializer
 import com.example.workoutpoc.domain.Phase
+import com.example.workoutpoc.domain.SessionCommentLog
+import com.example.workoutpoc.domain.SessionCommentLogSerializer
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.exchange.ExchangeArchive
@@ -53,7 +55,8 @@ data class BackupData(
     val exchanges: ExchangeArchive = ExchangeArchiveSerializer.defaultValue, val proposals: ProposalState = ProposalState(),
     val measurements: MeasurementLog = MeasurementLog(), val exercises: ExerciseCatalog = ExerciseCatalog(),
     val planningAnswers: PlanningAnswers = PlanningAnswers(), val weekAnnotations: WeekAnnotations = WeekAnnotations(),
-    val migrations: MigrationArchive = MigrationArchive(), val settings: AppSettings = AppSettings()
+    val migrations: MigrationArchive = MigrationArchive(), val settings: AppSettings = AppSettings(),
+    val comments: SessionCommentLog = SessionCommentLogSerializer.defaultValue
 ) {
     /** A set is being recorded right now; such a session is never replaced by a restore. */
     val sessionInProgress: Boolean get() = workout.phase.inProgress
@@ -88,7 +91,9 @@ object BackupCodec {
 
     /** One store's place in the file: its key in `stores`, the file it lives in on the device and how it is read. */
     internal class Section<T>(val key: String, val file: String, val label: String, private val serializer: Serializer<T>,
-                              private val get: (BackupData) -> T, private val set: (BackupData, T) -> BackupData) {
+                              private val get: (BackupData) -> T, private val set: (BackupData, T) -> BackupData,
+                              /** Stores added after version 1 may be absent from older backups; they restore as the default. */
+                              private val optional: Boolean = false) {
         suspend fun encode(data: BackupData): JsonElement = try {
             val bytes = ByteArrayOutputStream().also { serializer.writeTo(get(data), it) }.toByteArray()
             Json.parseToJsonElement(bytes.decodeToString())
@@ -96,7 +101,8 @@ object BackupCodec {
         catch (e: Exception) { throw BackupException("No se pudo preparar el respaldo: $label no supera su propia validación. Tus datos se conservan.", e) }
 
         suspend fun decode(into: BackupData, stores: JsonObject): BackupData {
-            val element = stores[key] ?: throw BackupException("Respaldo incompleto: falta $label. No se reemplazó nada.")
+            val element = stores[key] ?: return if (optional) set(into, serializer.defaultValue)
+                else throw BackupException("Respaldo incompleto: falta $label. No se reemplazó nada.")
             val value = try { serializer.readFrom(ByteArrayInputStream(Json.encodeToString(JsonElement.serializer(), element).encodeToByteArray())) }
                 catch (e: CancellationException) { throw e }
                 // CorruptionException (an IOException) or a validation error: the store itself would not open this document.
@@ -120,7 +126,9 @@ object BackupCodec {
         Section("planningAnswers", "planning-answers-v1.json", "las respuestas de planificación", PlanningAnswersSerializer, { it.planningAnswers }, { d, v -> d.copy(planningAnswers = v) }),
         Section("weekAnnotations", "week-annotations-v1.json", "las anotaciones de semanas y metas", WeekAnnotationsSerializer, { it.weekAnnotations }, { d, v -> d.copy(weekAnnotations = v) }),
         Section("migrations", "migrations-v1.json", "las migraciones de Obsidian", MigrationArchiveSerializer, { it.migrations }, { d, v -> d.copy(migrations = v) }),
-        Section("settings", "app-settings-v1.json", "los ajustes", AppSettingsSerializer, { it.settings }, { d, v -> d.copy(settings = v) })
+        Section("settings", "app-settings-v1.json", "los ajustes", AppSettingsSerializer, { it.settings }, { d, v -> d.copy(settings = v) }),
+        Section("comments", "session-comments-v1.json", "los comentarios de entrenamiento", SessionCommentLogSerializer,
+            { it.comments }, { d, v -> d.copy(comments = v) }, optional = true)
     )
 
     /**
@@ -169,7 +177,7 @@ object BackupCodec {
             throw BackupException("Versión de la aplicación no válida en el respaldo. No se reemplazó nada.")
         val known = sections.map { it.key }.toSet()
         (envelope.stores.keys - known).firstOrNull()?.let {
-            throw BackupException("El respaldo contiene un almacén desconocido (\"${it.take(40)}\"). No se reemplazó nada.")
+            throw BackupException("El respaldo contiene un almacén desconocido (\"${it.take(40)}\"). Actualiza la aplicación para restaurarlo. No se reemplazó nada.")
         }
         // Checked before any store is read: a damaged or edited file is reported as such, not as an invalid store.
         if (!MessageDigest.isEqual(digest(envelope.stores).encodeToByteArray(), envelope.sha256.encodeToByteArray()))
