@@ -162,7 +162,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                 TonalAction("Exportar CSV", onExportCsv, enabled = !ui.busy, icon = AppIcons.Download, fill = false)
             }
             items(listed, key = { it.sessionId }) { s ->
-                NavRow("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}", { selected = s.sessionId },
+                NavRow("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}", { selected = s.sessionId; editing = false },
                     supporting = statusLine(s), badge = { StatusPill(s.status.label, s.status.tone()) })
             }
         } else {

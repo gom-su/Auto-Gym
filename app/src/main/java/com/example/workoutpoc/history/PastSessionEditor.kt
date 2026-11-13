@@ -228,7 +228,8 @@ fun PastSessionEditor(session: SessionSummary, busy: Boolean, message: String?, 
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     var pickDate by rememberSaveable { mutableStateOf(false) }
     val leave: () -> Unit = { if (state.dirty) confirmDiscard = true else onClose() }
-    BackHandler(enabled = !busy) { leave() }
+    // Back is held while a save runs, so it cannot fall through to the tabs and leave the screen mid-save.
+    BackHandler { if (!busy) leave() }
 
     fun save() {
         val invalid = state.firstInvalid
