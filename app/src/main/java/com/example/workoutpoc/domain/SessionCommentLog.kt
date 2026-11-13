@@ -23,6 +23,7 @@ object SessionCommentLogSerializer : Serializer<SessionCommentLog> {
             c.id.matches(identity) && c.programId.matches(identity) &&
                 (c.weekId == null || c.weekId.matches(identity)) && (c.sessionId == null || c.sessionId.matches(identity)) &&
                 (c.exerciseId == null || c.exerciseId.matches(identity)) &&
+                (c.dayId == null || c.dayId.matches(identity)) && (c.setIndex == null || c.setIndex in 0..10_000) &&
                 c.text.isNotBlank() && c.text.length <= MAX_NOTE_LENGTH && c.createdAtMillis >= 0 &&
                 (c.setIndex == null || c.setIndex >= 0)
         }) { "Identificador o texto de comentario no válido." }

@@ -45,7 +45,7 @@ class BackupTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "live-session" })
         repo.load(selection.day.toPlannedSets(), selection.source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         val first = repo.state.value.records.first()
         repo.edit(repo.state.value.sessionId, repo.state.value.revision, 0, SetStatus.COMPLETED,
             first.values.copy(reps = first.values.reps + 1), "Corrección ficticia")

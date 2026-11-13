@@ -19,7 +19,7 @@ fun exerciseHistory(exerciseId: String, sessions: List<WorkoutState>): List<Exer
         s.records.mapNotNull { r ->
             val p = s.plan.getOrNull(r.index) ?: return@mapNotNull null
             if (p.exerciseId != exerciseId) null
-            else ExerciseHistoryEntry(s.sessionId, s.source?.dayName, r.completedAtMillis, p.exercise, p.warmup, p.extra, r.status, r.values, p.unit)
+            else ExerciseHistoryEntry(s.sessionId, s.source?.dayName, r.completedAtMillis, p.exercise, (p.setType != com.example.workoutpoc.domain.SetType.WORK), p.extra, r.status, r.values, p.unit)
         }
     }.sortedByDescending { it.completedAtMillis }
 

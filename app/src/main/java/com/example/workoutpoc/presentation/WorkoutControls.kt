@@ -25,20 +25,23 @@ fun WorkoutControls(state: WorkoutState, dispatch: (WorkoutCommand) -> Unit) {
         ValueStepper("Repeticiones", "${state.values.reps}", "Reducir repeticiones", "Aumentar repeticiones",
             { dispatch(state.command(WorkoutEvent.DecrementReps)) },
             { dispatch(state.command(WorkoutEvent.IncrementReps)) })
-        Text("RIR · repeticiones en reserva", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        // A single-choice segmented control: equal widths, one tap, current value always visible.
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            (0..4).forEach { rir ->
-                SegmentedButton(selected = state.values.rir == rir,
-                    onClick = { dispatch(state.command(WorkoutEvent.SelectRir, rir)) },
-                    shape = SegmentedButtonDefaults.itemShape(rir, 5), modifier = Modifier.heightIn(min = 48.dp),
-                    icon = {}) { Text(if (rir == 4) "4+" else "$rir", style = MaterialTheme.typography.titleMedium.tabular()) }
+        if (state.activePlan()[state.index].setType == SetType.WORK) {
+            Text("RIR · repeticiones en reserva", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // A single-choice segmented control: equal widths, one tap, current value always visible.
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                (0..4).forEach { rir ->
+                    SegmentedButton(selected = state.values.rir == rir,
+                        onClick = { dispatch(state.command(WorkoutEvent.SelectRir, rir)) },
+                        shape = SegmentedButtonDefaults.itemShape(rir, 5), modifier = Modifier.heightIn(min = 48.dp),
+                        icon = {}) { Text(if (rir == 4) "4+" else "$rir", style = MaterialTheme.typography.titleMedium.tabular()) }
+                }
             }
         }
+        val hint = state.completionHint()
         Button(onClick = { dispatch(state.command(WorkoutEvent.CompleteSet)) },
-            enabled = state.values.reps > 0, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            enabled = hint == null, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             if (state.values.reps > 0) { Icon(AppIcons.Check, contentDescription = null); Spacer(Modifier.width(Spacing.sm)) }
-            Text(if (state.values.reps > 0) "Completar serie" else "Registra al menos 1 repetición", style = MaterialTheme.typography.titleMedium)
+            Text(hint ?: "Completar serie", style = MaterialTheme.typography.titleMedium)
         }
     }
 }

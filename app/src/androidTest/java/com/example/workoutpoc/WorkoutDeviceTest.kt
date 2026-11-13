@@ -57,6 +57,7 @@ class WorkoutDeviceTest {
         val end = SystemClock.elapsedRealtime() + 6_000
         while (SystemClock.elapsedRealtime() < end) {
             try {
+                freshTree()
                 val found = device.wait(Until.findObject(By.res(pkg, id)), 1_000) ?: continue
                 found.click(); device.waitForIdle(); return
             } catch (_: androidx.test.uiautomator.StaleObjectException) { SystemClock.sleep(100) }
@@ -82,12 +83,19 @@ class WorkoutDeviceTest {
     }
 
     private fun toggleWorkoutNotification() {
-        var node: UiObject2? = device.findObject(By.res(pkg, "compact_title"))
-            ?: device.findObject(By.text("Workout Notification PoC"))
-        while (node != null) {
-            val expand = node.findObject(By.res("android", "expand_button"))
-            if (expand != null) { expand.click(); device.waitForIdle(); return }
-            node = node.parent
+        val end = SystemClock.elapsedRealtime() + 4_000
+        while (SystemClock.elapsedRealtime() < end) {
+            freshTree()
+            try {
+                var node: UiObject2? = device.findObject(By.res(pkg, "compact_title"))
+                    ?: device.findObject(By.text("Workout Notification PoC"))
+                while (node != null) {
+                    val expand = node.findObject(By.res("android", "expand_button"))
+                    if (expand != null) { expand.click(); device.waitForIdle(); return }
+                    node = node.parent
+                }
+            } catch (_: androidx.test.uiautomator.StaleObjectException) { }
+            SystemClock.sleep(100)
         }
     }
 

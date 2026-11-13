@@ -63,6 +63,15 @@ object WorkoutValidation {
             s.currentCardio == s.nextCardio(plan, s.index)))
         require(s.records.map { it.index } == (0 until s.records.size).toList())
         require(s.records.size <= plan.size)
+        // Machine waits (requirement 8): at most one open at a time, a rest wait names its rest, and spans are ordered.
+        require(s.machineWaits.size <= 500 && s.machineWaits.count { it.endedAtMillis == null && !it.cancelled } <= 1)
+        require(s.machineWaits.all { w ->
+            (w.origin == com.example.workoutpoc.domain.WaitOrigin.EXERCISE || w.restSegmentId != null) &&
+                w.pausedMillis >= 0 && (w.measuredMillis == null || w.measuredMillis >= 0) &&
+                (w.pending == null || w.startedAtMillis == null) &&
+                (w.endedAtMillis == null || w.startedAtMillis != null || w.cancelled)
+        })
+        require(s.machineWaits.count { it.pending != null } <= 1)
         s.records.forEach { r ->
             values(r.values, plan[r.index], allowZeroReps = r.status == SetStatus.SKIPPED)
             require(r.prescriptionId == plan[r.index].prescriptionId)

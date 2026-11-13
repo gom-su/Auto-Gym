@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.workoutpoc.domain.Phase
+import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.notification.WorkoutNotificationManager
 import com.example.workoutpoc.timer.RestTimer
 import com.example.workoutpoc.workoutApp
@@ -49,6 +50,7 @@ class WorkoutOverlayService : Service() {
         scope.launch {
             workoutApp.safely {
                 workoutApp.repository.restore()
+                workoutApp.catalog.restore()
                 workoutApp.repository.state.collect { state ->
                     notifications.update(state)
                     restHaptics.update(state)
@@ -62,7 +64,7 @@ class WorkoutOverlayService : Service() {
         scope.launch {
             while (isActive) {
                 val state = workoutApp.repository.state.value
-                if (state.phase == Phase.Resting || state.phase == Phase.ActiveCardio) notifications.update(state)
+                if (state.phase.inProgress) notifications.update(state)
                 restHaptics.update(state)
                 overlay.render(state)
                 delay(250)
@@ -86,7 +88,11 @@ class WorkoutOverlayService : Service() {
         }
         return START_NOT_STICKY
     }
-    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); overlay.clamp() }
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        overlay.clamp()
+        notifications.update(workoutApp.repository.state.value, force = true)
+    }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         scope.cancel()

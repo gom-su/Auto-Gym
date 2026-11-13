@@ -69,6 +69,10 @@ fun ProposalScreen(state: ProposalState, ui: ProposalUiState, onBack: () -> Unit
                     StatusPill(decision?.status.short(), decision?.status.tone())
                 }
             }
+            // The whole week in plan order, with comments and agent explanations next to what they refer to (requirement 2).
+            item {
+                WeekApprovalSection(buildReviewedWeek(p.week, p.programId, ui.comments, evaluation.explanations))
+            }
             item {
                 MetricRow(listOf("${evaluation.blocking.size}" to "bloqueos", "${evaluation.warnings.size}" to "advertencias",
                     "${p.week.days.size}" to "días", "${p.week.days.sumOf { d -> d.exercises.sumOf { it.sets.size } }}" to "series"))

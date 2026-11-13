@@ -54,7 +54,7 @@ class SessionLifecycleTest {
         val path = folder.newFolder().resolve("workout.json")
         val scope1 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val repo = repo(DataStoreWorkoutStorage(file(path, scope1)))
-        repo.go(WorkoutEvent.CompleteSet) // 90 s rest begins
+        repo.completeSet() // 90 s rest begins
         val s0 = repo.state.value
         assertTrue(repo.addCardio(s0.sessionId, s0.revision, cardio("cardio-1")))
         time = time.copy(elapsedMillis = time.elapsedMillis + 30_000, wallMillis = time.wallMillis + 30_000)
@@ -97,14 +97,14 @@ class SessionLifecycleTest {
         var s = repo.state.value
         assertTrue(s.plan[0].warmup); assertNull(s.plan[0].prescriptionId); assertEquals(3, s.plan.size)
         repeat(4) { repo.go(WorkoutEvent.DecrementWeight) }
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         repo.go(WorkoutEvent.SkipRest)
         s = repo.state.value
         assertEquals("set-one-squat-1", s.plan[s.index].prescriptionId)
         assertEquals(SetValues(200, 8, null), s.values)
         assertEquals(100, s.records[0].values.weightTenths)
         // During rest a warm-up is inserted before the next set too.
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         repo.go(WorkoutEvent.AddWarmupSet)
         s = repo.state.value
         assertEquals(Phase.Resting, s.phase); assertTrue(s.plan[2].warmup); assertEquals(2, s.plan[2].number)
@@ -143,7 +143,7 @@ class SessionLifecycleTest {
 
     @Test fun `finishing or closing while paused accounts for the pause and keeps everything`() = runTest {
         val repo = repo(MemoryStorage())
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val s = repo.state.value
         repo.addCardio(s.sessionId, s.revision, cardio("c1"))
         repo.go(WorkoutEvent.PauseSession)
@@ -165,7 +165,7 @@ class SessionLifecycleTest {
     @Test fun `cardio warm-ups and pauses export as valid v1 results`() = runTest {
         val repo = repo(MemoryStorage())
         repo.go(WorkoutEvent.AddWarmupSet)
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val s = repo.state.value
         repo.addCardio(s.sessionId, s.revision, cardio("cardio-1"))
         repo.go(WorkoutEvent.PauseSession)

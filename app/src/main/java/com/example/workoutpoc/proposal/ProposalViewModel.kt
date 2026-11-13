@@ -17,7 +17,9 @@ data class ProposalUiState(
     /** Current evaluation of every expectation, by expectation ID (AG-04). */
     val results: Map<String, EvaluationResult> = emptyMap(),
     /** The user asked to replace the saved week; the evaluation shows what that approval deletes (§2). */
-    val replacePreview: Boolean = false
+    val replacePreview: Boolean = false,
+    /** Saved training comments, so the approval view can anchor them to days, exercises and sets (requirement 2). */
+    val comments: List<com.example.workoutpoc.domain.SessionComment> = emptyList()
 )
 
 class ProposalViewModel(application: Application) : AndroidViewModel(application) {
@@ -28,11 +30,12 @@ class ProposalViewModel(application: Application) : AndroidViewModel(application
     init { refresh() }
 
     private suspend fun evaluateAll() {
-        app.repository.restore(); app.weekAnnotations.restore()
+        app.repository.restore(); app.weekAnnotations.restore(); app.comments.restore()
         val sessions = app.repository.archived.value.sessions + app.repository.state.value
         val now = System.currentTimeMillis()
-        mutableUi.value = mutableUi.value.copy(results = app.proposals.state.value.expectations.associate {
-            it.id to evaluate(it, sessions, app.weekAnnotations.annotations.value, now) })
+        mutableUi.value = mutableUi.value.copy(comments = app.comments.log.value.comments,
+            results = app.proposals.state.value.expectations.associate {
+                it.id to evaluate(it, sessions, app.weekAnnotations.annotations.value, now) })
     }
 
     fun addExpectation(e: Expectation) = operation {

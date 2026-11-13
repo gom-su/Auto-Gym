@@ -33,7 +33,10 @@ fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, o
     // Only kg and lb can be corrected by the user; machine positions and bodyweight keep their own representation.
     val switchable = planned.unit == WeightUnit.KG || planned.unit == WeightUnit.LB
     var unit by remember(record) { mutableStateOf(record.recordedUnit ?: planned.unit) }
-    val valid = (status == SetStatus.SKIPPED || reps > 0) && notes.length <= MAX_NOTE_LENGTH
+    val isWork = planned.setType == SetType.WORK
+    // A completed work set needs a RIR, preloaded values included; warm-ups and approaches have none (requirements 6, 13).
+    val rirMissing = status == SetStatus.COMPLETED && isWork && rir == null
+    val valid = (status == SetStatus.SKIPPED || reps > 0) && !rirMissing && notes.length <= MAX_NOTE_LENGTH
     AlertDialog(onDismissRequest = onDismiss,
         icon = { Icon(AppIcons.Edit, contentDescription = null) },
         title = { Text("Editar ${planned.exercise} · serie ${planned.number}") },
@@ -60,12 +63,15 @@ fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, o
                         { weight = (weight - planned.weightStepTenths).coerceAtLeast(0) },
                         { weight = (weight + planned.weightStepTenths).coerceAtMost(planned.maxWeightTenths) })
                     Stepper("Repeticiones", "$reps", "Reducir repeticiones", "Aumentar repeticiones", { reps = (reps - 1).coerceAtLeast(0) }, { reps = (reps + 1).coerceAtMost(planned.maxReps) })
-                    Text("RIR", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        SegmentedButton(rir == null, { rir = null }, SegmentedButtonDefaults.itemShape(0, 6), icon = {},
-                            modifier = Modifier.semantics { contentDescription = "RIR sin indicar" }) { Text("—") }
-                        (0..4).forEach { value -> SegmentedButton(rir == value, { rir = value }, SegmentedButtonDefaults.itemShape(value + 1, 6), icon = {}) {
-                            Text(rirLabel(value), style = MaterialTheme.typography.labelLarge.tabular()) } }
+                    if (isWork) {
+                        Text("RIR", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            SegmentedButton(rir == null, { rir = null }, SegmentedButtonDefaults.itemShape(0, 6), icon = {},
+                                modifier = Modifier.semantics { contentDescription = "RIR sin indicar" }) { Text("—") }
+                            (0..4).forEach { value -> SegmentedButton(rir == value, { rir = value }, SegmentedButtonDefaults.itemShape(value + 1, 6), icon = {}) {
+                                Text(rirLabel(value), style = MaterialTheme.typography.labelLarge.tabular()) } }
+                        }
+                        if (rirMissing) Banner("Selecciona el RIR", tone = Tone.Error)
                     }
                 }
                 OutlinedTextField(notes, { if (it.length <= MAX_NOTE_LENGTH) notes = it }, label = { Text("Notas") },
@@ -77,7 +83,7 @@ fun RecordEditorDialog(state: WorkoutState, index: Int, onDismiss: () -> Unit, o
             Button(enabled = valid, onClick = {
                 val chosen = if (status == SetStatus.COMPLETED && switchable && unit != planned.unit) unit else null
                 onSave(RecordEdit(state.sessionId, state.revision, index, status,
-                    if (status == SetStatus.COMPLETED) SetValues(weight, reps, rir) else record.values, notes, chosen))
+                    if (status == SetStatus.COMPLETED) SetValues(weight, reps, if (isWork) rir else null) else record.values, notes, chosen))
             }) { Text("Guardar cambios") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })

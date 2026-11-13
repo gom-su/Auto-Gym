@@ -1,6 +1,6 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical" android:background="@color/notification_surface">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="64dp" android:orientation="horizontal" android:gravity="center_vertical" android:baselineAligned="false" android:background="@android:color/transparent">
     <TextView android:id="@+id/compact_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:maxLines="2" android:ellipsize="end" android:textColor="@color/notification_text" android:textSize="12sp"/>
-    <Chronometer android:id="@+id/compact_countdown" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="8dp" android:textColor="@color/notification_text" android:textStyle="bold" android:visibility="gone"/>
-    <TextView android:id="@+id/compact_complete" style="@style/NotificationControl" android:layout_width="76dp" android:text="Completar" android:textSize="12sp"/>
+    <TextView android:id="@+id/compact_countdown" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:textColor="@color/notification_text" android:textStyle="bold" android:visibility="gone"/>
+    <TextView android:id="@+id/compact_complete" style="@style/NotificationControl" android:layout_width="84dp" android:text="Completar" android:textSize="11sp" android:background="@drawable/notification_primary"/>
     <TextView android:id="@+id/compact_edit" style="@style/NotificationControl" android:layout_width="48dp" android:text="Editar" android:textSize="12sp"/>
 </LinearLayout>

@@ -37,7 +37,7 @@ fun phaseComparison(exerciseId: String, sessions: List<WorkoutState>, programs: 
         if (deload && !filter.includeDeloads) return@forEach
         s.records.forEach { r ->
             val p = s.plan.getOrNull(r.index) ?: return@forEach
-            if (p.exerciseId != exerciseId || p.warmup || r.status != SetStatus.COMPLETED) return@forEach
+            if (p.exerciseId != exerciseId || (p.setType != com.example.workoutpoc.domain.SetType.WORK) || r.status != SetStatus.COMPLETED) return@forEach
             val acc = groups.getOrPut(Key(p.unit, p.basis)) { linkedMapOf() }
                 .getOrPut(WeekKey(src.programId, src.blockId, src.weekId)) { Acc(s.startedAtMillis ?: r.completedAtMillis) }
             acc.first = minOf(acc.first, s.startedAtMillis ?: r.completedAtMillis)

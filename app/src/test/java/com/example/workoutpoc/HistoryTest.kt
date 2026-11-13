@@ -31,11 +31,11 @@ class HistoryTest {
     @Test fun `sessions are newest first with status, counts and set details`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
-        repo.train("week-one", "day-one-a") { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.CompleteSet) }
+        repo.train("week-one", "day-one-a") { completeSet(); go(WorkoutEvent.SkipRest); completeSet() }
         repo.go(WorkoutEvent.ResetDemo)
         repo.train("week-one", "day-one-b") { go(WorkoutEvent.SkipSet) }
         repo.go(WorkoutEvent.ResetDemo)
-        repo.train("week-two", "day-two-c", finish = false) { go(WorkoutEvent.CompleteSet) }
+        repo.train("week-two", "day-two-c", finish = false) { completeSet() }
 
         val list = history(repo.archived.value.sessions, repo.state.value, time.wallMillis)
         assertEquals(listOf("Día C", "Día B", "Día A"), list.map { it.title.substringAfterLast(" · ") })
@@ -59,7 +59,7 @@ class HistoryTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
         assertTrue(history(repo.archived.value.sessions, repo.state.value, time.wallMillis).isEmpty())
-        repo.train("week-one", "day-one-a") { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.CompleteSet); go(WorkoutEvent.AddSet); go(WorkoutEvent.CompleteSet) }
+        repo.train("week-one", "day-one-a") { completeSet(); go(WorkoutEvent.SkipRest); completeSet(); go(WorkoutEvent.AddSet); completeSet() }
         val finished = repo.state.value
         // The finished session may be both current and archived; it is shown once.
         val list = history(listOf(finished), finished, time.wallMillis)
@@ -74,7 +74,7 @@ class HistoryTest {
         assertEquals(HistoryCsv.header.joinToString(",") + "\r\n", HistoryCsv.encode(emptyList(), repo.state.value, time.wallMillis))
         repo.train("week-two", "day-two-c") {
             go(WorkoutEvent.SkipSet)
-            go(WorkoutEvent.CompleteSet)
+            completeSet()
             state.value.let { edit(it.sessionId, it.revision, 1, SetStatus.COMPLETED, it.records[1].values, "Nota, con \"comillas\"") }
             state.value.let { addCardio(it.sessionId, it.revision, CardioEntry("c-1", "Bici", 600, null, null, "=1+1", time.wallMillis)) }
         }
@@ -93,11 +93,11 @@ class HistoryTest {
     @Test fun `programs are listed once and totals count only the listed sessions`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
-        repo.go(WorkoutEvent.StartWorkout); repo.go(WorkoutEvent.CompleteSet); repo.go(WorkoutEvent.FinishWorkout)   // demo
+        repo.go(WorkoutEvent.StartWorkout); repo.completeSet(); repo.go(WorkoutEvent.FinishWorkout)   // demo
         repo.go(WorkoutEvent.ResetDemo)
-        repo.train("week-one", "day-one-a") { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.SkipSet) }
+        repo.train("week-one", "day-one-a") { completeSet(); go(WorkoutEvent.SkipRest); go(WorkoutEvent.SkipSet) }
         repo.go(WorkoutEvent.ResetDemo)
-        repo.train("week-one", "day-one-b") { go(WorkoutEvent.CompleteSet) }
+        repo.train("week-one", "day-one-b") { completeSet() }
         repo.go(WorkoutEvent.ResetDemo)
         val list = history(repo.archived.value.sessions, repo.state.value, time.wallMillis)
         assertEquals(listOf<Pair<String?, String>>("fictional-program" to "Programa ficticio variable", null to "Demo"),

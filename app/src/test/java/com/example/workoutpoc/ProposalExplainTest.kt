@@ -54,7 +54,7 @@ class ProposalExplainTest {
         val d = program.findDay("w1", "d1")!!
         repo.load(d.day.toPlannedSets(), d.source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         repo.dispatch(repo.state.value.command(WorkoutEvent.FinishWorkout))
         val changes = ProposalExplain.explain(proposal(listOf("La sentadilla progresó con RIR 2 estable.", "Dominada para variar el tirón en lugar del Remo.")),
             base, listOf(repo.state.value))

@@ -22,7 +22,8 @@ internal fun measuredTimeLabel(millis: Long): String {
 }
 
 internal fun TimeBreakdown.description(): String =
-    "Actividad ${measuredTimeLabel(activityMillis)} · Descanso ${measuredTimeLabel(restMillis)} · Pausa ${measuredTimeLabel(pauseMillis)}"
+    "Actividad ${measuredTimeLabel(activityMillis)} · Descanso ${measuredTimeLabel(restMillis)} · Pausa ${measuredTimeLabel(pauseMillis)}" +
+        if (waitMillis > 0) " · Espera por máquina ${measuredTimeLabel(waitMillis)}" else ""
 
 internal fun TimedSegment.description(): String {
     val activity = when (focus.activity) {
@@ -30,6 +31,7 @@ internal fun TimedSegment.description(): String {
         TimedActivity.CARDIO -> "Cardio"
         TimedActivity.REST -> "Descanso"
         TimedActivity.PAUSE -> "Pausa"
+        TimedActivity.MACHINE_WAIT -> "Espera por máquina"
     }
     return "$activity · ${focus.exercise} · ${measuredTimeLabel(durationMillis)}"
 }
@@ -48,19 +50,29 @@ internal fun ReviewSet.label(): String {
     return "$typeLabel $number$status"
 }
 
-internal fun ReviewSet.resultLines(): List<String> = listOf(
+internal fun ReviewSet.resultLines(): List<String> = listOfNotNull(
     "Peso objetivo: ${targetWeight ?: "—"} · Peso real: ${actualWeight ?: "—"}",
-    "RIR objetivo: ${rirLabel(targetRir)} · RIR real: ${rirLabel(actualRir)}",
-    durationMillis?.let { "Duración: ${measuredTimeLabel(it)}" } ?: "Sin duración registrada"
+    // Warm-ups and approaches show no RIR at all (requirement 13).
+    if (type == SetType.WORK) "RIR objetivo: ${rirLabel(targetRir)} · RIR real: ${rirLabel(actualRir)}" else null,
+    durationMillis?.let { "Duración: ${measuredTimeLabel(it)}" } ?: "Sin dato"
 )
 
+/** Requirement 12: "Objetivo 75 s · Descanso real 95 s · Exceso 20 s · Espera por máquina 18 s". */
+internal fun RestReview.description(): String {
+    val target = "Objetivo $objectiveSeconds s" + (originalSeconds?.takeIf { it != objectiveSeconds }?.let { " (plan $it s)" } ?: "")
+    val real = realMillis?.let { "Descanso real ${it / 1000} s" } ?: "Descanso real Sin dato"
+    val excess = excessMillis?.let { "Exceso ${it / 1000} s" } ?: "Exceso Sin dato"
+    val wait = if (machineWaitMillis > 0) " · Espera por máquina ${machineWaitMillis / 1000} s" else ""
+    return "$target · $real · $excess$wait"
+}
+
 internal fun CardioEntry.reviewDescription(): String =
-    "$modality · ${durationSeconds?.let { measuredTimeLabel(it * 1000L) } ?: "Sin duración registrada"}" +
+    "$modality · ${durationSeconds?.let { measuredTimeLabel(it * 1000L) } ?: "Sin dato"}" +
         if (partial) " · Parcial" else ""
 
 internal fun SessionReview.overlayText(): String = buildString {
     val breakdown = time
-    if (breakdown == null) appendLine("Sin duración registrada")
+    if (breakdown == null) appendLine("Sin dato")
     else {
         appendLine("Total real · ${measuredTimeLabel(breakdown.totalMillis)}")
         appendLine(breakdown.description())
@@ -89,7 +101,7 @@ internal fun SessionReviewContent(review: SessionReview) {
             Text("Total real · ${measuredTimeLabel(time.totalMillis)}", style = MaterialTheme.typography.titleMedium)
             SupportingText(time.description())
         }
-    } ?: SupportingText("Sin duración registrada")
+    } ?: SupportingText("Sin dato")
     review.exercises.forEach { exercise ->
         ContentCard {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
@@ -101,6 +113,11 @@ internal fun SessionReviewContent(review: SessionReview) {
                 }
             }
         }
+    }
+    if (review.rests.isNotEmpty()) ContentCard {
+        SectionHeader("Descansos")
+        review.rests.forEach { Text(it.description(), style = MaterialTheme.typography.bodyMedium) }
+        SupportingText("Exceso total ${review.totalExcessMillis / 1000} s")
     }
     if (review.cardio.isNotEmpty()) ContentCard {
         SectionHeader("Cardio registrado")

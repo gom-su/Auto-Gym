@@ -76,7 +76,7 @@ class PlannedCardioTest {
         val loaded = reducer.load(WorkoutState(), plan, source, "loaded",
             cardioPlan = listOf(cardio.copy(beforeSetId = "set-1", plannedSeconds = 30)))
         fun step(state: WorkoutState, event: WorkoutEvent, seconds: Long): WorkoutState =
-            reducer.reduce(state, state.command(event), ClockSnapshot(seconds * 1000, 100_000 + seconds * 1000, 1), "session")
+            reducer.reduceRirReady(state, event, ClockSnapshot(seconds * 1000, 100_000 + seconds * 1000, 1))
                 .also(WorkoutValidation::validate)
         val started = step(loaded, WorkoutEvent.StartWorkout, 0)
         val rest = step(started, WorkoutEvent.CompleteSet, 20)

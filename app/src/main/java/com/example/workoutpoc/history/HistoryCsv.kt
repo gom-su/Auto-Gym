@@ -33,9 +33,9 @@ object HistoryCsv {
                     if (p.warmup) "warmup_set" else if (p.extra) "extra_set" else "set",
                     p.exercise, p.exerciseId ?: "", p.number.toString(), r.status.name,
                     if (done) tenths(r.values.weightTenths) else "", p.unit.name, p.basis ?: "",
-                    if (done) r.values.reps.toString() else "", if (done) rir(r.values.rir) else "",
+                    if (done) r.values.reps.toString() else "", if (done && p.setType == com.example.workoutpoc.domain.SetType.WORK) rir(r.values.rir) else "",
                     if (!p.extra && p.loadPrescribed) tenths(p.weightTenths) else "", if (!p.extra) p.reps.toString() else "",
-                    if (!p.extra) rir(p.rir) else "",
+                    if (!p.extra && p.setType == com.example.workoutpoc.domain.SetType.WORK) rir(p.rir) else "",
                     time(r.editedAtMillis), r.revisions.size.toString(), r.notes ?: "", "", "", "", "")
             }
             s.cardio.forEach { c ->

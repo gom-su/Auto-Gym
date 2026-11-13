@@ -112,7 +112,9 @@ data class RestSegment(
     val skipped: Boolean = false,
     val startedAtElapsedMillis: Long? = null,
     val measuredMillis: Long? = null,
-    val interrupted: Boolean = false
+    val interrupted: Boolean = false,
+    /** Objective prescribed by the plan before any ±15 s adjustment; null for legacy snapshots (unknown). */
+    val originalSeconds: Int? = null
 ) {
     val actualRestSeconds: Long? get() = measuredMillis?.div(1000)
 
@@ -122,6 +124,38 @@ data class RestSegment(
         return (elapsed - pausedMillis).coerceAtLeast(0)
     }
 }
+
+/** Where a machine wait started: during a rest (after it ends) or during the exercise itself. */
+@Serializable
+enum class WaitOrigin { REST, EXERCISE }
+
+/**
+ * One machine wait, stored as an independent span (requirement 8). Excluded from rest and activity time and counted
+ * once in the session total. Invariant: at most one wait is pending or running per session.
+ * - [pending] (REST origin only): deadline at which the wait starts automatically; tracks ±15 s and pause shifts,
+ *   on both clocks, like [RestDeadline].
+ * - [startedAtMillis]/[startedAtElapsedMillis]: set once running; [pausedMillis] accumulates session pauses while open.
+ * - [measuredMillis]: final duration, set when closed; null means not measured.
+ * - [returnPhase]/[returnIndex]: where [EndMachineWait] returns (ActiveSet, ActiveCardio or Resting at [restSegmentId]).
+ */
+@Serializable
+data class MachineWait(
+    val id: String,
+    val afterStepId: String,
+    val origin: WaitOrigin,
+    /** Required for origin == REST: the specific rest this wait belongs to. */
+    val restSegmentId: String? = null,
+    val pending: RestDeadline? = null,
+    val startedAtMillis: Long? = null,
+    val startedAtElapsedMillis: Long? = null,
+    val bootCount: Int = 0,
+    val pausedMillis: Long = 0,
+    val measuredMillis: Long? = null,
+    val endedAtMillis: Long? = null,
+    val cancelled: Boolean = false,
+    val returnPhase: Phase = Phase.ActiveSet,
+    val returnIndex: Int = 0
+)
 
 /** Session or exercise comment that outlives the week it was written in (contract §7). */
 @Serializable
@@ -135,9 +169,15 @@ data class SessionComment(
     val sessionId: String? = null,
     /** null = general session comment. */
     val exerciseId: String? = null,
+    /** Position of the set within its exercise (0-based); null = exercise level. */
     val setIndex: Int? = null,
     /** null = still in force. */
-    val resolvedAtMillis: Long? = null
+    val resolvedAtMillis: Long? = null,
+    /**
+     * Plan day the comment belongs to (requirement 2). Appended last so positional construction keeps its meaning.
+     * Null = a week-level comment, or one written before this field existed.
+     */
+    val dayId: String? = null
 )
 
 /** Start of a pause, on both clocks so a reboot during the pause still resolves its duration. */
@@ -180,6 +220,8 @@ data class WorkoutState(
     val cardioPlan: List<PlannedCardio> = emptyList(),
     /** Rest segments (contract §5). The legacy [rest] deadline remains until the reducer migrates. */
     val restSegments: List<RestSegment> = emptyList(),
+    /** Machine-wait spans (requirement 8). Empty for legacy snapshots. */
+    val machineWaits: List<MachineWait> = emptyList(),
     val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap(),
     val cardioRun: CardioRun? = null,
     val timing: SessionTiming? = null
@@ -194,7 +236,13 @@ enum class WorkoutEvent {
     /** Planned sessions only (ENT-06). */
     PauseSession, ResumeSession, AddWarmupSet,
     /** Planned sessions only: on an exercise's first set, move all its unrecorded sets after the next exercise. */
-    PostponeExercise, ReduceRestTime, ConfirmRest, FinishCardio
+    PostponeExercise, ReduceRestTime, ConfirmRest, FinishCardio,
+    /** Requirement 8: arm a wait during a rest (starts at its deadline) or start it now during an exercise. */
+    StartMachineWait,
+    /** Ends a running wait; the step returns to the point where the wait began (or the rest confirmation). */
+    EndMachineWait,
+    /** Cancels a wait that is armed but not yet started, before the rest reaches zero. */
+    CancelPendingWait
 }
 
 /** Plan positions [WorkoutState.index, currentEnd) are the current exercise and [currentEnd, nextEnd) the next one. */
@@ -281,7 +329,7 @@ val WorkoutState.plannedCardioComplete: Boolean
 
 fun WorkoutState.cardioRemainingMillis(now: ClockSnapshot): Long? {
     val step = currentCardio ?: return null
-    val elapsed = cardioRun?.activeMillis(now, paused) ?: return null
+    val elapsed = cardioRun?.activeMillis(now, clockHold) ?: return null
     return (step.plannedSeconds * 1000L - elapsed).coerceAtLeast(0)
 }
 
@@ -313,9 +361,62 @@ fun PauseMark.elapsedSince(now: ClockSnapshot): Long =
 /** Active session time: wall time since start, minus completed and ongoing pauses. */
 fun WorkoutState.activeMillis(now: ClockSnapshot): Long? {
     val start = startedAtMillis ?: return null
-    val end = endedAtMillis ?: now.wallMillis
+    // Only a session still in progress runs up to now; an archived one without an end has no measured duration.
+    val end = endedAtMillis ?: if (phase.inProgress) now.wallMillis else return null
     return (end - start - pausedMillis - (paused?.elapsedSince(now) ?: 0)).coerceAtLeast(0)
 }
 
-fun RestDeadline.remainingMillis(now: ClockSnapshot): Long =
-    ((if (bootCount == now.bootCount) elapsedMillis - now.elapsedMillis else wallMillis - now.wallMillis)).coerceAtLeast(0)
+fun RestDeadline.remainingMillis(now: ClockSnapshot): Long = signedRemainingMillis(now).coerceAtLeast(0)
+
+/** Time to the deadline, negative once it has passed. */
+fun RestDeadline.signedRemainingMillis(now: ClockSnapshot): Long =
+    if (bootCount == now.bootCount) elapsedMillis - now.elapsedMillis else wallMillis - now.wallMillis
+
+fun RestDeadline.asMark(): PauseMark = PauseMark(elapsedMillis, wallMillis, bootCount)
+
+/** The single wait that is pending or running, if any (invariant: at most one). */
+val WorkoutState.openWait: MachineWait?
+    get() = machineWaits.lastOrNull()?.takeIf { it.endedAtMillis == null && !it.cancelled }
+
+/** Public name for the pending or running wait used by the surfaces. */
+val WorkoutState.openMachineWait: MachineWait? get() = openWait
+
+/** Duration of a wait: measured when closed, live (excluding session pauses) while running, null if not measured. */
+fun MachineWait.durationMillis(now: ClockSnapshot): Long? = measuredMillis ?: startedAtMillis?.let {
+    if (endedAtMillis != null) null
+    // Live: time since the start minus the session pauses absorbed while the wait runs.
+    else (PauseMark(startedAtElapsedMillis ?: 0, it, bootCount).elapsedSince(now) - pausedMillis).coerceAtLeast(0)
+}
+
+/** A wait that has started and is still running (its span is excluded from rest and activity time). */
+val WorkoutState.runningWait: MachineWait?
+    get() = openWait?.takeIf { it.startedAtMillis != null }
+
+/** Mark that freezes the active clocks (exercise and cardio): a pause, or the start of a running wait. */
+val WorkoutState.clockHold: PauseMark?
+    get() = paused ?: runningWait?.let { PauseMark(it.startedAtElapsedMillis ?: 0, it.startedAtMillis ?: 0, it.bootCount) }
+
+/**
+ * Signed rest balance (requirement 7 and 8): the objective minus the rest time measured so far. It is frozen while a
+ * REST-origin wait runs and keeps going negative after the objective is exceeded. Null when there is no open rest.
+ */
+fun WorkoutState.restSignedBalance(now: ClockSnapshot): Long? {
+    val segment = openRestSegment ?: return null
+    // While the session is paused every rest clock reads the pause start, so the balance is frozen.
+    val at = paused?.let { ClockSnapshot(it.elapsedMillis, it.wallMillis, it.bootCount) } ?: now
+    val wait = openWait?.takeIf { it.origin == WaitOrigin.REST }
+    val waitMillis = when {
+        wait == null -> 0L
+        // A running wait is excluded minus the pauses it already absorbed.
+        wait.startedAtMillis != null ->
+            PauseMark(wait.startedAtElapsedMillis ?: 0, wait.startedAtMillis, wait.bootCount).elapsedSince(at) - wait.pausedMillis
+        // A pending wait counts as excluded once its deadline is reached.
+        else -> wait.pending?.takeIf { it.signedRemainingMillis(at) <= 0 }?.asMark()?.elapsedSince(at) ?: 0L
+    }.coerceAtLeast(0)
+    val elapsed = segment.elapsedMillis(at) - waitMillis
+    return segment.configuredSeconds * 1000L - elapsed
+}
+
+/** Moves a deadline by a pause or an adjustment, on both clocks. */
+fun RestDeadline.shifted(deltaMillis: Long): RestDeadline =
+    copy(elapsedMillis = elapsedMillis + deltaMillis, wallMillis = wallMillis + deltaMillis)

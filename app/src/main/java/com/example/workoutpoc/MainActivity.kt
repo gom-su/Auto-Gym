@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
         exchangeModel.write(uri)
     }
     private var editorVisible: Boolean by mutableStateOf(false)
+    private var recordEditorRequest: com.example.workoutpoc.presentation.RecordEditorRequest? by mutableStateOf(null)
     private var notificationEnabled: Boolean by mutableStateOf(false)
     private var overlayGranted: Boolean by mutableStateOf(false)
     private var message: String? by mutableStateOf(null)
@@ -106,7 +107,7 @@ class MainActivity : ComponentActivity() {
         // Bar icons follow the system theme, like the app's colors (see AutoGymTheme).
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
-        editorVisible = intent.action == "EDIT"
+        readWorkoutEditorIntent(intent)
         pendingMode = savedInstanceState?.getString("pendingMode")
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -225,7 +226,8 @@ class MainActivity : ComponentActivity() {
                     ProgressSection.Sesiones -> {
                         val historyUi by historyModel.ui.collectAsStateWithLifecycle()
                         com.example.workoutpoc.history.HistoryScreen(historyUi, nav::back, historyModel::refresh,
-                            { historyModel.prepareCsv { name -> historyDestination.launch(name) } })
+                            { historyModel.prepareCsv { name -> historyDestination.launch(name) } },
+                            historyModel::saveEdit)
                     }
                     ProgressSection.Adherencia -> {
                         val adherenceUi by adherenceModel.ui.collectAsStateWithLifecycle()
@@ -348,6 +350,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun SessionScreen(nav: AppNavigator, state: WorkoutState, ready: Boolean, error: String?) {
         val archived by model.archived.collectAsStateWithLifecycle()
+        val sessionCatalog by catalogModel.catalog.collectAsStateWithLifecycle()
         WorkoutScreen(state, ready, error, notificationEnabled, overlayGranted, message, editorVisible,
                 { editorVisible = false }, { requestMode(WorkoutOverlayService.HIDE) }, ::startOverlay, ::openNotificationSettings, model::retry, { clockSnapshot(this) }, ::dispatch, nav::back, archived.sessions.size, { edit ->
                     lifecycleScope.launch {
@@ -387,7 +390,8 @@ class MainActivity : ComponentActivity() {
                             if (workoutApp.repository.state.value.sessionId != state.sessionId) nav.select(Tab.Hoy)
                         }
                     }
-                }, onSaveComment = { text, exerciseId ->
+                }, catalog = sessionCatalog.exercises, recordEditorRequest = recordEditorRequest,
+                onConsumeRecordEditorRequest = { recordEditorRequest = null }, onSaveComment = { text, exerciseId ->
                     // Contract §7: the comment is tied to the program, the week and the session it was written in.
                     val source = state.source ?: return@WorkoutScreen
                     lifecycleScope.launch {
@@ -395,7 +399,8 @@ class MainActivity : ComponentActivity() {
                             workoutApp.comments.add(com.example.workoutpoc.domain.SessionComment(
                                 id = java.util.UUID.randomUUID().toString(), text = text.trim(),
                                 createdAtMillis = System.currentTimeMillis(), programId = source.programId,
-                                weekId = source.weekId, sessionId = state.sessionId, exerciseId = exerciseId))
+                                weekId = source.weekId, sessionId = state.sessionId, exerciseId = exerciseId,
+                                dayId = source.dayId))
                         }
                     }
                 })
@@ -471,7 +476,19 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == "EDIT") editorVisible = true
+        readWorkoutEditorIntent(intent)
+    }
+    private fun readWorkoutEditorIntent(intent: Intent) {
+        if (intent.action == "EDIT_LAST_RECORD") {
+            val session = intent.getStringExtra("session") ?: return
+            val index = intent.getIntExtra("recordIndex", -1)
+            if (index < 0) return
+            recordEditorRequest = com.example.workoutpoc.presentation.RecordEditorRequest(session, index)
+            editorVisible = true
+        } else if (intent.action == "EDIT") {
+            recordEditorRequest = null
+            editorVisible = true
+        }
     }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("pendingMode", pendingMode)

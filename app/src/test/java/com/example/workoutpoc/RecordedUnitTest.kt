@@ -23,7 +23,7 @@ class RecordedUnitTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "session-units" })
         repo.load(plan, source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         return repo
     }
 

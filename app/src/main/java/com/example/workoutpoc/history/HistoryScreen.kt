@@ -29,7 +29,9 @@ import java.util.Date
 import java.util.Locale
 
 data class HistoryUiState(val ready: Boolean = false, val busy: Boolean = false, val message: String? = null,
-                          val sessions: List<SessionSummary> = emptyList())
+                          val sessions: List<SessionSummary> = emptyList(),
+                          /** Sessions already archived: only these can be corrected (the current one is not archived yet). */
+                          val editable: Set<String> = emptySet())
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application.workoutApp
@@ -71,13 +73,34 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             finally { mutableUi.value = mutableUi.value.copy(busy = false) }
         }
     }
+    /** Saves a correction of an archived session (requirement 9). [onDone] gets true only when it was stored. */
+    fun saveEdit(sessionId: String, newStartMillis: Long?, sets: List<com.example.workoutpoc.domain.PastSetEdit>, onDone: (Boolean) -> Unit) {
+        if (ui.value.busy) return
+        mutableUi.value = mutableUi.value.copy(busy = true, message = null)
+        viewModelScope.launch {
+            var saved = false
+            try {
+                saved = app.repository.editArchivedSession(sessionId, newStartMillis, sets)
+                mutableUi.value = mutableUi.value.copy(message = if (saved) "Sesión actualizada." else "No había cambios que guardar.")
+            } catch (e: CancellationException) { throw e }
+            catch (e: com.example.workoutpoc.domain.WorkoutEditException) {
+                mutableUi.value = mutableUi.value.copy(message = e.message ?: "Revisa los datos de la sesión.")
+            }
+            catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo guardar la sesión. Tus datos se conservan.") }
+            finally { mutableUi.value = mutableUi.value.copy(busy = false) }
+            if (saved) refresh()
+            onDone(saved)
+        }
+    }
+
     fun refresh() {
         if (ui.value.busy) return
         mutableUi.value = mutableUi.value.copy(busy = true, message = null)
         viewModelScope.launch {
             try {
                 app.repository.restore()
-                mutableUi.value = mutableUi.value.copy(ready = true,
+                val archivedIds = app.repository.archived.value.sessions.map { it.sessionId }.toSet()
+                mutableUi.value = mutableUi.value.copy(ready = true, editable = archivedIds,
                     sessions = history(app.repository.archived.value.sessions, app.repository.state.value, System.currentTimeMillis()))
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo leer el historial. Tus datos se conservan. Reintenta.") }
@@ -89,8 +112,10 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 /** Read-only list of recorded sessions, newest first, with a detail view per session. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, onExportCsv: () -> Unit = {}) {
+fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, onExportCsv: () -> Unit = {},
+                  onSaveEdit: (String, Long?, List<com.example.workoutpoc.domain.PastSetEdit>, (Boolean) -> Unit) -> Unit = { _, _, _, done -> done(false) }) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    var editing by rememberSaveable { mutableStateOf(false) }
     // "*" lists every program; otherwise a program ID, or "" for the demo session.
     var program by rememberSaveable { mutableStateOf("*") }
     val programs = programsIn(ui.sessions)
@@ -142,6 +167,15 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                     }
                 }
             }
+            val canEdit = !session.demo && session.sessionId in ui.editable
+            if (canEdit) item {
+                TonalAction("Editar sesión pasada", { editing = true }, enabled = !ui.busy, icon = AppIcons.Edit, fill = false)
+            }
+            if (editing && canEdit) item {
+                PastSessionEditor(session, onDismiss = { editing = false }) { newStart, edits ->
+                    onSaveEdit(session.sessionId, newStart, edits) { saved -> if (saved) editing = false }
+                }
+            }
             item { SectionHeader("Series") }
             if (session.sets.isEmpty()) item { EmptyState("Sin series registradas.") }
             items(session.sets.size) { i ->
@@ -150,7 +184,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                     Text("${h.exercise} · ${if (h.warmup) "aproximación" else if (h.extra) "serie extra" else "serie"} ${h.number}",
                         style = MaterialTheme.typography.titleSmall)
                     Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
-                        "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps} @ RIR ${rirLabel(h.values.rir)}" + if (h.edited) " · editada" else "",
+                        "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps}" + (if (h.warmup) "" else " @ RIR ${rirLabel(h.values.rir)}") + if (h.edited) " · editada" else "",
                         style = MaterialTheme.typography.bodyLarge.tabular())
                     h.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall) }
                     if (h.revisions.isNotEmpty()) {
@@ -160,7 +194,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                         h.revisions.forEach { v ->
                             Text("Hasta ${format.format(Date(v.replacedAtMillis))}: " +
                                 (if (v.status == SetStatus.SKIPPED) "omitida" else
-                                    "${loadLabel(v.values.weightTenths, v.recordedUnit ?: h.prescribedUnit)} × ${v.values.reps} @ RIR ${rirLabel(v.values.rir)}") +
+                                    "${loadLabel(v.values.weightTenths, v.recordedUnit ?: h.prescribedUnit)} × ${v.values.reps}" + (if (h.warmup) "" else " @ RIR ${rirLabel(v.values.rir)}")) +
                                 (v.notes?.let { " · nota: $it" } ?: ""), style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
