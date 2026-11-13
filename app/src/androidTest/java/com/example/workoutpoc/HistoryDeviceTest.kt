@@ -37,6 +37,8 @@ class HistoryDeviceTest {
             val day = program.findDay("week-one", "day-one-a")!!
             repo.load(day.day.toPlannedSets(), day.source)
             repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
+            // A work set is only recorded once its RIR is chosen.
+            repo.dispatch(repo.state.value.command(WorkoutEvent.SelectRir, 2))
             repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
             // One edit, so the detail shows the replaced version (audit trail).
             repo.state.value.let { repo.edit(it.sessionId, it.revision, 0, SetStatus.COMPLETED, SetValues(210, 7, 2), "Nota de historial") }
@@ -55,7 +57,9 @@ class HistoryDeviceTest {
         assertNotNull(title)
         assertTrue(device.hasObject(By.textContains("Parcial (terminada antes) · 1 completadas · 0 omitidas · 1 sin registro")))
         title!!.visibleBounds.let { device.click(it.centerX(), it.centerY()) }
-        assertNotNull(device.wait(Until.findObject(By.text("Series")), 5_000))
+        assertNotNull(device.wait(Until.findObject(By.text("Editar sesión pasada")), 5_000))
+        // The review comes first and can fill the screen; the sets are below it.
+        assertNotNull(device.scrollToText("Series"))
         assertNotNull(device.scrollToText("Sentadilla ficticia · serie 1"))
         assertNotNull(device.scrollToText(" × 7 @ RIR 2 · editada", contains = true))
         assertNotNull(device.scrollToText("Nota: Nota de historial"))

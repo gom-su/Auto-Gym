@@ -10,8 +10,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.workoutpoc.ui.AppIcons
-import com.example.workoutpoc.ui.ChipGroup
-import com.example.workoutpoc.ui.ChoiceChip
+import com.example.workoutpoc.ui.SectionTabs
 
 /** The four sections of the app, always one tap away in the bottom bar. */
 enum class Tab(val label: String, val icon: ImageVector) {
@@ -21,9 +20,10 @@ enum class Tab(val label: String, val icon: ImageVector) {
 /** Screens opened over the tabs. The bottom bar is hidden while one is open; Back closes it. */
 enum class Destination { Session, Settings, Plans, Proposals, Questions, Exchange, Migration, Stagnation, Backup, Generate }
 
-/** What the Progreso tab shows; switched with chips at the top of the tab. */
-enum class ProgressSection(val label: String) {
-    Ejercicios("Ejercicios"), Sesiones("Sesiones"), Adherencia("Adherencia"), Cuerpo("Cuerpo")
+/** What the Progreso tab shows; switched with the tabs pinned under its top bar. */
+enum class ProgressSection(val label: String, val icon: ImageVector) {
+    Ejercicios("Ejercicios", AppIcons.Fitness), Sesiones("Sesiones", AppIcons.History),
+    Adherencia("Adherencia", AppIcons.Target), Cuerpo("Cuerpo", AppIcons.Scale)
 }
 
 /**
@@ -100,9 +100,5 @@ fun SettingsAction(onClick: () -> Unit) {
 
 @Composable
 fun ProgressSections(selected: ProgressSection, onSelect: (ProgressSection) -> Unit) {
-    ChipGroup(null) {
-        ProgressSection.entries.forEach { section ->
-            ChoiceChip(section == selected, { onSelect(section) }, { Text(section.label) })
-        }
-    }
+    SectionTabs(ProgressSection.entries, selected, { it.label }, { it.icon }, onSelect)
 }

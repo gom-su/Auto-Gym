@@ -6,7 +6,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -88,14 +91,17 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             }
             catch (_: Exception) { mutableUi.value = mutableUi.value.copy(message = "No se pudo guardar la sesión. Tus datos se conservan.") }
             finally { mutableUi.value = mutableUi.value.copy(busy = false) }
-            if (saved) refresh()
+            // The reload keeps the confirmation on screen instead of clearing it.
+            if (saved) load("Sesión actualizada.")
             onDone(saved)
         }
     }
 
-    fun refresh() {
+    fun refresh() = load(null)
+
+    private fun load(message: String?) {
         if (ui.value.busy) return
-        mutableUi.value = mutableUi.value.copy(busy = true, message = null)
+        mutableUi.value = mutableUi.value.copy(busy = true, message = message)
         viewModelScope.launch {
             try {
                 app.repository.restore()
@@ -109,22 +115,33 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 }
 
-/** Read-only list of recorded sessions, newest first, with a detail view per session. */
+/** Recorded sessions, newest first, with a detail view per session; an archived one can be corrected from its detail. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, onExportCsv: () -> Unit = {},
                   onSaveEdit: (String, Long?, List<com.example.workoutpoc.domain.PastSetEdit>, (Boolean) -> Unit) -> Unit = { _, _, _, done -> done(false) }) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by rememberSaveable { mutableStateOf(false) }
+    // The set tapped in the detail, which the editor opens on; -1 when it was opened with its button.
+    var editFocus by rememberSaveable { mutableStateOf(-1) }
     // "*" lists every program; otherwise a program ID, or "" for the demo session.
     var program by rememberSaveable { mutableStateOf("*") }
     val programs = programsIn(ui.sessions)
     val listed = if (program == "*") ui.sessions else ui.sessions.filter { (it.programId ?: "") == program }
     val format = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val session = ui.sessions.find { it.sessionId == selected }
+    val canEdit = session != null && !session.demo && session.sessionId in ui.editable
+    // Remembered here, above the editor, so the detail is where it was when the editor closes.
+    val listState = rememberViewListState(session?.sessionId)
+    if (session != null && canEdit && editing) {
+        PastSessionEditor(session, ui.busy, ui.message, editFocus.takeIf { it >= 0 }, onClose = { editing = false }) { newStart, edits ->
+            onSaveEdit(session.sessionId, newStart, edits) { saved -> if (saved) editing = false }
+        }
+        return
+    }
     BackHandler(session != null) { selected = null }
     AppScreen("Historial de sesiones", if (session != null) "Ver todas las sesiones" else "Volver a Programas",
-        { if (session != null) selected = null else onBack() }, busy = ui.busy, message = ui.message, listState = rememberViewListState(session?.sessionId), drillUp = session != null) {
+        { if (session != null) selected = null else onBack() }, busy = ui.busy, message = ui.message, listState = listState, drillUp = session != null) {
         if (!ui.ready && !ui.busy) item { RetryAction("Reintentar", onRetry, enabled = !ui.busy) }
         if (session == null) {
             if (ui.ready && ui.sessions.isEmpty()) item { EmptyState("Aún no hay sesiones registradas.", icon = AppIcons.History) }
@@ -160,6 +177,10 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
             item {
                 Text(statusLine(session), style = MaterialTheme.typography.titleSmall)
             }
+            // Before the review, which can be several screens long: the action is found without scrolling.
+            if (canEdit) item {
+                TonalAction("Editar sesión pasada", { editFocus = -1; editing = true }, enabled = !ui.busy, icon = AppIcons.Edit)
+            }
             session.review?.let { review ->
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -167,25 +188,23 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                     }
                 }
             }
-            val canEdit = !session.demo && session.sessionId in ui.editable
-            if (canEdit) item {
-                TonalAction("Editar sesión pasada", { editing = true }, enabled = !ui.busy, icon = AppIcons.Edit, fill = false)
-            }
-            if (editing && canEdit) item {
-                PastSessionEditor(session, onDismiss = { editing = false }) { newStart, edits ->
-                    onSaveEdit(session.sessionId, newStart, edits) { saved -> if (saved) editing = false }
-                }
-            }
-            item { SectionHeader("Series") }
+            item { SectionHeader("Series", supporting = if (canEdit && session.sets.isNotEmpty()) "Toca una serie para corregirla." else null) }
             if (session.sets.isEmpty()) item { EmptyState("Sin series registradas.") }
             items(session.sets.size) { i ->
                 val h = session.sets[i]
-                ContentCard {
-                    Text("${h.exercise} · ${if (h.warmup) "aproximación" else if (h.extra) "serie extra" else "serie"} ${h.number}",
-                        style = MaterialTheme.typography.titleSmall)
-                    Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
-                        "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps}" + (if (h.warmup) "" else " @ RIR ${rirLabel(h.values.rir)}") + if (h.edited) " · editada" else "",
-                        style = MaterialTheme.typography.bodyLarge.tabular())
+                ContentCard(if (canEdit) Modifier.clip(MaterialTheme.shapes.medium)
+                    .clickable(enabled = !ui.busy, onClickLabel = "Corregir serie") { editFocus = i; editing = true } else Modifier) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("${h.exercise} · ${if (h.warmup) "aproximación" else if (h.extra) "serie extra" else "serie"} ${h.number}",
+                                style = MaterialTheme.typography.titleSmall)
+                            Text(if (h.status == SetStatus.SKIPPED) "Omitida" else
+                                "${loadLabel(h.values.weightTenths, h.unit)} × ${h.values.reps}" + (if (h.warmup) "" else " @ RIR ${rirLabel(h.values.rir)}") + if (h.edited) " · editada" else "",
+                                style = MaterialTheme.typography.bodyLarge.tabular())
+                        }
+                        if (canEdit) Icon(AppIcons.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp))
+                    }
                     h.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall) }
                     if (h.revisions.isNotEmpty()) {
                         HorizontalDivider(Modifier.padding(vertical = Spacing.xs), color = MaterialTheme.colorScheme.outlineVariant)
