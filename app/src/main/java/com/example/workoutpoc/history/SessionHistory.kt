@@ -7,7 +7,9 @@ import com.example.workoutpoc.planning.DayStatus
 /** One recorded set as shown in history, with its prescription context. */
 data class HistorySet(val exercise: String, val number: Int, val unit: WeightUnit, val values: SetValues, val status: SetStatus,
                       val warmup: Boolean, val extra: Boolean, val notes: String?, val edited: Boolean,
-                      val revisions: List<SetRevision> = emptyList(), val prescribedUnit: WeightUnit = unit)
+                      val revisions: List<SetRevision> = emptyList(), val prescribedUnit: WeightUnit = unit,
+                      /** Limits of the planned set, for correcting the record: load step and accepted maximums. */
+                      val weightStepTenths: Int = 25, val maxWeightTenths: Int = 3000, val maxReps: Int = 30)
 
 /**
  * Summary of one recorded session. Status uses the adherence categories: completed only when every prescribed set was
@@ -27,7 +29,8 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
     val sets = s.records.map { r ->
         val p = plan[r.index]
         HistorySet(p.exercise, p.number, r.recordedUnit ?: p.unit, r.values, r.status,
-            p.setType != SetType.WORK, p.extra, r.notes, r.editedAtMillis != null, r.revisions, p.unit)
+            p.setType != SetType.WORK, p.extra, r.notes, r.editedAtMillis != null, r.revisions, p.unit,
+            p.weightStepTenths, p.maxWeightTenths, p.maxReps)
     }
     val prescribed = plan.count { !it.extra }
     val completed = s.records.count { !plan[it.index].extra && it.status == SetStatus.COMPLETED }

@@ -1,5 +1,6 @@
 package com.example.workoutpoc.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,7 +34,7 @@ val MaxContentWidth: Dp = 720.dp
 /**
  * Set by a bottom-navigation tab that shows an existing screen as its root: the screen then takes the tab's
  * [title], shows no Up arrow (a tab root has nowhere to go up to), adds the tab's [actions] (the Ajustes gear) and
- * lists the tab's [header] (for example its section chips) as its first item.
+ * pins the tab's [header] (for example its section tabs) under the top bar.
  */
 class TabRoot(val title: String, val actions: @Composable RowScope.() -> Unit = {}, val header: (@Composable () -> Unit)? = null)
 
@@ -56,26 +57,35 @@ fun AppScreen(
     message: String? = null,
     actions: @Composable RowScope.() -> Unit = {}, listState: LazyListState = rememberLazyListState(),
     drillUp: Boolean = false,
+    /** Pinned under the list: the actions of an editing flow (save, cancel), reachable whatever the scroll position. */
+    bottomBar: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit
 ) {
     val root = LocalTabRoot.current
     val upLabel = if (drillUp) backLabel else LocalBackLabel.current ?: backLabel
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
+    // One surface behind the bar and what is pinned under it, so they tint together when content scrolls under them.
+    val barColor by animateColorAsState(
+        if (scroll.state.overlappedFraction > 0.01f) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface,
+        label = "barColor")
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
+        bottomBar = { bottomBar?.invoke() },
         topBar = {
-            Column {
+            Surface(color = barColor) { Column {
                 TopAppBar(
                     title = { Text(root?.title ?: title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() }) },
                     navigationIcon = {
                         if (root == null || drillUp) IconButton(onClick = onBack, enabled = backEnabled) { Icon(AppIcons.Back, contentDescription = upLabel) }
                     },
                     actions = { actions(); root?.actions?.invoke(this) }, scrollBehavior = scroll,
-                    colors = TopAppBarDefaults.topAppBarColors(scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
                 )
+                // A detail (one exercise, one session) shows only itself; its Up arrow leads back to the list and the tabs.
+                if (!drillUp) root?.header?.invoke()
                 BusyTrack(busy)
                 StatusArea(message)
-            }
+            } }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
@@ -84,8 +94,6 @@ fun AppScreen(
                 contentPadding = PaddingValues(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.sm, bottom = Spacing.xxl),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                // A detail (one exercise, one session) shows only itself; its Up arrow leads back to the list and header.
-                if (!drillUp) root?.header?.let { header -> item(key = "tab-header") { header() } }
                 content()
             }
         }
@@ -253,7 +261,7 @@ fun StatusPill(text: String, tone: Tone = Tone.Info) {
 @Composable
 fun MetricTile(value: String, label: String, modifier: Modifier = Modifier) {
     Surface(modifier, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(horizontal = Spacing.md, vertical = Spacing.md), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.padding(horizontal = Spacing.sm, vertical = Spacing.md), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge.tabular(), maxLines = 1)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
         }
@@ -292,6 +300,34 @@ fun <T> SegmentedChoice(label: String?, options: List<T>, selected: T, optionLab
             options.forEachIndexed { i, option ->
                 SegmentedButton(selected == option, { onSelect(option) }, SegmentedButtonDefaults.itemShape(i, options.size), enabled = enabled) {
                     Text(optionLabel(option), maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The sections of a tab as Material tabs, each with an icon over its label and an indicator under the selected one.
+ * They fill the width in equal parts, so they read as the tab's main switch rather than as filters.
+ */
+@Composable
+fun <T> SectionTabs(options: List<T>, selected: T, optionLabel: (T) -> String, optionIcon: (T) -> ImageVector, onSelect: (T) -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        // On the narrowest phones a tab is too tight for the larger label ("Adherencia" would be cut).
+        val labelStyle = if (minOf(maxWidth, MaxContentWidth) / options.size.coerceAtLeast(1) < 88.dp) MaterialTheme.typography.labelMedium
+            else MaterialTheme.typography.labelLarge
+        PrimaryTabRow(selectedTabIndex = options.indexOf(selected).coerceAtLeast(0), modifier = Modifier.widthIn(max = MaxContentWidth),
+            containerColor = Color.Transparent) {
+            options.forEach { option ->
+                Tab(selected = option == selected, onClick = { onSelect(option) },
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant) {
+                    // Own layout instead of Tab's text slot: its 16 dp side padding would cut long labels on a phone.
+                    Column(Modifier.heightIn(min = 64.dp).padding(horizontal = 2.dp, vertical = Spacing.sm),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterVertically)) {
+                        Icon(optionIcon(option), contentDescription = null)
+                        Text(optionLabel(option), style = labelStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
