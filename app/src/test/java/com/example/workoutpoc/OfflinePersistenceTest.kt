@@ -77,7 +77,7 @@ class OfflinePersistenceTest {
         repo.restore()
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
         repeat(3) {
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            repo.completeSet()
             // Read the file independently of the repository, as a fresh process would.
             val onDisk = file.inputStream().use { WorkoutSerializer.readFrom(it) }
             assertEquals(repo.state.value, onDisk)

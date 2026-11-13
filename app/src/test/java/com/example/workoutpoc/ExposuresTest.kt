@@ -38,16 +38,16 @@ class ExposuresTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
         session(repo, program, "week-one", "day-one-a") {          // squat KG TOTAL: warm-up, 20 kg × 8, 22.5 kg × 7
-            go(WorkoutEvent.AddWarmupSet); repeat(4) { go(WorkoutEvent.DecrementWeight) }; go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest)
-            go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest)
+            go(WorkoutEvent.AddWarmupSet); repeat(4) { go(WorkoutEvent.DecrementWeight) }; completeSet(); go(WorkoutEvent.SkipRest)
+            completeSet(); go(WorkoutEvent.SkipRest)
             dispatch(state.value.command(WorkoutEvent.SelectRir, 2))
-            go(WorkoutEvent.DecrementReps); go(WorkoutEvent.CompleteSet)
+            go(WorkoutEvent.DecrementReps); completeSet()
         }
         session(repo, program, "week-two", "day-two-c") {          // squat KG PER_SIDE, omitted
             go(WorkoutEvent.SkipSet)
         }
         session(repo, other, "week-one", "day-one-a") {            // squat LB TOTAL in another program
-            go(WorkoutEvent.CompleteSet)
+            completeSet()
         }
         repo.go(WorkoutEvent.ResetDemo)
         val groups = exposures("squat", repo.archived.value.sessions)
@@ -77,9 +77,9 @@ class ExposuresTest {
     @Test fun `other exercise ids and the demo are excluded`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
-        session(repo, program, "week-one", "day-one-b") { go(WorkoutEvent.CompleteSet) }
+        session(repo, program, "week-one", "day-one-b") { completeSet() }
         repo.go(WorkoutEvent.ResetDemo)
-        repo.go(WorkoutEvent.StartWorkout); repo.go(WorkoutEvent.CompleteSet)
+        repo.go(WorkoutEvent.StartWorkout); repo.completeSet()
         val sessions = repo.archived.value.sessions + repo.state.value
         assertTrue(exposures("squat", sessions).isEmpty())
         assertEquals(1, exposures("dumbbell-row", sessions).single().exposures.size)

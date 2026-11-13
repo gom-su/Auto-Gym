@@ -43,9 +43,9 @@ class PerformanceSeriesTest {
             time = time.copy(wallMillis = time.wallMillis + 86_400_000)
             repo.load(day.day.toPlannedSets(), day.source); repo.go(WorkoutEvent.StartWorkout); repo.steps(); repo.go(WorkoutEvent.FinishWorkout)
         }
-        run { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.CompleteSet) }
+        run { completeSet(); go(WorkoutEvent.SkipRest); completeSet() }
         run { go(WorkoutEvent.SkipSet); go(WorkoutEvent.SkipSet) }
-        run { repeat(2) { go(WorkoutEvent.DecrementWeight) }; go(WorkoutEvent.CompleteSet) }
+        run { repeat(2) { go(WorkoutEvent.DecrementWeight) }; completeSet() }
         repo.go(WorkoutEvent.ResetDemo)
         return repo.archived.value.sessions
     }

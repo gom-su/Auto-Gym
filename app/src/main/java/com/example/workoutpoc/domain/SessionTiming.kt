@@ -3,7 +3,8 @@ package com.example.workoutpoc.domain
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class TimedActivity { SET, CARDIO, REST, PAUSE }
+/** MACHINE_WAIT spans are excluded from SET/CARDIO/REST; they count once in the session total (requirement 8). */
+enum class TimedActivity { SET, CARDIO, REST, PAUSE, MACHINE_WAIT }
 
 @Serializable
 data class TimingFocus(
@@ -38,7 +39,7 @@ internal fun WorkoutState.trackTiming(previous: WorkoutState, event: WorkoutEven
     return copy(timing = SessionTiming(segments, next))
 }
 
-private fun WorkoutState.timingFocus(): TimingFocus? {
+internal fun WorkoutState.timingFocus(): TimingFocus? {
     val focus = when (phase) {
         Phase.ActiveSet, Phase.Resting -> plan.getOrNull(index)?.let { set ->
             TimingFocus(if (phase == Phase.Resting) TimedActivity.REST else TimedActivity.SET,
@@ -49,5 +50,9 @@ private fun WorkoutState.timingFocus(): TimingFocus? {
         }
         Phase.Completed, Phase.Idle -> null
     }
-    return if (paused == null) focus else focus?.copy(activity = TimedActivity.PAUSE)
+    return when {
+        paused != null -> focus?.copy(activity = TimedActivity.PAUSE)
+        runningWait != null -> focus?.copy(activity = TimedActivity.MACHINE_WAIT)
+        else -> focus
+    }
 }

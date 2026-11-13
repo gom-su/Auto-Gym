@@ -49,7 +49,7 @@ fun exposures(exerciseId: String, sessions: List<WorkoutState>): List<ExposureGr
             val p = s.plan.getOrNull(r.index) ?: return@forEach
             if (p.exerciseId != exerciseId) return@forEach
             bySessionGroup.getOrPut(Key(p.unit, p.basis)) { mutableListOf() } +=
-                ExposureSet(r.values, p.warmup, p.extra, r.status == SetStatus.SKIPPED, p.exercise)
+                ExposureSet(r.values, (p.setType != com.example.workoutpoc.domain.SetType.WORK), p.extra, r.status == SetStatus.SKIPPED, p.exercise)
         }
         val label = s.source?.let { "${it.programName} · ${it.weekName} · ${it.dayName}" } ?: "Sesión"
         val start = s.startedAtMillis ?: s.records.minOfOrNull { it.completedAtMillis } ?: 0

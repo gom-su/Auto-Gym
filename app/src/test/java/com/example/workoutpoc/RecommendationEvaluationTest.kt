@@ -51,7 +51,7 @@ class RecommendationEvaluationTest {
             val d = program.findDay(w, "$w-d")!!
             repo.load(d.day.toPlannedSets(), d.source)
             repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            repo.completeSet()
             repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
         }
         return repo.archived.value.sessions

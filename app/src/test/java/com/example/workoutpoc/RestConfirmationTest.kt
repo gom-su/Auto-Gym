@@ -13,7 +13,7 @@ class RestConfirmationTest {
         val loaded = reducer.load(WorkoutState(), plan, source, "loaded")
         fun at(seconds: Long) = ClockSnapshot(seconds * 1000, 1_000_000 + seconds * 1000, 1)
         fun apply(state: WorkoutState, event: WorkoutEvent, seconds: Long) =
-            reducer.reduce(state, state.command(event), at(seconds), "session")
+            reducer.reduceRirReady(state, event, at(seconds))
 
         val started = apply(loaded, WorkoutEvent.StartWorkout, 0)
         val resting = apply(started, WorkoutEvent.CompleteSet, 30)

@@ -40,7 +40,7 @@ class PostponeTest {
     /** Records the current set (adding a repetition when none was prescribed) and skips any rest. */
     private suspend fun WorkoutRepository.done() {
         if (state.value.values.reps == 0) go(WorkoutEvent.IncrementReps)
-        go(WorkoutEvent.CompleteSet)
+        completeSet()
         if (state.value.phase == Phase.Resting) go(WorkoutEvent.SkipRest)
     }
     private val WorkoutState.ids get() = plan.map { it.prescriptionId }
@@ -84,7 +84,7 @@ class PostponeTest {
         assertNull(repo.state.value.target)    // press 2: already started
         repo.state.value.let { s -> repo.go(WorkoutEvent.PostponeExercise); assertEquals(s, repo.state.value) }
 
-        repo.go(WorkoutEvent.CompleteSet)       // press 2 → resting
+        repo.completeSet()       // press 2 → resting
         assertEquals(Phase.Resting, repo.state.value.phase)
         assertNull(repo.state.value.target)
         repo.state.value.let { s -> repo.go(WorkoutEvent.PostponeExercise); assertEquals(s, repo.state.value) }

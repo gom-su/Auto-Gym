@@ -55,7 +55,7 @@ class DeviationTest {
         val (repo, _) = started()
         repo.go(WorkoutEvent.IncrementWeight)
         repo.dispatch(repo.state.value.command(WorkoutEvent.SelectRir, 4))
-        repo.go(WorkoutEvent.CompleteSet) // squat set 1, then resting
+        repo.completeSet() // squat set 1, then resting
         repo.go(WorkoutEvent.AddSet)
         var s = repo.state.value
         assertEquals(Phase.Resting, s.phase); assertEquals(5, s.plan.size)
@@ -73,12 +73,12 @@ class DeviationTest {
 
     @Test fun `adding after the end reopens the session and the extra is recorded without a prescription`() = runTest {
         val (repo, storage) = started("week-one", "day-one-b")
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         assertEquals(Phase.Completed, repo.state.value.phase)
         repo.go(WorkoutEvent.AddSet)
         assertEquals(Phase.ActiveSet, repo.state.value.phase)
         assertNull(repo.state.value.endedAtMillis)
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val s = repo.state.value
         assertEquals(Phase.Completed, s.phase); assertEquals(2, s.records.size)
         assertNull(s.records[1].prescriptionId)
@@ -87,7 +87,7 @@ class DeviationTest {
 
     @Test fun `editing a recorded set changes only its real values and notes`() = runTest {
         val (repo, storage) = started("week-one", "day-one-a")
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val before = repo.state.value
         assertTrue(repo.edit(before.sessionId, before.revision, 0, SetStatus.COMPLETED, SetValues(225, 7, 1), "  Rodilla bien  "))
         val s = repo.state.value
@@ -111,7 +111,7 @@ class DeviationTest {
 
     @Test fun `every edit keeps the replaced version, oldest first, and survives storage`() = runTest {
         val (repo, storage) = started("week-one", "day-one-a")
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val original = repo.state.value.records.single()
         assertTrue(original.revisions.isEmpty())
         repo.state.value.let { assertTrue(repo.edit(it.sessionId, it.revision, 0, SetStatus.COMPLETED, SetValues(225, 7, 1), "Primera")) }
@@ -138,7 +138,7 @@ class DeviationTest {
         val s = repo.state.value
         repo.go(WorkoutEvent.SkipSet); repo.go(WorkoutEvent.AddSet)
         assertEquals(s, repo.state.value)
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val done = repo.state.value
         assertFalse(repo.edit(done.sessionId, done.revision, 0, SetStatus.SKIPPED, done.records[0].values, "nota"))
         assertNotNull(done.toDemoV1())
@@ -168,10 +168,10 @@ class DeviationTest {
     @Test fun `deviations export as omitted and unprescribed v1 results`() = runTest {
         val (repo, _) = started("week-one", "day-one-a")
         repo.go(WorkoutEvent.SkipSet)
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         repo.go(WorkoutEvent.AddSet)
         repo.go(WorkoutEvent.IncrementReps)
-        repo.go(WorkoutEvent.CompleteSet)
+        repo.completeSet()
         val s = repo.state.value
         repo.edit(s.sessionId, s.revision, 1, SetStatus.COMPLETED, s.records[1].values, "Buena técnica")
         val result = repo.state.value.toSessionResult()!!

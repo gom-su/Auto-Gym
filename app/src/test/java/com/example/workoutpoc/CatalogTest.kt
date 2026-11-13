@@ -50,7 +50,7 @@ class CatalogTest {
             val day = program.findDay(w, d)!!
             repo.load(day.day.toPlannedSets(), day.source)
             repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            repo.completeSet()
             repo.dispatch(repo.state.value.command(WorkoutEvent.FinishWorkout))
         }
         repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
@@ -122,7 +122,7 @@ class CatalogTest {
         val sessions = recordedSessions()
         assertTrue(exerciseHistory("dumbbell-row", sessions).isEmpty())
         val demo = WorkoutRepository(MemoryStorage(), { time }, { "demo" }).also {
-            it.restore(); it.dispatch(it.state.value.command(WorkoutEvent.StartWorkout)); it.dispatch(it.state.value.command(WorkoutEvent.CompleteSet))
+            it.restore(); it.dispatch(it.state.value.command(WorkoutEvent.StartWorkout)); it.completeSet()
         }.state.value
         assertTrue(exerciseHistory("squat", listOf(demo)).isEmpty())
         assertTrue(exerciseReferences(emptyList(), listOf(demo)).isEmpty())

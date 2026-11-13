@@ -81,10 +81,15 @@ class RecordingTest {
         assertEquals(LoadResult.LOADED, repo.load(selection.day.toPlannedSets(), selection.source))
         assertEquals(Phase.Idle, repo.state.value.phase)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
+        // Without a RIR the work set cannot be completed (requirement 6): the tap is refused until one is selected.
+        val unrated = repo.state.value
+        repo.dispatch(unrated.command(WorkoutEvent.CompleteSet))
+        assertEquals(unrated, repo.state.value)
+        repo.dispatch(repo.state.value.command(WorkoutEvent.SelectRir, 2))
         repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet)) // the single overlay/notification tap
         val saved = repo.state.value
         val record = saved.records.single()
-        assertEquals(SetValues(200, 8, null), record.values)
+        assertEquals(SetValues(200, 8, 2), record.values)
         assertEquals("set-one-squat-1", record.prescriptionId)
         assertEquals(90_000L, saved.rest!!.remainingMillis(time))
         scope1.cancel(); scope1.coroutineContext[Job]!!.join()
@@ -98,29 +103,34 @@ class RecordingTest {
         assertEquals(200, restored.state.value.plan[0].weightTenths)
         restored.dispatch(restored.state.value.command(WorkoutEvent.SkipRest))
         // A different prescribed load is prefilled as prescribed, not overridden by the previous set.
-        assertEquals(SetValues(225, 6, null), restored.state.value.values)
+        // The RIR carries from the same exercise's last completed set today.
+        assertEquals(SetValues(225, 6, 2), restored.state.value.values)
         scope2.cancel(); scope2.coroutineContext[Job]!!.join()
     }
 
-    @Test fun `unstated reps must be entered and unstated rir stays unrecorded`() = runTest {
+    @Test fun `unstated rir and reps must be entered before a work set completes`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, nextId)
         repo.restore()
         val selection = day("week-two", "day-two-c")
         repo.load(selection.day.toPlannedSets(), selection.source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
+        // Reps 0 and no RIR: nothing is recorded (requirement 6).
+        val unrated = repo.state.value
+        repo.dispatch(unrated.command(WorkoutEvent.CompleteSet))
+        assertEquals(unrated, repo.state.value)
         repeat(3) {
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            repo.completeSet()
             repo.dispatch(repo.state.value.command(WorkoutEvent.SkipRest))
         }
         assertEquals(3, repo.state.value.index)
-        assertNull(repo.state.value.records[1].values.rir)
+        assertEquals(2, repo.state.value.records[1].values.rir)
         val blocked = repo.state.value
         repo.dispatch(blocked.command(WorkoutEvent.CompleteSet))
         assertEquals(blocked, repo.state.value)
         repo.dispatch(repo.state.value.command(WorkoutEvent.IncrementReps))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         assertEquals(Phase.Completed, repo.state.value.phase)
-        assertEquals(SetValues(0, 1, null), repo.state.value.records.last().values)
+        assertEquals(SetValues(0, 1, 2), repo.state.value.records.last().values)
     }
 
     @Test fun `a repeated deviation carries within the same prescribed load only`() {
@@ -141,7 +151,7 @@ class RecordingTest {
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
         repo.dispatch(repo.state.value.command(WorkoutEvent.IncrementWeight))
         assertEquals(150, repo.state.value.values.weightTenths)
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         assertEquals(Phase.Completed, repo.state.value.phase)
     }
 
@@ -151,7 +161,7 @@ class RecordingTest {
         val a = day("week-one", "day-one-a"); val b = day("week-one", "day-one-b")
         repo.load(a.day.toPlannedSets(), a.source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         val inProgress = repo.state.value
         assertEquals(LoadResult.SESSION_IN_PROGRESS, repo.load(b.day.toPlannedSets(), b.source))
         assertEquals(inProgress, repo.state.value)
@@ -167,7 +177,7 @@ class RecordingTest {
         // Closing a partially recorded session archives it as ended early instead of discarding it.
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
         repo.dispatch(repo.state.value.command(WorkoutEvent.IncrementReps))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
         assertEquals(2, repo.archived.value.sessions.size)
         assertEquals(Phase.Completed, repo.archived.value.sessions[1].phase)
@@ -183,7 +193,7 @@ class RecordingTest {
         val a = day("week-one", "day-one-a")
         repo.load(a.day.toPlannedSets(), a.source)
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         repo.dispatch(repo.state.value.command(WorkoutEvent.FinishWorkout))
         val finished = repo.state.value
         repo.load(a.day.toPlannedSets(), a.source)
@@ -219,7 +229,7 @@ class RecordingTest {
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
         repo.dispatch(repo.state.value.command(WorkoutEvent.SelectRir, 4))
         repeat(3) {
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            repo.completeSet()
             repo.dispatch(repo.state.value.command(WorkoutEvent.SkipRest))
         }
         val result = repo.state.value.toSessionResult()!!
@@ -230,7 +240,8 @@ class RecordingTest {
         assertEquals(PrescribedLoad(0.0, LoadUnit.KG, LoadBasis.PER_SIDE), result.sets[0].load)
         assertTrue(result.sets[0].notes!!.contains("4 o más"))
         assertEquals(PrescribedLoad(3.0, LoadUnit.MACHINE_SETTING, LoadBasis.MACHINE_SETTING), result.sets[1].load)
-        assertNull(result.sets[1].rir)
+        // The export reports the recorded RIR, which the helper selected because the prescription stated none.
+        assertEquals(2, result.sets[1].rir)
         assertNull(result.sets[2].load); assertTrue(result.sets[2].notes!!.contains("base no indicada"))
         val pkg = ExchangePackage(1, ExchangeType.TrainingResults, "results", "2026-11-06T12:00:00Z",
             results = TrainingResults(listOf(result), repo.state.value.toDemoV1()?.let { DemoSnapshot(it) }))
@@ -242,7 +253,7 @@ class RecordingTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, nextId)
         repo.restore()
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         val demo = repo.state.value.toDemoV1()!!
         val json = Json.parseToJsonElement(ExchangeCodec.json.encodeToString(DemoSnapshot(demo))).jsonObject
         val state = json["state"]!!.jsonObject

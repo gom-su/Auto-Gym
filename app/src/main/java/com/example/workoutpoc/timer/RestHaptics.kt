@@ -10,7 +10,8 @@ import android.os.VibratorManager
 import com.example.workoutpoc.domain.Phase
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.domain.openRestSegment
-import com.example.workoutpoc.domain.remainingMillis
+import com.example.workoutpoc.domain.restSignedBalance
+import com.example.workoutpoc.presentation.isWaiting
 
 internal class RestHaptics(private val context: Context) {
     @Suppress("DEPRECATION")
@@ -21,8 +22,9 @@ internal class RestHaptics(private val context: Context) {
 
     @Suppress("DEPRECATION")
     fun update(state: WorkoutState) {
-        val expired = state.phase == Phase.Resting && state.paused == null &&
-            state.rest?.remainingMillis(clockSnapshot(context)) == 0L
+        val now = clockSnapshot(context)
+        val expired = state.phase == Phase.Resting && state.paused == null && !state.isWaiting(now) &&
+            (state.restSignedBalance(now) ?: 1) <= 0
         val next = state.openRestSegment?.takeIf { expired }?.let { state.sessionId to it.id }
         if (next == activeRest) return
         stop()

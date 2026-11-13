@@ -68,7 +68,7 @@ class WorkoutRepositoryTest {
     private suspend fun WorkoutRepository.recordSession(program: String, week: String) {
         load(DemoWorkout.sets.take(1), source(program, week))
         dispatch(state.value.command(WorkoutEvent.StartWorkout))
-        dispatch(state.value.command(WorkoutEvent.CompleteSet))
+        completeSet()
     }
 
     @Test fun `program deletion removes current and archived sessions and returns their IDs`() = runTest {
@@ -105,7 +105,7 @@ class WorkoutRepositoryTest {
                 repository.load(DemoWorkout.sets.take(2), source("target"))
             }
             repository.dispatch(repository.state.value.command(WorkoutEvent.StartWorkout))
-            if (phase == Phase.Resting) repository.dispatch(repository.state.value.command(WorkoutEvent.CompleteSet))
+            if (phase == Phase.Resting) repository.completeSet()
             val active = repository.state.value
             val archive = history.read()
             assertEquals(phase, active.phase)
@@ -161,7 +161,7 @@ class WorkoutRepositoryTest {
         val restored = WorkoutRepository(DataStoreWorkoutStorage(store2), { time })
         restored.restore()
         assertEquals(active, restored.state.value)
-        restored.dispatch(restored.state.value.command(WorkoutEvent.CompleteSet))
+        restored.completeSet()
         val rest = restored.state.value
         scope2.cancel(); scope2.coroutineContext[Job]!!.join()
 
@@ -184,7 +184,7 @@ class WorkoutRepositoryTest {
         val repo = WorkoutRepository(storage, { time }, { "session" })
         repo.restore()
         repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
-        repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+        repo.completeSet()
         time = time.copy(elapsedMillis = 11_001)
         val recreated = WorkoutRepository(storage, { time })
         recreated.restore()

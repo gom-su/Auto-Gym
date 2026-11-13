@@ -23,7 +23,7 @@ class HomePlannerTest {
     private suspend fun WorkoutRepository.train(week: String, day: String) {
         val d = program.findDay(week, day)!!
         time = time.copy(elapsedMillis = time.elapsedMillis + 60_000, wallMillis = time.wallMillis + 60_000)
-        load(d.day.toPlannedSets(), d.source); go(WorkoutEvent.StartWorkout); go(WorkoutEvent.CompleteSet); go(WorkoutEvent.FinishWorkout)
+        load(d.day.toPlannedSets(), d.source); go(WorkoutEvent.StartWorkout); completeSet(); go(WorkoutEvent.FinishWorkout)
     }
     private suspend fun repo() = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" }).apply { restore() }
     private fun WorkoutRepository.sessions() = archived.value.sessions + state.value
@@ -94,7 +94,7 @@ class HomePlannerTest {
         val r = repo()
         r.train("week-one", "day-one-a"); r.train("week-one", "day-one-b"); r.train("week-two", "day-two-c")
         val d = program.findDay("week-three", "day-three-a")!!
-        r.load(d.day.toPlannedSets(), d.source); r.go(WorkoutEvent.StartWorkout); r.go(WorkoutEvent.CompleteSet)
+        r.load(d.day.toPlannedSets(), d.source); r.go(WorkoutEvent.StartWorkout); r.completeSet()
         val s = HomePlanner.summary(listOf(program), listOf(outline()), r.sessions(), WeekAnnotations())
         assertFalse(s.cycleComplete)
         assertTrue(s.lastWeek)

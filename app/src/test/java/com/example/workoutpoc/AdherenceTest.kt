@@ -32,8 +32,8 @@ class AdherenceTest {
     @Test fun `four categories are computed separately with set breakdowns`() = runTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
-        repo.train("week-one", "day-one-a") { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.CompleteSet) }     // all 2 sets
-        repo.train("week-two", "day-two-c") { go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.SkipSet) }        // 1 done, 1 omitted, 2 unreached
+        repo.train("week-one", "day-one-a") { completeSet(); go(WorkoutEvent.SkipRest); completeSet() }     // all 2 sets
+        repo.train("week-two", "day-two-c") { completeSet(); go(WorkoutEvent.SkipRest); go(WorkoutEvent.SkipSet) }        // 1 done, 1 omitted, 2 unreached
         repo.train("week-one", "day-one-b") { go(WorkoutEvent.SkipSet) }                                                                // nothing completed
         repo.go(WorkoutEvent.ResetDemo)
         val sessions = repo.archived.value.sessions
@@ -76,9 +76,9 @@ class AdherenceTest {
             repo.go(WorkoutEvent.StartWorkout)
             repo.go(approachEvent)
             if (repo.state.value.phase == Phase.Resting) repo.go(WorkoutEvent.SkipRest)
-            repo.go(WorkoutEvent.CompleteSet)
+            repo.completeSet()
             repo.go(WorkoutEvent.SkipRest)
-            repo.go(WorkoutEvent.CompleteSet)
+            repo.completeSet()
 
             val result = adherence(listOf(withApproach), listOf(repo.state.value), WeekAnnotations())
                 .single { it.week.id == selection.week.id }.days.single { it.day.id == day.id }
@@ -94,10 +94,10 @@ class AdherenceTest {
         repo.restore()
         // Both prescribed sets plus an extra, then finished normally: completed, with the extra counted apart.
         repo.train("week-one", "day-one-a") {
-            go(WorkoutEvent.CompleteSet); go(WorkoutEvent.SkipRest); go(WorkoutEvent.CompleteSet); go(WorkoutEvent.AddSet); go(WorkoutEvent.CompleteSet)
+            completeSet(); go(WorkoutEvent.SkipRest); completeSet(); go(WorkoutEvent.AddSet); completeSet()
         }
         repo.go(WorkoutEvent.ResetDemo)
-        repo.train("week-two", "day-two-c", finish = false) { go(WorkoutEvent.CompleteSet) }   // still resting: in progress
+        repo.train("week-two", "day-two-c", finish = false) { completeSet() }   // still resting: in progress
         val sessions = repo.archived.value.sessions + repo.state.value
         val weeks = adherence(listOf(program), sessions, WeekAnnotations())
         val a = weeks.single { it.week.id == "week-one" }.days.single { it.day.id == "day-one-a" }
@@ -134,7 +134,7 @@ class AdherenceTest {
         val repo = WorkoutRepository(MemoryStorage(), { time }, { "s-${++ids}" })
         repo.restore()
         repo.train("week-one", "day-one-a") {
-            go(WorkoutEvent.CompleteSet)
+            completeSet()
             val s = state.value
             addCardio(s.sessionId, s.revision, CardioEntry("c1", "Bici", 25 * 60, null, null, null, time.wallMillis))
         }
@@ -142,7 +142,7 @@ class AdherenceTest {
         repo.train("week-one", "day-one-b") { go(WorkoutEvent.SkipSet) }                    // no completed set: does not count
         repo.go(WorkoutEvent.ResetDemo)
         time = time.copy(wallMillis = monday - 3_600_000)                                  // previous Sunday
-        repo.train("week-two", "day-two-c") { go(WorkoutEvent.CompleteSet) }
+        repo.train("week-two", "day-two-c") { completeSet() }
         repo.go(WorkoutEvent.ResetDemo)
         val sessions = repo.archived.value.sessions
         val p = goalProgress(sessions, Goals(3, 90), monday + 2 * 86_400_000, utc)

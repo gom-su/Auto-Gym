@@ -68,7 +68,12 @@ data class RestSegment(
 )
 ```
 
-- **Actual rest** = `confirmedAtMillis − startedAtMillis − pausedMillis`. Se guarda como `actualRestSeconds` derivado del segmento; no se duplica en `SetRecord`.
+- **Actual rest** = `confirmedAtMillis − startedAtMillis − pausedMillis`. `pausedMillis` es la única exclusión: acumula las pausas de sesión y la duración de cada espera cerrada que empezó dentro del descanso (`MachineWait.restSegmentId`), sumada una vez al terminar la espera. Así cada espera se descuenta una sola vez. Se guarda como `actualRestSeconds` derivado del segmento; no se duplica en `SetRecord`.
+- **Exceso** = `max(0, actual rest − objetivo vigente al cerrar)`. El objetivo original del plan se guarda aparte (`originalSeconds`, nulo en snapshots antiguos). **Exceso total de la sesión** = suma de los excesos de cada descanso.
+- **Saldo del descanso** (`restSignedBalance`) = objetivo − tiempo real medido hasta ahora. Es negativo tras vencer, se congela durante una espera en curso y lo consumen todas las superficies.
+- **Espera por máquina** (`MachineWait`): tramo independiente con `afterStepId`, `origin` (REST o EXERCISE) y, si viene de descanso, `restSegmentId`. Cuenta una vez en el total de la sesión (`TimedActivity.MACHINE_WAIT`) y queda fuera de descanso y de actividad. Como máximo una espera abierta por sesión.
+- **Pausa de sesión** sí se permite durante una espera pendiente o en curso. Al reanudar, una espera pendiente desplaza su vencimiento con la pausa; una espera en curso suma la pausa a su propio `pausedMillis`, de modo que su duración excluye la pausa. Una pausa que cruza el vencimiento pendiente no inicia la espera.
+- **Ajuste de ±15 s con espera armada:** el vencimiento de la espera se desplaza con el objetivo, pero nunca queda antes del instante del ajuste. El tiempo anterior al ajuste se mide con el objetivo que estaba vigente.
 - **Vencimiento ≠ confirmación.** Al llegar a cero el segmento sigue abierto y pendiente de OK, también tras reabrir la app. `RestFinished` **no** avanza el paso automáticamente, ni al restaurar.
 - **OK** y **Saltar descanso** cierran el mismo segmento e inician el siguiente paso en una sola transición persistida.
 - La acción incluye `sessionId` y `restSegmentId`. Un toque duplicado o atrasado (reloj, burbuja, notificación) con un id ya cerrado no hace nada.
@@ -107,9 +112,12 @@ data class SessionComment(
   val sessionId: String?,
   val exerciseId: String?,     // null = comentario general de la sesión
   val setIndex: Int?,          // solo si va asociado a una serie
-  val resolvedAtMillis: Long?  // null = vigente
+  val resolvedAtMillis: Long?, // null = vigente
+  val dayId: String?           // día del plan; null = comentario de semana o anterior a este campo
 )
 ```
+
+- **Anclaje (requisito 2)**: `dayId` + `exerciseId` + `setIndex` identifican la aparición exacta de un ejercicio en la semana. Un comentario con `dayId` solo aparece junto a ese día. Sin `dayId` pero con `exerciseId`, se muestra a nivel de semana con el nombre del ejercicio para no perderlo. `setIndex` es la posición de la serie dentro de su ejercicio (base 0).
 
 - **Almacén propio**: los comentarios no viven dentro de la semana ni de sus registros. Reemplazar una semana y borrar sus registros **no** borra comentarios; `weekId` queda solo como origen.
 - **Contexto de generación**: se incluyen comentarios vigentes (`resolvedAtMillis = null`) del **mismo `programId`**. Para comentarios de ejercicio, solo los del `exerciseId` que aparece en la generación.

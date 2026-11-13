@@ -3,8 +3,12 @@ package com.example.workoutpoc.notification
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.SystemClock
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.StyleSpan
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
@@ -14,32 +18,41 @@ import com.example.workoutpoc.MainActivity
 import com.example.workoutpoc.R
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
+import com.example.workoutpoc.presentation.*
 import com.example.workoutpoc.timer.clockSnapshot
+import com.example.workoutpoc.workoutApp
 
-/** One stable ID for the whole session, including foreground-service ownership. */
+/** One stable ID. Text clocks share the app's rounding, including negative rest and ascending wait. */
 class WorkoutNotificationManager(private val context: Context) {
-    companion object { const val ID: Int = 7; const val CHANNEL: String = "workout_interactive" }
+    companion object { const val ID = 7; const val CHANNEL = "workout_interactive" }
     private var publishedState: WorkoutState? = null
-    private var publishedRestExpired = false
+    private var publishedTimer: SurfaceTimer? = null
+    private var publishedCatalog: Any? = null
     init {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Entrenamiento interactivo", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Controles de series y descanso del demo offline"
+                description = "Controles de series, descanso y espera por máquina"
             })
     }
 
-    private fun openEditor(): PendingIntent = PendingIntent.getActivity(context, 1,
-        Intent(context, MainActivity::class.java).setAction("EDIT").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    private fun openEditor(s: WorkoutState, lastRecord: Boolean = false): PendingIntent {
+        val record = s.records.lastOrNull().takeIf { lastRecord && s.source != null }
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = if (record == null) "EDIT" else "EDIT_LAST_RECORD"
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (record != null) {
+                data = Uri.Builder().scheme("workout").authority("edit-record").appendPath(s.sessionId).appendPath(record.index.toString()).build()
+                putExtra("session", s.sessionId); putExtra("recordIndex", record.index)
+            }
+        }
+        return PendingIntent.getActivity(context, if (record == null) 1 else 2, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
 
     private fun action(s: WorkoutState, event: WorkoutEvent, rir: Int? = null): PendingIntent {
         val intent = Intent(context, WorkoutActionReceiver::class.java).apply {
             action = event.name
-            // These are direct user interactions, not deferrable background work.
             addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
-            // Identity includes revision: an old pending intent can never mutate a later set.
-            // New identity also replaces pre-fix PendingIntents after an in-place APK
-            // upgrade: FLAG_UPDATE_CURRENT only replaces extras, not base Intent flags.
             data = Uri.Builder().scheme("workout").authority("interactive-command-v2")
                 .appendPath(s.sessionId).appendPath(s.index.toString()).appendPath(s.revision.toString())
                 .appendPath(event.name).appendPath((rir ?: -1).toString()).build()
@@ -51,111 +64,125 @@ class WorkoutNotificationManager(private val context: Context) {
     }
 
     fun build(s: WorkoutState): Notification {
-        val plan: List<PlannedSet> = s.activePlan()
-        val unit = plan.getOrNull(s.index)?.unit ?: WeightUnit.KG
-        val title: String = if (s.paused != null) "Sesión en pausa" else when (s.phase) {
-            Phase.ActiveSet -> plan[s.index].let { "${it.exercise} · ${it.number}/${it.total}" }
-            Phase.ActiveCardio -> s.currentCardio?.modality ?: "Cardio"
-            Phase.Resting -> "Descanso"
-            Phase.Completed -> "Entrenamiento terminado"
-            Phase.Idle -> "Preparando entrenamiento"
+        val now = clockSnapshot(context)
+        val timer = s.surfaceTimer(now)
+        val waiting = timer?.waiting == true
+        val paused = s.paused != null
+        val current = s.activePlan().getOrNull(s.index)
+        val title = when {
+            paused -> "Sesión en pausa"
+            waiting -> "Espera por máquina"
+            s.phase == Phase.ActiveSet -> current?.let { "${it.exercise} · ${it.setType.surfaceLabel()} ${it.number}/${it.total}" }.orEmpty()
+            s.phase == Phase.ActiveCardio -> s.currentCardio?.modality ?: "Cardio"
+            s.phase == Phase.Resting -> "Descanso"
+            s.phase == Phase.Completed -> "Entrenamiento terminado"
+            else -> "Preparando entrenamiento"
         }
-        val builder = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_workout).setContentTitle(title)
-            .setContentText(if (s.paused != null) "Abre la aplicación para reanudar" else "Abre para ver el entrenamiento")
-            .setContentIntent(openEditor()).setOnlyAlertOnce(true)
-            .setOngoing(s.phase.inProgress)
-            .setSilent(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        val builder = NotificationCompat.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_workout)
+            .setContentTitle(title).setContentText("Abre para ver el entrenamiento").setContentIntent(openEditor(s))
+            .setOnlyAlertOnce(true).setOngoing(s.phase.inProgress).setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS).setShowWhen(false)
-        if (s.phase == Phase.ActiveCardio) {
-            val remaining = s.cardioRemainingMillis(clockSnapshot(context)) ?: 0
-            val compact = RemoteViews(context.packageName, R.layout.notification_compact)
-            compact.setTextViewText(R.id.compact_title, s.currentCardio?.modality ?: "Cardio")
-            compact.setViewVisibility(R.id.compact_countdown, View.VISIBLE)
-            setCountdown(compact, R.id.compact_countdown, remaining, s.paused == null)
-            val pauseAction = if (s.paused == null) WorkoutEvent.PauseSession else WorkoutEvent.ResumeSession
-            compact.setTextViewText(R.id.compact_complete, if (s.paused == null) "Pausar" else "Reanudar")
-            compact.setOnClickPendingIntent(R.id.compact_complete, action(s, pauseAction))
-            compact.setOnClickPendingIntent(R.id.compact_edit, openEditor())
-            val expanded = RemoteViews(context.packageName, R.layout.notification_expanded)
-            expanded.setTextViewText(R.id.title, title)
-            expanded.setViewVisibility(R.id.set_controls, View.GONE)
-            expanded.setViewVisibility(R.id.rest_controls, View.VISIBLE)
-            expanded.setViewVisibility(R.id.rest_next, View.GONE)
-            expanded.setViewVisibility(R.id.reduce_rest, View.GONE)
-            expanded.setTextViewText(R.id.add_rest, if (s.paused == null) "Pausar" else "Reanudar")
-            expanded.setOnClickPendingIntent(R.id.add_rest, action(s, pauseAction))
-            expanded.setTextViewText(R.id.skip_rest, "Terminar cardio")
-            expanded.setOnClickPendingIntent(R.id.skip_rest, action(s, WorkoutEvent.FinishCardio))
-            setCountdown(expanded, R.id.countdown, remaining, s.paused == null)
-            return builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
-                .setCustomContentView(compact).setCustomBigContentView(expanded).build()
-        }
-        // A paused strength session exposes no set controls.
-        if (s.phase == Phase.Completed || s.phase == Phase.Idle || s.paused != null) return builder.build()
+        if (!s.phase.inProgress) return builder.build()
+
         val compact = RemoteViews(context.packageName, R.layout.notification_compact)
-        val remaining = s.rest?.remainingMillis(clockSnapshot(context))
-        val restExpired = s.source != null && remaining == 0L
-        val restAction = if (restExpired) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest
-        compact.setTextViewText(R.id.compact_title, if (s.phase == Phase.ActiveSet)
-            "$title\n${loadLabel(s.values.weightTenths, unit)} · ${s.values.reps} reps" else "Descanso")
-        compact.setViewVisibility(R.id.compact_countdown, if (remaining == null) View.GONE else View.VISIBLE)
-        remaining?.let { setCountdown(compact, R.id.compact_countdown, it) }
-        compact.setTextViewText(R.id.compact_complete, if (s.phase == Phase.Resting) {
-            if (restExpired) "OK" else "Saltar"
-        } else "Completar")
-        compact.setOnClickPendingIntent(R.id.compact_complete, action(s,
-            if (s.phase == Phase.Resting) restAction else WorkoutEvent.CompleteSet))
-        compact.setOnClickPendingIntent(R.id.compact_edit, openEditor())
         val expanded = RemoteViews(context.packageName, R.layout.notification_expanded)
+        fun visible(id: Int, show: Boolean) = expanded.setViewVisibility(id, if (show) View.VISIBLE else View.GONE)
+        fun bind(id: Int, text: String, event: WorkoutEvent, enabled: Boolean = true) {
+            expanded.setTextViewText(id, text)
+            expanded.setBoolean(id, "setEnabled", enabled)
+            expanded.setOnClickPendingIntent(id, action(s, event))
+        }
         expanded.setTextViewText(R.id.title, title)
-        expanded.setViewVisibility(R.id.set_controls, if (s.phase == Phase.ActiveSet) View.VISIBLE else View.GONE)
-        expanded.setViewVisibility(R.id.rest_controls, if (s.phase == Phase.Resting) View.VISIBLE else View.GONE)
+        compact.setTextViewText(R.id.compact_title, if (s.phase == Phase.ActiveSet && !waiting && !paused)
+            "$title\n${loadLabel(s.values.weightTenths, current?.unit ?: WeightUnit.KG)} · ${s.values.reps} reps" else title)
+        compact.setViewVisibility(R.id.compact_countdown, if (timer == null) View.GONE else View.VISIBLE)
+        compact.setTextViewText(R.id.compact_countdown, timer?.text.orEmpty())
+        visible(R.id.countdown, timer != null)
+        expanded.setTextViewText(R.id.countdown, timer?.text.orEmpty())
+        compact.setOnClickPendingIntent(R.id.compact_edit, openEditor(s, lastRecord = s.phase == Phase.Resting))
+
+        val balance = s.restSignedBalance(now) ?: s.rest?.signedRemainingMillis(now)
+        val expired = s.source != null && balance != null && balance <= 0
+        val primary = when {
+            paused -> WorkoutEvent.ResumeSession
+            waiting -> WorkoutEvent.EndMachineWait
+            s.phase == Phase.ActiveCardio -> WorkoutEvent.PauseSession
+            s.phase == Phase.Resting -> if (expired) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest
+            else -> WorkoutEvent.CompleteSet
+        }
+        val hint = s.completionHint()
+        val primaryText = when {
+            paused -> "Reanudar"
+            waiting -> "Terminar espera"
+            s.phase == Phase.ActiveCardio -> "Pausar"
+            s.phase == Phase.Resting -> if (expired) "OK" else "Saltar"
+            else -> hint ?: "Completar"
+        }
+        compact.setTextViewText(R.id.compact_complete, primaryText)
+        compact.setBoolean(R.id.compact_complete, "setEnabled", primary != WorkoutEvent.CompleteSet || hint == null)
+        compact.setOnClickPendingIntent(R.id.compact_complete, action(s, primary))
+
+        val notice = s.seriesNotice(context.workoutApp.catalog.catalog.value.exercises)
+        visible(R.id.rest_next, notice != null)
+        notice?.let {
+            val signals = it.changes.filter { c -> c == "Cambia de máquina" || c.startsWith("Carga") || c.startsWith("Repeticiones") }
+            val text = it.compactText()
+            expanded.setTextViewText(R.id.rest_next, SpannableString(text).apply {
+                signals.forEach { signal -> val start = text.indexOf(signal); if (start >= 0) setSpan(StyleSpan(Typeface.BOLD), start, start + signal.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+            })
+        }
+        visible(R.id.set_controls, s.phase == Phase.ActiveSet && !paused && !waiting)
+        visible(R.id.notification_rir, current?.setType == SetType.WORK)
         if (s.phase == Phase.ActiveSet) {
-            expanded.setTextViewText(R.id.weight, loadLabel(s.values.weightTenths, unit))
+            expanded.setTextViewText(R.id.weight, loadLabel(s.values.weightTenths, current?.unit ?: WeightUnit.KG))
             expanded.setTextViewText(R.id.reps, "${s.values.reps} reps")
             mapOf(R.id.weight_minus to WorkoutEvent.DecrementWeight, R.id.weight_plus to WorkoutEvent.IncrementWeight,
-                R.id.reps_minus to WorkoutEvent.DecrementReps, R.id.reps_plus to WorkoutEvent.IncrementReps,
-                R.id.complete to WorkoutEvent.CompleteSet).forEach { (id, event) ->
+                R.id.reps_minus to WorkoutEvent.DecrementReps, R.id.reps_plus to WorkoutEvent.IncrementReps).forEach { (id, event) ->
                 expanded.setOnClickPendingIntent(id, action(s, event))
             }
             listOf(R.id.rir0, R.id.rir1, R.id.rir2, R.id.rir3, R.id.rir4).forEachIndexed { rir, id ->
-                expanded.setTextViewText(id, "${if (s.values.rir == rir) "●" else ""}${if (rir == 4) "4+" else rir}")
+                expanded.setTextViewText(id, "${if (s.values.rir == rir) "●" else ""}${rirLabel(rir)}")
                 expanded.setContentDescription(id, "RIR $rir${if (s.values.rir == rir) ", seleccionado" else ""}")
                 expanded.setTextColor(id, context.getColor(if (s.values.rir == rir) R.color.notification_selected else R.color.notification_text))
                 expanded.setOnClickPendingIntent(id, action(s, WorkoutEvent.SelectRir, rir))
             }
-            expanded.setTextViewText(R.id.complete, if (s.values.reps == 0) "Ajusta reps: mínimo 1" else "Completar serie")
-        } else {
-            setCountdown(expanded, R.id.countdown, remaining ?: 0)
-            expanded.setTextViewText(R.id.rest_next, s.nextSetLabel(plan))
-            expanded.setViewVisibility(R.id.reduce_rest, if (s.openRestSegment == null) View.GONE else View.VISIBLE)
-            expanded.setOnClickPendingIntent(R.id.reduce_rest, action(s, WorkoutEvent.ReduceRestTime))
-            expanded.setTextViewText(R.id.add_rest, if (s.source == null) "+10 s" else "+15 s")
-            expanded.setOnClickPendingIntent(R.id.add_rest, action(s, WorkoutEvent.AddRestTime))
-            expanded.setTextViewText(R.id.skip_rest, if (restExpired) "OK" else "Saltar descanso")
-            expanded.setOnClickPendingIntent(R.id.skip_rest, action(s, restAction))
+            bind(R.id.complete, hint ?: "Completar serie", WorkoutEvent.CompleteSet, hint == null)
         }
+        visible(R.id.rest_controls, paused || (!waiting && (s.phase == Phase.Resting || s.phase == Phase.ActiveCardio)))
+        visible(R.id.reduce_rest, s.phase == Phase.Resting && s.openRestSegment != null && !paused)
+        if (s.phase == Phase.Resting && !paused) {
+            bind(R.id.reduce_rest, "−15 s", WorkoutEvent.ReduceRestTime)
+            bind(R.id.add_rest, if (s.source == null) "+10 s" else "+15 s", WorkoutEvent.AddRestTime)
+            bind(R.id.skip_rest, if (expired) "OK" else "Saltar descanso", primary)
+        } else {
+            bind(R.id.add_rest, if (paused) "Reanudar" else "Pausar", if (paused) WorkoutEvent.ResumeSession else WorkoutEvent.PauseSession)
+            visible(R.id.skip_rest, s.phase == Phase.ActiveCardio && !waiting)
+            bind(R.id.skip_rest, "Terminar cardio", WorkoutEvent.FinishCardio)
+        }
+        visible(R.id.wait_status, s.openMachineWait?.pending != null && !waiting)
+        visible(R.id.machine_wait, s.source != null && !paused)
+        val waitEvent = when { waiting -> WorkoutEvent.EndMachineWait; s.openMachineWait != null -> WorkoutEvent.CancelPendingWait; else -> WorkoutEvent.StartMachineWait }
+        bind(R.id.machine_wait, when (waitEvent) {
+            WorkoutEvent.EndMachineWait -> "Terminar espera"; WorkoutEvent.CancelPendingWait -> "Cancelar espera pendiente"; else -> "Iniciar espera"
+        }, waitEvent)
+        val editLast = s.source != null && s.phase == Phase.Resting && s.records.isNotEmpty()
+        visible(R.id.edit_last, editLast)
+        expanded.setOnClickPendingIntent(R.id.edit_last, openEditor(s, lastRecord = true))
         return builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(compact).setCustomBigContentView(expanded).build()
-    }
-
-    private fun setCountdown(views: RemoteViews, id: Int, remaining: Long, running: Boolean = true) {
-        views.setChronometerCountDown(id, true)
-        views.setChronometer(id, SystemClock.elapsedRealtime() + remaining, null, running && remaining > 0)
     }
 
     @Suppress("MissingPermission")
     @Synchronized
     fun update(s: WorkoutState, force: Boolean = false) {
-        val now = clockSnapshot(context)
-        val expired = s.paused == null && (s.rest?.remainingMillis(now) ?: s.cardioRemainingMillis(now)) == 0L
-        if (!force && publishedState == s && publishedRestExpired == expired) return
+        val timer = s.surfaceTimer(clockSnapshot(context))
+        val catalog = context.workoutApp.catalog.catalog.value
+        if (!force && publishedState == s && publishedTimer == timer && publishedCatalog == catalog) return
         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             NotificationManagerCompat.from(context).notify(ID, build(s))
-            publishedState = s
-            publishedRestExpired = expired
+            publishedState = s; publishedTimer = timer; publishedCatalog = catalog
             Log.d("WorkoutNotification", "posted revision=${s.revision} at=${SystemClock.elapsedRealtime()}")
         }
     }

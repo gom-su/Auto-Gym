@@ -37,10 +37,10 @@ class PhaseComparisonTest {
             repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
             repo.dispatch(repo.state.value.command(WorkoutEvent.AddWarmupSet))      // warm-ups never count
             repeat(4) { repo.dispatch(repo.state.value.command(WorkoutEvent.DecrementWeight)) }
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
-            repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            repo.completeSet()
+            repo.completeSet()
             if (w == "w3") repo.dispatch(repo.state.value.command(WorkoutEvent.SkipSet)) // an omitted set is not zero
-            else repo.dispatch(repo.state.value.command(WorkoutEvent.CompleteSet))
+            else repo.completeSet()
             repo.dispatch(repo.state.value.command(WorkoutEvent.ResetDemo))
         }
         return repo.archived.value.sessions

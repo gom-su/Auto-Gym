@@ -85,6 +85,21 @@ class WorkoutRepository(
             true
         }
 
+    /**
+     * Corrects an archived planned session: its date and recorded set values (requirement 9). Returns false when the
+     * session is not archived or nothing changed.
+     */
+    suspend fun editArchivedSession(sessionId: String, newStartMillis: Long?, sets: List<PastSetEdit>): Boolean = mutex.withLock {
+        val archive = history.read()
+        val target = archive.sessions.firstOrNull { it.sessionId == sessionId } ?: return@withLock false
+        val edited = reducer.editPastSession(target, newStartMillis, sets, clock())
+        if (edited == target) return@withLock false
+        WorkoutValidation.validate(edited)
+        history.replace(archive.copy(sessions = archive.sessions.map { if (it.sessionId == sessionId) edited else it }))
+        mutableHistory.value = history.read()
+        true
+    }
+
     /** Adds cardio to the current planned session. Returns false for a stale snapshot. */
     suspend fun addCardio(sessionId: String, revision: Long, entry: CardioEntry): Boolean =
         mutate { reducer.addCardio(it, sessionId, revision, entry) }
@@ -143,6 +158,13 @@ class WorkoutRepository(
                 timing.copy(open = timing.open?.let { segment ->
                     segment.copy(start = segment.start.copy(elapsedMillis = elapsedAt(segment.start.wallMillis), bootCount = now.bootCount))
                 })
+            },
+            machineWaits = state.machineWaits.map { wait ->
+                if (wait.endedAtMillis != null || wait.cancelled) wait
+                else wait.copy(
+                    pending = wait.pending?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) },
+                    startedAtElapsedMillis = wait.startedAtMillis?.let { elapsedAt(it) },
+                    bootCount = now.bootCount)
             },
             paused = state.paused?.let { it.copy(elapsedMillis = elapsedAt(it.wallMillis), bootCount = now.bootCount) })
         val restored = reducer.reduce(portable, portable.command(WorkoutEvent.RestFinished), now, idFactory())

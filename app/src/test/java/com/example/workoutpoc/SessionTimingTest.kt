@@ -18,8 +18,11 @@ class SessionTimingTest {
         it.copy(weightTenths = 400, weightStepTenths = 25, rir = 2, restSeconds = 75)
     }
 
-    private fun step(state: WorkoutState, event: WorkoutEvent, seconds: Long, rir: Int? = null): WorkoutState =
-        reducer.reduce(state, state.command(event, rir), ClockSnapshot(seconds * 1000, 100_000 + seconds * 1000, 1), "session")
+    private fun step(state: WorkoutState, event: WorkoutEvent, seconds: Long, rir: Int? = null): WorkoutState {
+        val clock = ClockSnapshot(seconds * 1000, 100_000 + seconds * 1000, 1)
+        return if (rir == null) reducer.reduceRirReady(state, event, clock)
+        else reducer.reduce(state, state.command(event, rir), clock, "session")
+    }
 
     @Test fun `review compares actual results and includes the wait after rest expiry in the total`() = runTest {
         var state = reducer.load(WorkoutState(), plan, source, "loaded")

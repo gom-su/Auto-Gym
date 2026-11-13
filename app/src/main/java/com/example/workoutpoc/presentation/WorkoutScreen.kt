@@ -18,7 +18,6 @@ import com.example.workoutpoc.ui.*
 import com.example.workoutpoc.ui.theme.AppTheme
 import com.example.workoutpoc.ui.theme.Spacing
 import com.example.workoutpoc.ui.theme.tabular
-import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,9 +36,18 @@ fun WorkoutScreen(
     overlayFirst: Boolean = false,
     onFinalize: () -> Unit = {},
     /** Saves a comment for the planned session (contract §7); exerciseId is null for a general comment. */
-    onSaveComment: (text: String, exerciseId: String?) -> Unit = { _, _ -> }
+    onSaveComment: (text: String, exerciseId: String?) -> Unit = { _, _ -> },
+    catalog: List<com.example.workoutpoc.catalog.CatalogExercise> = emptyList(),
+    recordEditorRequest: RecordEditorRequest? = null, onConsumeRecordEditorRequest: () -> Unit = {}
 ) {
     var editing by remember(state.sessionId) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(recordEditorRequest, ready) {
+        val request = recordEditorRequest ?: return@LaunchedEffect
+        if (!ready) return@LaunchedEffect
+        if (request.sessionId == state.sessionId && state.records.any { it.index == request.index }) editing = request.index
+        onDismissEditor()
+        onConsumeRecordEditorRequest()
+    }
     var confirmReset by remember(state.sessionId) { mutableStateOf(false) }
     val plan: List<PlannedSet> = state.activePlan()
     val source: SessionSource? = state.source
@@ -73,27 +81,16 @@ fun WorkoutScreen(
                             SupportingText("${step.modality} · ${durationLabel(step.plannedSeconds * 1000L)}")
                         }
                     }
-                    Phase.ActiveSet -> ActiveSetCard(state, plan, demo, dispatch)
-                    Phase.ActiveCardio -> FocusCard { CardioTimer(state, now, dispatch) }
-                    Phase.Resting -> state.paused.let { pause ->
-                        if (pause == null) FocusCard { RestControls(state, plan, now, dispatch) }
-                        else {
-                            // Frozen at the pause instant; resuming shifts the deadline by the pause length.
-                            val left = state.rest?.let { r -> (if (r.bootCount == pause.bootCount) r.elapsedMillis - pause.elapsedMillis
-                                else r.wallMillis - pause.wallMillis).coerceAtLeast(0) } ?: 0
-                            FocusCard {
-                                Eyebrow("DESCANSO EN PAUSA", color = colors.onSurfaceVariant)
-                                Text("Descanso restante al reanudar: ${(left + 999) / 1000} s", style = MaterialTheme.typography.titleMedium.tabular())
-                            }
-                        }
-                    }
+                    Phase.ActiveSet -> ActiveSetCard(state, plan, demo, now, catalog, dispatch)
+                    Phase.ActiveCardio -> FocusCard { CardioSurface(state, now, dispatch) }
+                    Phase.Resting -> FocusCard { RestControls(state, now, catalog, dispatch) { editing = it } }
                     Phase.Completed -> {
                         CompletedCard(state, plan)
                         if (!demo) SessionReviewContent(remember(state) { state.review() })
                     }
                 }
                 SessionStatus(state, now, dispatch)
-                if (state.paused == null && plan.isNotEmpty() && state.phase != Phase.ActiveCardio) DeviationActions(state, dispatch)
+                if (state.paused == null && state.runningWait == null && plan.isNotEmpty() && state.phase != Phase.ActiveCardio) DeviationActions(state, dispatch)
                 CardioSection(state, onAddCardio, onRemoveCardio)
                 // Comments during a planned session are linked to an exercise or the whole session (§5, decision 2).
                 if (!demo && state.source != null && state.phase != Phase.Idle) SessionCommentCard(state, onSaveComment)
@@ -127,9 +124,10 @@ fun WorkoutScreen(
                     Phase.ActiveSet -> {
                         Text(plan[state.index].exercise, style = MaterialTheme.typography.titleMedium)
                         WorkoutControls(state, dispatch)
+                        ExerciseWaitControls(state, now, dispatch)
                     }
-                    Phase.ActiveCardio -> CardioTimer(state, now, dispatch)
-                    Phase.Resting -> RestControls(state, plan, now, dispatch)
+                    Phase.ActiveCardio -> CardioSurface(state, now, dispatch)
+                    Phase.Resting -> RestControls(state, now, catalog, dispatch) { editing = it; onDismissEditor() }
                     Phase.Completed -> SupportingText("Entrenamiento terminado. Consulta el resumen.")
                     Phase.Idle -> SupportingText(if (demo) "Inicia el demo desde la pantalla principal." else "Inicia la sesión desde la pantalla principal.")
                 }
@@ -241,23 +239,26 @@ private fun SessionProgress(state: WorkoutState, plan: List<PlannedSet>) {
 }
 
 @Composable
-private fun ActiveSetCard(state: WorkoutState, plan: List<PlannedSet>, demo: Boolean, dispatch: (WorkoutCommand) -> Unit) {
+private fun ActiveSetCard(state: WorkoutState, plan: List<PlannedSet>, demo: Boolean, now: () -> ClockSnapshot, catalog: List<com.example.workoutpoc.catalog.CatalogExercise>, dispatch: (WorkoutCommand) -> Unit) {
     val current: PlannedSet = plan[state.index]
     FocusCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("SERIE ${state.index + 1} / ${plan.size}", color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.labelLarge.tabular(), modifier = Modifier.weight(1f))
-            if (current.warmup) StatusPill("Aproximación") else if (current.extra) StatusPill("Extra", Tone.Warning)
+            StatusPill(current.setType.surfaceLabel())
+            if (current.extra) StatusPill("Extra", Tone.Warning)
         }
         SessionProgress(state, plan)
         Text(current.exercise, style = MaterialTheme.typography.headlineSmall)
         SupportingText(when {
             demo -> "Serie ${current.number} de ${current.total} · objetivo ${current.reps} reps · RIR ${current.rir}"
-            current.warmup -> "Aproximación ${current.number} · sin prescripción; ajusta carga y repeticiones"
+            current.setType != SetType.WORK -> "${current.setType.surfaceLabel()} ${current.number} · ${prescriptionLabel(current)}"
             current.extra -> "Serie extra ${current.number} · añadida, sin prescripción"
             else -> "Serie ${current.number} de ${current.total} · prescrito: ${prescriptionLabel(current)}"
         })
+        SeriesNoticeCard(state.seriesNotice(catalog))
         if (state.paused == null) WorkoutControls(state, dispatch)
+        ExerciseWaitControls(state, now, dispatch)
     }
 }
 
@@ -288,10 +289,10 @@ private fun RecordList(state: WorkoutState, plan: List<PlannedSet>, demo: Boolea
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     NumberBadge("${record.index + 1}")
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("${record.exercise} · ${when { planned.warmup -> "aproximación"; planned.extra -> "serie extra"; else -> "serie" }} ${record.number}",
+                        Text("${record.exercise} · ${planned.setType.surfaceLabel()}${if (planned.extra) " extra" else ""} ${record.number}",
                             style = MaterialTheme.typography.titleSmall)
                         if (record.status == SetStatus.SKIPPED) Text("Omitida", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        else Text("${if (demo) "" else "Real: "}${loadLabel(record.values.weightTenths, planned.unit)} · ${record.values.reps} reps · RIR ${rirLabel(record.values.rir)}",
+                        else Text("${if (demo) "" else "Real: "}${loadLabel(record.values.weightTenths, record.recordedUnit ?: planned.unit)} · ${record.values.reps} reps${if (planned.setType == SetType.WORK) " · RIR ${rirLabel(record.values.rir)}" else ""}",
                             style = MaterialTheme.typography.bodyLarge.tabular())
                         if (!demo) Text(if (planned.extra) "Sin prescripción" else "Prescrito: ${prescriptionLabel(planned)}",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -314,8 +315,8 @@ private fun SessionEndActions(state: WorkoutState, demo: Boolean, archivedCount:
         HorizontalDivider(Modifier.padding(vertical = Spacing.sm), color = MaterialTheme.colorScheme.outlineVariant)
         if (state.phase != Phase.Idle) {
             SecondaryAction("Deshacer última serie", { dispatch(state.command(WorkoutEvent.UndoLastSet)) },
-                enabled = state.records.isNotEmpty() && state.phase != Phase.ActiveCardio, icon = AppIcons.Undo)
-            if (state.phase != Phase.Completed)
+                enabled = state.records.isNotEmpty() && state.phase != Phase.ActiveCardio && state.runningWait == null, icon = AppIcons.Undo)
+            if (state.phase != Phase.Completed && state.runningWait == null)
                 TonalAction("Terminar entrenamiento", { dispatch(state.command(WorkoutEvent.FinishWorkout)) }, icon = AppIcons.Stop)
         }
         if (archivedCount > 0) SupportingText("Sesiones archivadas en este dispositivo: $archivedCount", small = true)
@@ -327,39 +328,26 @@ private fun SessionEndActions(state: WorkoutState, demo: Boolean, archivedCount:
 }
 
 @Composable
-private fun RestControls(state: WorkoutState, plan: List<PlannedSet>, now: () -> ClockSnapshot, dispatch: (WorkoutCommand) -> Unit) {
-    var seconds: Long by remember(state.rest) { mutableLongStateOf(((state.rest?.remainingMillis(now()) ?: 0) + 999) / 1000) }
-    val peak = state.openRestSegment?.configuredSeconds?.toLong()?.coerceAtLeast(1)
-        ?: remember(state.rest) { seconds.coerceAtLeast(1) }
-    LaunchedEffect(state.rest) {
-        while (true) { seconds = ((state.rest?.remainingMillis(now()) ?: 0) + 999) / 1000; delay(250) }
-    }
+private fun RestControls(state: WorkoutState, now: () -> ClockSnapshot,
+                         catalog: List<com.example.workoutpoc.catalog.CatalogExercise>, dispatch: (WorkoutCommand) -> Unit,
+                         onEdit: (Int) -> Unit) {
+    val timer = liveSurfaceTimer(state, now) ?: return
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        Text("Descanso", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
-        Box(Modifier.size(196.dp), contentAlignment = Alignment.Center) {
-            // Glides between whole-second ticks instead of jumping.
-            val ring by androidx.compose.animation.core.animateFloatAsState((seconds.toFloat() / peak).coerceIn(0f, 1f),
-                androidx.compose.animation.core.tween(950, easing = androidx.compose.animation.core.LinearEasing), label = "rest")
-            CircularProgressIndicator(progress = { ring }, modifier = Modifier.fillMaxSize(),
-                strokeWidth = 10.dp, trackColor = MaterialTheme.colorScheme.surfaceContainerHighest, gapSize = 0.dp)
-            Text("$seconds s", style = MaterialTheme.typography.displayLarge.tabular(), color = MaterialTheme.colorScheme.primary)
-        }
-        Text("Siguiente: ${state.nextSetLabel(plan)}", style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.align(Alignment.Start))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            if (state.openRestSegment != null) {
-                OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.ReduceRestTime)) }, modifier = Modifier.weight(1f)) {
-                    Text("−15 s")
-                }
+        Text(timer.label + if (state.paused != null) " · en pausa" else "", style = MaterialTheme.typography.titleLarge)
+        Text(timer.text, style = MaterialTheme.typography.displayLarge.tabular(), color = MaterialTheme.colorScheme.primary)
+        SeriesNoticeCard(state.seriesNotice(catalog))
+        if (state.paused == null && !timer.waiting) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                if (state.openRestSegment != null) OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.ReduceRestTime)) }, modifier = Modifier.weight(1f)) { Text("−15 s") }
+                OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.AddRestTime)) }, modifier = Modifier.weight(1f)) { Text(if (state.source == null) "+10 s" else "+15 s") }
             }
-            OutlinedButton(onClick = { dispatch(state.command(WorkoutEvent.AddRestTime)) }, modifier = Modifier.weight(1f)) {
-                Text(if (state.source == null) "+10 s" else "+15 s")
-            }
+            val expired = state.source != null && (state.restSignedBalance(now()) ?: 1) <= 0
+            Button(onClick = { dispatch(state.command(if (expired) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest)) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(if (expired) "OK" else "Saltar descanso") }
         }
-        val expired = seconds == 0L && state.source != null
-        Button(onClick = { dispatch(state.command(if (expired) WorkoutEvent.ConfirmRest else WorkoutEvent.SkipRest)) },
-            modifier = Modifier.fillMaxWidth().height(56.dp)) {
-            Text(if (expired) "OK" else "Saltar descanso")
+        WaitActions(state, timer, dispatch)
+        if (state.source != null) state.records.lastOrNull()?.let { record ->
+            OutlinedButton(onClick = { onEdit(record.index) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Editar última serie") }
         }
     }
 }
@@ -368,5 +356,5 @@ private fun RestControls(state: WorkoutState, plan: List<PlannedSet>, now: () ->
 fun prescriptionLabel(p: PlannedSet): String {
     val load = if (!p.loadPrescribed) "carga sin indicar"
         else loadLabel(p.weightTenths, p.unit) + when (p.basis) { "PER_HAND" -> " por mano"; "PER_SIDE" -> " por lado"; "TOTAL" -> " total"; else -> "" }
-    return "${if (p.reps > 0) "${p.reps} reps" else "reps sin indicar"} · ${p.rir?.let { "RIR ${rirLabel(it)}" } ?: "RIR sin indicar"} · $load · descanso ${p.restSeconds} s"
+    return "${if (p.reps > 0) "${p.reps} reps" else "reps sin indicar"}${if (p.setType == SetType.WORK) " · " + (p.rir?.let { "RIR ${rirLabel(it)}" } ?: "RIR sin indicar") else ""} · $load · descanso ${p.restSeconds} s"
 }

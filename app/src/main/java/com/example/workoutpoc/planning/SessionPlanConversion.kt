@@ -68,7 +68,13 @@ fun SessionPlan.toPlannedSets(): List<PlannedSet> = exercises.flatMap { exercise
             prescriptionId = set.id, exerciseId = exercise.exerciseId,
             unit = unit, basis = load?.basis?.name, loadPrescribed = load != null,
             restSeconds = set.restSeconds ?: DEFAULT_REST_SECONDS, weightStepTenths = step,
-            maxWeightTenths = maxOf(unitMax, tenths), maxReps = maxOf(100, reps)
+            maxWeightTenths = maxOf(unitMax, tenths), maxReps = maxOf(100, reps),
+            // Warm-up and approach kinds never feed RIR or load preselection of work sets (requirements 6 and 13).
+            setType = when (set.kind) {
+                SetKind.WORK -> com.example.workoutpoc.domain.SetType.WORK
+                SetKind.WARMUP -> com.example.workoutpoc.domain.SetType.WARMUP
+                SetKind.APPROACH -> com.example.workoutpoc.domain.SetType.APPROACH
+            }
         )
     }
 }
