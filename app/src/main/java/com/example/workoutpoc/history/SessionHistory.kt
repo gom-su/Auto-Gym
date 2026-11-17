@@ -3,6 +3,7 @@ package com.example.workoutpoc.history
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.planning.DayStatus
+import com.example.workoutpoc.planning.partialShortText
 import com.example.workoutpoc.planning.partialText
 
 /** One recorded set as shown in history, with its prescription context. */
@@ -28,8 +29,14 @@ data class SessionSummary(
     /** What a partial session got done, for the status text: strength finished, cardio planned and cardio not done. */
     val strengthDone: Boolean = false, val cardioPlanned: Boolean = false, val cardioPending: Boolean = false
 ) {
+    private val hasStrength get() = completedSets + omittedSets + unreachedSets > 0
+    /** Full status, for the detail line: says which part is done and which is not. */
     val statusLabel: String get() = if (status == DayStatus.PARTIAL)
-        partialText(completedSets + omittedSets + unreachedSets > 0, inProgress, strengthDone, cardioPlanned, cardioPending)
+        partialText(hasStrength, inProgress, strengthDone, cardioPlanned, cardioPending)
+    else status.label
+    /** Short status for the list badge, so it does not squeeze the row title; the full text is in the detail line. */
+    val badgeLabel: String get() = if (status == DayStatus.PARTIAL)
+        partialShortText(hasStrength, inProgress, strengthDone, cardioPlanned, cardioPending)
     else status.label
 }
 

@@ -163,7 +163,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
             }
             items(listed, key = { it.sessionId }) { s ->
                 NavRow("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}", { selected = s.sessionId; editing = false },
-                    supporting = statusLine(s), badge = { StatusPill(s.statusLabel, s.status.tone()) })
+                    supporting = statusLine(s), badge = { StatusPill(s.badgeLabel, s.status.tone()) })
             }
         } else {
             item {
