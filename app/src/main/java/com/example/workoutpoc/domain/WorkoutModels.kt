@@ -328,8 +328,14 @@ fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
 val WorkoutState.currentCardio: PlannedCardio?
     get() = cardioRun?.let { run -> cardioPlan.firstOrNull { it.stepId == run.stepId } }
 
+/** A planned cardio step is done at 95% of its prescribed duration; anything less is "sin completar". */
+const val CARDIO_DONE_PERCENT = 95
+
+fun cardioIsDone(actualSeconds: Int?, plannedSeconds: Int): Boolean =
+    (actualSeconds ?: 0).toLong() * 100 >= plannedSeconds.toLong() * CARDIO_DONE_PERCENT
+
 val WorkoutState.plannedCardioComplete: Boolean
-    get() = cardioPlan.all { step -> cardio.any { it.plannedCardioId == step.stepId && !it.partial } }
+    get() = cardioPlan.all { step -> cardio.any { it.plannedCardioId == step.stepId && cardioIsDone(it.durationSeconds, step.plannedSeconds) } }
 
 fun WorkoutState.cardioRemainingMillis(now: ClockSnapshot): Long? {
     val step = currentCardio ?: return null

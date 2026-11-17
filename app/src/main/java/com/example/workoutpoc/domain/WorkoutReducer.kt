@@ -293,7 +293,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
         val id = generateSequence(s.revision) { it + 1 }.map { "cardio-$it" }.first { id -> s.cardio.none { it.id == id } }
         val entry = CardioEntry(id = id, modality = step.modality, durationSeconds = elapsed,
             distanceTenths = null, distanceUnit = null, notes = null, recordedAtMillis = now.wallMillis,
-            plannedCardioId = step.stepId, partial = elapsed < step.plannedSeconds)
+            plannedCardioId = step.stepId, partial = !cardioIsDone(elapsed, step.plannedSeconds))
         return s.copy(cardio = s.cardio + entry, cardioRun = null)
     }
 

@@ -163,7 +163,7 @@ internal fun WorkoutState.withCorrectedTimes(e: PastSessionEdit, now: ClockSnaps
         val updated = old.copy(modality = entry.modality.trim(), durationSeconds = entry.durationSeconds,
             distanceTenths = entry.distanceTenths, distanceUnit = entry.distanceUnit,
             notes = entry.notes?.trim()?.takeIf { it.isNotEmpty() },
-            partial = step?.let { (entry.durationSeconds ?: 0) < it.plannedSeconds } ?: old.partial)
+            partial = step?.let { !cardioIsDone(entry.durationSeconds, it.plannedSeconds) } ?: old.partial)
         validateCardio(updated)
         if (updated == old) return@forEach
         cardio = cardio.map { if (it.id == old.id) updated.copy(editedAtMillis = now.wallMillis) else it }

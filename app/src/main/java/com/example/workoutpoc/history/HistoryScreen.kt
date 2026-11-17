@@ -163,7 +163,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
             }
             items(listed, key = { it.sessionId }) { s ->
                 NavRow("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}", { selected = s.sessionId; editing = false },
-                    supporting = statusLine(s), badge = { StatusPill(s.status.label, s.status.tone()) })
+                    supporting = statusLine(s), badge = { StatusPill(s.statusLabel, s.status.tone()) })
             }
         } else {
             item {
@@ -241,7 +241,7 @@ fun DayStatus.tone(): Tone = when (this) {
 }
 
 private fun statusLine(s: SessionSummary): String =
-    "${s.status.label}${if (s.inProgress) " (en curso)" else if (s.endedEarly) " (terminada antes)" else ""} · " +
+    "${s.statusLabel}${if (!s.inProgress && s.endedEarly) " (terminada antes)" else ""} · " +
         "${s.completedSets} completadas · ${s.omittedSets} omitidas · ${s.unreachedSets} sin registro" +
         (if (s.extraSets > 0) " · ${s.extraSets} extra" else "") + (if (s.warmupSets > 0) " · ${s.warmupSets} aproximaciones" else "") +
         (if (s.cardio.isNotEmpty()) " · cardio ${s.cardio.size}" else "") + if (s.demo) " · demo" else ""
