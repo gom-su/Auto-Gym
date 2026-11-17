@@ -86,13 +86,13 @@ class WorkoutRepository(
         }
 
     /**
-     * Corrects an archived planned session: its date and recorded set values (requirement 9). Returns false when the
-     * session is not archived or nothing changed.
+     * Corrects an archived planned session: its date and time, recorded set values, times and cardio (requirement 9).
+     * Returns false when the session is not archived or nothing changed.
      */
-    suspend fun editArchivedSession(sessionId: String, newStartMillis: Long?, sets: List<PastSetEdit>): Boolean = mutex.withLock {
+    suspend fun editArchivedSession(sessionId: String, edit: com.example.workoutpoc.domain.PastSessionEdit): Boolean = mutex.withLock {
         val archive = history.read()
         val target = archive.sessions.firstOrNull { it.sessionId == sessionId } ?: return@withLock false
-        val edited = reducer.editPastSession(target, newStartMillis, sets, clock())
+        val edited = reducer.editPastSession(target, edit, clock())
         if (edited == target) return@withLock false
         WorkoutValidation.validate(edited)
         history.replace(archive.copy(sessions = archive.sessions.map { if (it.sessionId == sessionId) edited else it }))

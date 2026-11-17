@@ -77,13 +77,13 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     /** Saves a correction of an archived session (requirement 9). [onDone] gets true only when it was stored. */
-    fun saveEdit(sessionId: String, newStartMillis: Long?, sets: List<com.example.workoutpoc.domain.PastSetEdit>, onDone: (Boolean) -> Unit) {
+    fun saveEdit(sessionId: String, edit: com.example.workoutpoc.domain.PastSessionEdit, onDone: (Boolean) -> Unit) {
         if (ui.value.busy) return
         mutableUi.value = mutableUi.value.copy(busy = true, message = null)
         viewModelScope.launch {
             var saved = false
             try {
-                saved = app.repository.editArchivedSession(sessionId, newStartMillis, sets)
+                saved = app.repository.editArchivedSession(sessionId, edit)
                 mutableUi.value = mutableUi.value.copy(message = if (saved) "Sesión actualizada." else "No había cambios que guardar.")
             } catch (e: CancellationException) { throw e }
             catch (e: com.example.workoutpoc.domain.WorkoutEditException) {
@@ -119,7 +119,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, onExportCsv: () -> Unit = {},
-                  onSaveEdit: (String, Long?, List<com.example.workoutpoc.domain.PastSetEdit>, (Boolean) -> Unit) -> Unit = { _, _, _, done -> done(false) }) {
+                  onSaveEdit: (String, com.example.workoutpoc.domain.PastSessionEdit, (Boolean) -> Unit) -> Unit = { _, _, done -> done(false) }) {
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by rememberSaveable { mutableStateOf(false) }
     // The set tapped in the detail, which the editor opens on; -1 when it was opened with its button.
@@ -134,8 +134,8 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
     // Remembered here, above the editor, so the detail is where it was when the editor closes.
     val listState = rememberViewListState(session?.sessionId)
     if (session != null && canEdit && editing) {
-        PastSessionEditor(session, ui.busy, ui.message, editFocus.takeIf { it >= 0 }, onClose = { editing = false }) { newStart, edits ->
-            onSaveEdit(session.sessionId, newStart, edits) { saved -> if (saved) editing = false }
+        PastSessionEditor(session, ui.busy, ui.message, editFocus.takeIf { it >= 0 }, onClose = { editing = false }) { edit ->
+            onSaveEdit(session.sessionId, edit) { saved -> if (saved) editing = false }
         }
         return
     }
@@ -163,7 +163,7 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
             }
             items(listed, key = { it.sessionId }) { s ->
                 NavRow("${s.startedAtMillis?.let { format.format(Date(it)) } ?: "sin fecha"} · ${s.title}", { selected = s.sessionId; editing = false },
-                    supporting = statusLine(s), badge = { StatusPill(s.status.label, s.status.tone()) })
+                    supporting = statusLine(s), badge = { StatusPill(s.statusLabel, s.status.tone()) })
             }
         } else {
             item {
@@ -171,7 +171,8 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                     Text(session.title, style = MaterialTheme.typography.headlineSmall)
                     SupportingText(listOfNotNull(session.startedAtMillis?.let { "Inicio ${format.format(Date(it))}" },
                         session.endedAtMillis?.let { "fin ${format.format(Date(it))}" },
-                        session.activeMillis?.let { "tiempo activo ${durationLabel(it)}" }).joinToString(" · "))
+                        session.activeMillis?.let { "tiempo activo ${durationLabel(it)}" },
+                        session.times?.editedAtMillis?.let { "tiempos corregidos" }).joinToString(" · "))
                 }
             }
             item {
@@ -225,7 +226,8 @@ fun HistoryScreen(ui: HistoryUiState, onBack: () -> Unit, onRetry: () -> Unit, o
                 items(session.cardio, key = { "c-${it.id}" }) { c ->
                     ContentCard {
                         Text(listOfNotNull(c.modality, c.durationSeconds?.let { "duración ${durationLabel(it * 1000L)}" },
-                            c.distanceTenths?.let { "${it / 10.0} ${c.distanceUnit!!.name.lowercase()}" }, c.notes).joinToString(" · "))
+                            c.distanceTenths?.let { "${it / 10.0} ${c.distanceUnit!!.name.lowercase()}" }, c.notes,
+                            c.editedAtMillis?.let { "editado" }).joinToString(" · "))
                     }
                 }
             }
@@ -239,7 +241,7 @@ fun DayStatus.tone(): Tone = when (this) {
 }
 
 private fun statusLine(s: SessionSummary): String =
-    "${s.status.label}${if (s.inProgress) " (en curso)" else if (s.endedEarly) " (terminada antes)" else ""} · " +
+    "${s.statusLabel}${if (!s.inProgress && s.endedEarly) " (terminada antes)" else ""} · " +
         "${s.completedSets} completadas · ${s.omittedSets} omitidas · ${s.unreachedSets} sin registro" +
         (if (s.extraSets > 0) " · ${s.extraSets} extra" else "") + (if (s.warmupSets > 0) " · ${s.warmupSets} aproximaciones" else "") +
         (if (s.cardio.isNotEmpty()) " · cardio ${s.cardio.size}" else "") + if (s.demo) " · demo" else ""

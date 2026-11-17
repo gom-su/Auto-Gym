@@ -3,6 +3,7 @@ package com.example.workoutpoc.history
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
 import com.example.workoutpoc.planning.DayStatus
+import com.example.workoutpoc.planning.partialText
 
 /** One recorded set as shown in history, with its prescription context. */
 data class HistorySet(val exercise: String, val number: Int, val unit: WeightUnit, val values: SetValues, val status: SetStatus,
@@ -21,8 +22,16 @@ data class SessionSummary(
     val completedSets: Int, val omittedSets: Int, val unreachedSets: Int, val extraSets: Int, val warmupSets: Int,
     val cardio: List<CardioEntry>, val sets: List<HistorySet>, val demo: Boolean,
     val programId: String? = null, val programName: String? = null,
-    val review: SessionReview? = null
-)
+    val review: SessionReview? = null,
+    /** Times item by item, for the past-session editor; null for the demo. */
+    val times: SessionTimes? = null,
+    /** What a partial session got done, for the status text: strength finished, cardio planned and cardio not done. */
+    val strengthDone: Boolean = false, val cardioPlanned: Boolean = false, val cardioPending: Boolean = false
+) {
+    val statusLabel: String get() = if (status == DayStatus.PARTIAL)
+        partialText(completedSets + omittedSets + unreachedSets > 0, inProgress, strengthDone, cardioPlanned, cardioPending)
+    else status.label
+}
 
 fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: Int = 0): SessionSummary {
     val plan = s.activePlan()
@@ -47,7 +56,10 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
         completed, omitted, (prescribed - completed - omitted).coerceAtLeast(0),
         s.records.count { plan[it.index].extra && !plan[it.index].warmup && it.status == SetStatus.COMPLETED },
         s.records.count { plan[it.index].warmup && it.status == SetStatus.COMPLETED },
-        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName, s.takeIf { it.source != null }?.review())
+        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName, s.takeIf { it.source != null }?.review(),
+        s.takeIf { it.source != null }?.sessionTimes(),
+        strengthDone = prescribed > 0 && completed == prescribed && s.phase == Phase.Completed && !s.endedEarly,
+        cardioPlanned = s.cardioPlan.isNotEmpty(), cardioPending = s.cardioPlan.isNotEmpty() && !s.plannedCardioComplete)
 }
 
 /** All sessions with at least one record or cardio entry, newest first; the current one is included if started. */

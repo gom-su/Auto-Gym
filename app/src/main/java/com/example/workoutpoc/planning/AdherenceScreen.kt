@@ -76,7 +76,7 @@ fun AdherenceScreen(ui: AdherenceUiState, onBack: () -> Unit, onRetry: () -> Uni
             }
         } }
         item { ContentCard { GoalEditor(ui.goals, !ui.busy && ui.ready, onSaveGoals) } }
-        item { SupportingText("Completado: todas las series prescritas. Parcial: alguna completada o en curso. No realizado: lo declaraste o ninguna serie se completó. Sin registro: no hay datos; no se asume que no entrenaste.",
+        item { SupportingText("Completado: todas las series prescritas. Parcial: alguna completada o en curso; el texto indica si falta fuerza o cardio. Cardio completo: al menos el 95% de lo planificado. No realizado: lo declaraste o ninguna serie se completó. Sin registro: no hay datos; no se asume que no entrenaste.",
             small = true) }
         if (ui.weeks.isEmpty()) item { EmptyState("No hay programas guardados.", icon = AppIcons.Library) }
         ui.weeks.forEach { w ->
@@ -94,7 +94,7 @@ fun AdherenceScreen(ui: AdherenceUiState, onBack: () -> Unit, onRetry: () -> Uni
                 ContentCard {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Text(d.day.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                        StatusPill(d.status.label + if (d.inProgress) " (en curso)" else "", d.status.tone())
+                        StatusPill(if (d.status == DayStatus.PARTIAL) d.partialLabel else d.status.label, d.status.tone())
                     }
                     Text("Series prescritas: ${d.completedSets}/${d.prescribedSets} completadas · ${d.omittedSets} omitidas · ${d.unrecordedSets} sin registro" +
                         (if (d.extraSets > 0) " · ${d.extraSets} extra" else "") + (if (d.cardioMinutes > 0) " · cardio ${d.cardioMinutes} min" else ""),

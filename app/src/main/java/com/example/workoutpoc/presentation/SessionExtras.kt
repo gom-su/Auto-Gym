@@ -82,7 +82,7 @@ fun CardioSection(state: WorkoutState, onAdd: (CardioAdd) -> Unit, onRemove: (Ca
                 Text(c.modality, style = MaterialTheme.typography.titleMedium)
                 Text(listOfNotNull(c.durationSeconds?.let { "Duración ${durationLabel(it * 1000L)}" },
                     c.distanceTenths?.let { "${weightLabel(it)} ${c.distanceUnit!!.name.lowercase()}" },
-                    "Parcial".takeIf { c.partial }).joinToString(" · ").ifBlank { "Sin duración ni distancia" },
+                    "Sin completar".takeIf { c.partial }).joinToString(" · ").ifBlank { "Sin duración ni distancia" },
                     style = MaterialTheme.typography.bodyMedium.tabular())
                 c.notes?.let { Text("Nota: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (c.plannedCardioId == null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

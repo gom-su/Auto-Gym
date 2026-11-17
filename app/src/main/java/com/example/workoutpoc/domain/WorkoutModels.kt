@@ -78,7 +78,9 @@ data class CardioEntry(
     val distanceUnit: DistanceUnit?, val notes: String?, val recordedAtMillis: Long,
     /** Planned cardio step this entry executed (contract §6); null for manual cardio. */
     val plannedCardioId: String? = null,
-    val partial: Boolean = false
+    val partial: Boolean = false,
+    /** Set when the entry was corrected after the session (requirement 9); the corrected values replace the recorded ones. */
+    val editedAtMillis: Long? = null
 )
 
 /** Executable cardio step of a planned session, run by duration (contract §6). */
@@ -224,7 +226,9 @@ data class WorkoutState(
     val machineWaits: List<MachineWait> = emptyList(),
     val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap(),
     val cardioRun: CardioRun? = null,
-    val timing: SessionTiming? = null
+    val timing: SessionTiming? = null,
+    /** Set when a time of the archived session was corrected (requirement 9); corrections replace the measured values. */
+    val timesEditedAtMillis: Long? = null
 )
 
 enum class WorkoutEvent {
@@ -324,8 +328,14 @@ fun WorkoutState.nextSetLabel(plan: List<PlannedSet>): String {
 val WorkoutState.currentCardio: PlannedCardio?
     get() = cardioRun?.let { run -> cardioPlan.firstOrNull { it.stepId == run.stepId } }
 
+/** A planned cardio step is done at 95% of its prescribed duration; anything less is "sin completar". */
+const val CARDIO_DONE_PERCENT = 95
+
+fun cardioIsDone(actualSeconds: Int?, plannedSeconds: Int): Boolean =
+    (actualSeconds ?: 0).toLong() * 100 >= plannedSeconds.toLong() * CARDIO_DONE_PERCENT
+
 val WorkoutState.plannedCardioComplete: Boolean
-    get() = cardioPlan.all { step -> cardio.any { it.plannedCardioId == step.stepId && !it.partial } }
+    get() = cardioPlan.all { step -> cardio.any { it.plannedCardioId == step.stepId && cardioIsDone(it.durationSeconds, step.plannedSeconds) } }
 
 fun WorkoutState.cardioRemainingMillis(now: ClockSnapshot): Long? {
     val step = currentCardio ?: return null
