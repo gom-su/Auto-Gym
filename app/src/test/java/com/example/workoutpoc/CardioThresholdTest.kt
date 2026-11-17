@@ -1,6 +1,8 @@
 package com.example.workoutpoc
 
-import com.example.workoutpoc.domain.cardioIsDone
+import com.example.workoutpoc.domain.*
+import com.example.workoutpoc.planning.cardioDoneIn
+import com.example.workoutpoc.planning.partialShortText
 import com.example.workoutpoc.planning.DayAdherence
 import com.example.workoutpoc.planning.DayStatus
 import com.example.workoutpoc.planning.partialText
@@ -32,5 +34,20 @@ class CardioThresholdTest {
         assertEquals("Cardio sin completar", adherence(strength = false, pending = true, prescribed = 0).partialLabel)
         assertEquals("Fuerza completada · Cardio sin completar", partialText(hasStrength = true, inProgress = false,
             strengthDone = true, cardioPlanned = true, cardioPending = true))
+    }
+
+    @Test fun `a session without planned cardio does not count as cardio done`() {
+        val bike = PlannedCardio("bike", "Bicicleta", 1800)
+        fun entry(seconds: Int) = CardioEntry("c", "Bicicleta", seconds, null, null, null, 0, plannedCardioId = "bike")
+        val strengthOnly = WorkoutState(sessionId = "a")
+        assertFalse(cardioDoneIn(listOf(strengthOnly)))
+        assertFalse(cardioDoneIn(listOf(strengthOnly, WorkoutState(sessionId = "b", cardioPlan = listOf(bike), cardio = listOf(entry(900))))))
+        assertTrue(cardioDoneIn(listOf(strengthOnly, WorkoutState(sessionId = "c", cardioPlan = listOf(bike), cardio = listOf(entry(1710))))))
+    }
+
+    @Test fun `the week strip uses the short partial label`() {
+        assertEquals("Falta cardio", partialShortText(hasStrength = true, inProgress = false, strengthDone = true, cardioPlanned = true, cardioPending = true))
+        assertEquals("Falta fuerza", partialShortText(hasStrength = true, inProgress = false, strengthDone = false, cardioPlanned = true, cardioPending = false))
+        assertEquals("En curso", partialShortText(hasStrength = true, inProgress = true, strengthDone = false, cardioPlanned = true, cardioPending = true))
     }
 }

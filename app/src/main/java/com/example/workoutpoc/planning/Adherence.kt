@@ -31,6 +31,23 @@ data class DayAdherence(
 ) {
     /** Label for a day that is not fully completed, saying which part is done and which is not. */
     val partialLabel: String get() = partialText(prescribedSets > 0, inProgress, strengthDone, cardioPlanned, cardioPending)
+    /** [partialLabel] in two words at most, for the week strip on Hoy. */
+    val partialShortLabel: String get() = partialShortText(prescribedSets > 0, inProgress, strengthDone, cardioPlanned, cardioPending)
+}
+
+/**
+ * Whether one of [sessions] did the day's planned cardio (95% rule). A session that carries no planned cardio (strength
+ * only, or recorded before the day had cardio) proves nothing, although its cardio check is vacuously true.
+ */
+fun cardioDoneIn(sessions: List<WorkoutState>): Boolean = sessions.any { it.cardioPlan.isNotEmpty() && it.plannedCardioComplete }
+
+/** Short form of [partialText] for narrow places such as the week strip on Hoy. */
+fun partialShortText(hasStrength: Boolean, inProgress: Boolean, strengthDone: Boolean, cardioPlanned: Boolean, cardioPending: Boolean): String = when {
+    inProgress -> "En curso"
+    strengthDone && cardioPending -> "Falta cardio"
+    cardioPlanned && cardioPending && !hasStrength -> "Falta cardio"
+    hasStrength && !strengthDone && cardioPlanned && !cardioPending -> "Falta fuerza"
+    else -> "Parcial"
 }
 
 /** Text for a PARTIAL day or session: says which part (strength or cardio) is done and which is not. */
@@ -87,7 +104,7 @@ fun adherence(programs: List<TrainingProgram>, sessions: List<WorkoutState>, ann
             }
             val strengthDone = prescribed > 0 && list.any { s -> s.phase == Phase.Completed && !s.endedEarly && completed(s) == prescribed }
             val cardioPlanned = day.cardio != null
-            val cardioDone = list.any { it.plannedCardioComplete }
+            val cardioDone = cardioDoneIn(list)
             DayAdherence(day, status, prescribed, done, omitted, (prescribed - done - omitted).coerceAtLeast(0),
                 best?.records?.count { best.plan[it.index].extra && it.status == SetStatus.COMPLETED } ?: 0,
                 list.sumOf { s -> s.cardio.sumOf { it.durationSeconds ?: 0 } } / 60, list.size, inProgress,

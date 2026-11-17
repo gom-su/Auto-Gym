@@ -149,7 +149,7 @@ private fun WeekStrip(days: List<DayAdherence>, shown: String?, next: String?, e
         days.forEach { d ->
             val selected = d.day.id == shown
             val status = when (d.status) {
-                DayStatus.COMPLETED -> "Completado"; DayStatus.PARTIAL -> d.partialLabel
+                DayStatus.COMPLETED -> "Completado"; DayStatus.PARTIAL -> d.partialShortLabel
                 DayStatus.NOT_PERFORMED -> "No realizado"; DayStatus.NO_RECORD -> if (d.day.id == next) "Siguiente" else "Pendiente"
             }
             Surface(onClick = { onPick(d.day.id) }, enabled = enabled,
@@ -162,7 +162,7 @@ private fun WeekStrip(days: List<DayAdherence>, shown: String?, next: String?, e
                     verticalArrangement = Arrangement.Center) {
                     Text(d.day.name, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 2)
                     Text(status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center, maxLines = 3)
+                        textAlign = TextAlign.Center, maxLines = 2)
                 }
             }
         }
