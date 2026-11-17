@@ -21,7 +21,9 @@ data class SessionSummary(
     val completedSets: Int, val omittedSets: Int, val unreachedSets: Int, val extraSets: Int, val warmupSets: Int,
     val cardio: List<CardioEntry>, val sets: List<HistorySet>, val demo: Boolean,
     val programId: String? = null, val programName: String? = null,
-    val review: SessionReview? = null
+    val review: SessionReview? = null,
+    /** Times item by item, for the past-session editor; null for the demo. */
+    val times: SessionTimes? = null
 )
 
 fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: Int = 0): SessionSummary {
@@ -47,7 +49,8 @@ fun summarize(s: WorkoutState, nowWallMillis: Long, nowElapsed: Long = 0, boot: 
         completed, omitted, (prescribed - completed - omitted).coerceAtLeast(0),
         s.records.count { plan[it.index].extra && !plan[it.index].warmup && it.status == SetStatus.COMPLETED },
         s.records.count { plan[it.index].warmup && it.status == SetStatus.COMPLETED },
-        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName, s.takeIf { it.source != null }?.review())
+        s.cardio, sets, s.source == null, s.source?.programId, s.source?.programName, s.takeIf { it.source != null }?.review(),
+        s.takeIf { it.source != null }?.sessionTimes())
 }
 
 /** All sessions with at least one record or cardio entry, newest first; the current one is included if started. */

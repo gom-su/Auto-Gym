@@ -140,8 +140,17 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
      * amount, so its durations and its order inside the session stay the same; the link to the plan day is kept.
      * Each corrected set goes through [edit], so the replaced version is kept and the same validation applies.
      */
-    fun editPastSession(s: WorkoutState, newStartMillis: Long?, sets: List<PastSetEdit>, now: ClockSnapshot): WorkoutState {
+    fun editPastSession(s: WorkoutState, newStartMillis: Long?, sets: List<PastSetEdit>, now: ClockSnapshot): WorkoutState =
+        editPastSession(s, PastSessionEdit(newStartMillis, sets), now)
+
+    /**
+     * Applies every correction of [e]: first the new start, then the times and cardio (see [withCorrectedTimes]), then
+     * the sets. The whole edit is validated before anything is returned, so a rejected edit changes nothing.
+     */
+    fun editPastSession(s: WorkoutState, e: PastSessionEdit, now: ClockSnapshot): WorkoutState {
         if (s.source == null || s.phase.inProgress) throw WorkoutEditException("Solo se editan sesiones archivadas de un día planificado.")
+        val newStartMillis = e.startMillis
+        val sets = e.sets
         var cur = s
         val start = s.startedAtMillis
         if (newStartMillis != null && start == null) {
@@ -160,6 +169,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
                     endedAtMillis = it.endedAtMillis?.plus(delta), pending = it.pending?.copy(wallMillis = it.pending.wallMillis + delta)) },
                 revision = cur.revision + 1)
         }
+        cur = cur.withCorrectedTimes(e, now)
         for (edit in sets) {
             val record = cur.records.getOrNull(edit.index) ?: throw WorkoutEditException("La serie no está registrada.")
             val setType = cur.plan[record.index].setType

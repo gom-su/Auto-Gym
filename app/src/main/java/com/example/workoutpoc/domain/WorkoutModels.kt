@@ -78,7 +78,9 @@ data class CardioEntry(
     val distanceUnit: DistanceUnit?, val notes: String?, val recordedAtMillis: Long,
     /** Planned cardio step this entry executed (contract §6); null for manual cardio. */
     val plannedCardioId: String? = null,
-    val partial: Boolean = false
+    val partial: Boolean = false,
+    /** Set when the entry was corrected after the session (requirement 9); the corrected values replace the recorded ones. */
+    val editedAtMillis: Long? = null
 )
 
 /** Executable cardio step of a planned session, run by duration (contract §6). */
@@ -224,7 +226,9 @@ data class WorkoutState(
     val machineWaits: List<MachineWait> = emptyList(),
     val previousWorkSets: Map<String, PreviousWorkSet> = emptyMap(),
     val cardioRun: CardioRun? = null,
-    val timing: SessionTiming? = null
+    val timing: SessionTiming? = null,
+    /** Set when a time of the archived session was corrected (requirement 9); corrections replace the measured values. */
+    val timesEditedAtMillis: Long? = null
 )
 
 enum class WorkoutEvent {

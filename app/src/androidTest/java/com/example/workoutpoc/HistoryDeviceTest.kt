@@ -70,6 +70,36 @@ class HistoryDeviceTest {
         device.pressHome()
     }
 
+    @Test fun past_session_editor_corrects_the_rest_of_a_set() {
+        device.openTab("Progreso")
+        device.clickText("Sesiones")
+        val title = device.wait(Until.findObject(By.textContains("Programa ficticio de historial · Semana 1 · Día A")), 10_000)
+        assertNotNull(title)
+        title!!.visibleBounds.let { device.click(it.centerX(), it.centerY()) }
+        device.clickText("Editar sesión pasada")
+        // The editor lists the session's times above the sets.
+        assertNotNull(device.wait(Until.findObject(By.text("Tiempos")), 5_000))
+        assertNotNull(device.scrollToText("Hora de inicio"))
+        device.scrollToText("Serie 1").click()
+        // The set's own times open with its values: duration, the rest after it and its objective. Field labels are not
+        // exposed as text, so each field is found by its stepper buttons.
+        assertNotNull(device.scrollToText("Tiempos"))
+        for (field in listOf("duración de la serie", "descanso real", "objetivo de descanso")) {
+            repeat(6) {
+                if (device.hasObject(By.desc("Aumentar $field"))) return@repeat
+                device.swipe(device.displayWidth / 2, (device.displayHeight * 0.7).toInt(), device.displayWidth / 2,
+                    (device.displayHeight * 0.45).toInt(), 30)
+                device.waitForIdle()
+            }
+            assertNotNull(field, device.wait(Until.findObject(By.desc("Aumentar $field")), 5_000))
+        }
+        device.findObject(By.desc("Aumentar objetivo de descanso")).click()
+        assertNotNull(device.wait(Until.findObject(By.text("Sin guardar: 1 serie")), 5_000))
+        device.clickText("Guardar cambios")
+        assertNotNull(device.wait(Until.findObject(By.textContains("tiempos corregidos")), 10_000))
+        device.pressHome()
+    }
+
     /** The picker redraws while it loads its roots, so nodes can go stale between finding and tapping: retry. */
     private fun retry(block: () -> Unit) {
         repeat(5) { try { block(); return } catch (_: StaleObjectException) { SystemClock.sleep(300) } catch (_: NullPointerException) { SystemClock.sleep(300) } }
