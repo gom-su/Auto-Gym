@@ -27,7 +27,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Verify Android
-        run: bash ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+        run: >-
+          bash ./gradlew --no-daemon
+          :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+          :wear:testDebugUnitTest :wear:lintDebug :wear:assembleDebug :wear:assembleDebugAndroidTest
       - name: Verify MCP
         run: python3 -m unittest discover -s mcp/tests
 

@@ -17,6 +17,12 @@
             </intent-filter>
         </activity>
         <receiver android:name=".notification.WorkoutActionReceiver" android:exported="false" />
+        <service android:name=".wear.PhonePanelListenerService" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.REQUEST_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/autogym/panel/v1/" />
+            </intent-filter>
+        </service>
         <service android:name=".overlay.WorkoutOverlayService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started offline workout demo: interactive set logging from a persistent notification and optional visible overlay while using other apps; short rest deadlines; stops at completion or explicit finish. No sensors or health data collection." />

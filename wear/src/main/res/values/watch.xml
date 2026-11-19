@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_app_name">Auto-Gym</string>
+    <string name="wear_monitor_syncing">Conectando con el teléfono…</string>
+    <string name="wear_monitor_disconnected">Teléfono desconectado</string>
+    <string name="wear_monitor_ready">Descanso terminado</string>
+    <string name="wear_monitor_channel">Sesión en curso</string>
+    <string name="wear_rest_channel">Fin del descanso</string>
+    <string name="wear_monitor_ok">OK</string>
+    <string-array name="android_wear_capabilities">
+        <item>auto_gym_watch_v1</item>
+    </string-array>
+    <color name="launcher_background">#101612</color>
+    <style name="Theme.AutoGymWatch" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launcher_background</item>
+        <item name="android:colorAccent">#B4EE80</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

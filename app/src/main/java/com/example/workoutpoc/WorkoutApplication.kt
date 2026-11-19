@@ -10,6 +10,7 @@ import com.example.workoutpoc.planning.ProgramRepository
 import com.example.workoutpoc.planning.ProgramLibrarySerializer
 import com.example.workoutpoc.timer.clockSnapshot
 import com.example.workoutpoc.notification.WorkoutNotificationManager
+import com.example.workoutpoc.wear.PhoneWearBridge
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -95,6 +96,7 @@ class WorkoutApplication : Application() {
     }
     /** Shared publisher deduplicates receiver and service observations of the same snapshot. */
     val notifications: WorkoutNotificationManager by lazy { WorkoutNotificationManager(this) }
+    internal val wearBridge: PhoneWearBridge by lazy { PhoneWearBridge(this) }
     val repository: WorkoutRepository by lazy {
         val store = DataStoreFactory.create(WorkoutSerializer, scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) {
             dataStoreFile("workout.json")
@@ -108,6 +110,15 @@ class WorkoutApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         scope.launch { safely { repository.restore() } }
+        scope.launch {
+            try {
+                wearBridge.publishChanges()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.d("AutoGymWear", "Data Layer no está disponible en el teléfono", e)
+            }
+        }
     }
     suspend fun safely(block: suspend () -> Unit) {
         try { block() }

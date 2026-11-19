@@ -40,6 +40,14 @@ android {
     }
 }
 dependencies {
+    implementation(project(":wear-protocol"))
+    implementation("com.google.android.gms:play-services-wearable:20.0.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    constraints {
+        implementation("androidx.fragment:fragment:1.8.9") {
+            because("The Fragment version pulled by Play services predates the Activity Result API")
+        }
+    }
     val composeBom = platform("androidx.compose:compose-bom:2025.09.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
