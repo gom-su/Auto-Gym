@@ -42,16 +42,40 @@ class WorkoutRepository(
         mutableReady.value = true
     }
 
-    suspend fun dispatch(command: WorkoutCommand): Unit = mutex.withLock {
-        loadLocked()
-        val previous: WorkoutState = mutableState.value
-        val next: WorkoutState = reducer.reduce(previous, command, clock(), idFactory())
-        if (next != previous) {
-            // Resetting discards the snapshot: archive confirmed sets first so none are lost.
-            if (command.event == WorkoutEvent.ResetDemo) archiveLocked(previous)
-            storage.write(next)
-            mutableState.value = next
+    suspend fun dispatch(command: WorkoutCommand) {
+        mutex.withLock {
+            loadLocked()
+            dispatchLocked(command, clock())
         }
+    }
+
+    private suspend fun dispatchLocked(command: WorkoutCommand, now: ClockSnapshot): Boolean {
+        val previous: WorkoutState = mutableState.value
+        val next: WorkoutState = reducer.reduce(previous, command, now, idFactory())
+        if (next == previous) return false
+        // Resetting discards the snapshot: archive confirmed sets first so none are lost.
+        if (command.event == WorkoutEvent.ResetDemo) archiveLocked(previous)
+        storage.write(next)
+        mutableState.value = next
+        return true
+    }
+
+    internal suspend fun readLiveState(): Pair<WorkoutState, ClockSnapshot> = mutex.withLock {
+        loadLocked()
+        val now = clock()
+        dispatchLocked(mutableState.value.command(WorkoutEvent.RestFinished), now)
+        mutableState.value to now
+    }
+
+    /** Reconcile deadlines before validating a remote control against the same state the reducer will use. */
+    internal suspend fun dispatchPanelAction(
+        command: WorkoutCommand,
+        allowed: (WorkoutState, ClockSnapshot) -> Boolean,
+    ): Boolean = mutex.withLock {
+        loadLocked()
+        val now = clock()
+        dispatchLocked(mutableState.value.command(WorkoutEvent.RestFinished), now)
+        allowed(mutableState.value, now) && dispatchLocked(command, now)
     }
 
     /** Loads a planned day as the next session. Never replaces a session in progress. */

@@ -5,3 +5,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Workout Notification PoC"
 include(":app")
+include(":wear", ":wear-protocol")

@@ -29,6 +29,14 @@ adb shell am start -n com.example.workoutpoc/.MainActivity
 
 On Windows, use `gradlew.bat` and PowerShell. APK location: `app/build/outputs/apk/debug/app-debug.apk`.
 
+### Wear OS companion
+
+Auto-Gym on a paired Wear OS 4 or newer watch shows the floating panel controls for the session running on the Android phone. Open Auto-Gym on the watch during a session and allow notifications to receive rest alerts from the watch face. The **Fin del descanso** channel controls vibration for those alerts. **Cerrar panel** ends monitoring on the watch. **Editar última serie** posts a shortcut to the existing editor in the phone's notifications.
+
+Build the two debug APKs together with `./gradlew :app:assembleDebug :wear:assembleDebug`. They share the package name and must share the same signing certificate. For an existing signed phone installation, set `AUTO_GYM_DEBUG_KEYSTORE` to the original debug keystore and use an appropriate `autoGymVersionCode` as described in [delivery setup](docs/FIREBASE_DISTRIBUTION.md). Update the phone from `app/build/outputs/apk/debug/app-debug.apk` and install the companion from `wear/build/outputs/apk/debug/wear-debug.apk`. Use `adb -s` with each device's serial to target the correct device.
+
+For emulator checks, pair a Google Play phone image with a round Wear OS image and install both APKs. Start a planned session on the phone, then check controls, rest expiry and confirmation on the watch. Use `:wear:connectedDebugAndroidTest` on the Wear emulator for the round UI and rotary input tests. [Android emulator pairing](https://developer.android.com/training/wearables/get-started/connect-phone)
+
 In the development environment, a local JDK and SDK were prepared in `.tools/jdk` and `.sdk`, which are excluded from version control. An AVD named `Workout_API_36` stores its data in `.tools/avd`. The following commands automatically select these tools when available:
 
 ```powershell

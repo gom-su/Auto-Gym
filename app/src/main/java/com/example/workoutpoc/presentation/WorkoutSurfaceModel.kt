@@ -4,13 +4,12 @@ import com.example.workoutpoc.catalog.CatalogExercise
 import com.example.workoutpoc.catalog.Equipment
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.*
+import com.example.workoutpoc.wearprotocol.PanelTimer
+import com.example.workoutpoc.wearprotocol.TimerKind
+import com.example.workoutpoc.wearprotocol.panelCounterText
 
 /** Shared text and rounding for app, RemoteViews and the floating window. No surface owns time. */
-fun counterText(millis: Long, countdown: Boolean = false): String {
-    val seconds = if (countdown && millis > 0) (millis + 999) / 1000 else kotlin.math.abs(millis) / 1000
-    val sign = if (countdown && millis <= -1000) "−" else ""
-    return "$sign${(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}"
-}
+fun counterText(millis: Long, countdown: Boolean = false): String = panelCounterText(millis, countdown)
 
 fun SetType.surfaceLabel(): String = when (this) {
     SetType.WORK -> "Trabajo"
@@ -36,18 +35,26 @@ fun WorkoutState.isWaiting(now: ClockSnapshot): Boolean = runningWait != null ||
 
 data class SurfaceTimer(val label: String, val text: String, val waiting: Boolean)
 
-fun WorkoutState.surfaceTimer(now: ClockSnapshot): SurfaceTimer? {
+internal fun WorkoutState.panelTimer(now: ClockSnapshot): PanelTimer? {
     val at = paused?.let { ClockSnapshot(it.elapsedMillis, it.wallMillis, it.bootCount) } ?: now
     if (isWaiting(now)) {
         val wait = openMachineWait ?: return null
         val duration = wait.durationMillis(at) ?: wait.pending?.asMark()?.elapsedSince(at) ?: 0
-        return SurfaceTimer("Espera por máquina", counterText(duration), true)
+        return PanelTimer(duration, TimerKind.WAIT, paused == null)
     }
     if (phase == Phase.Resting) {
         val balance = restSignedBalance(now) ?: rest?.signedRemainingMillis(at) ?: 0
-        return SurfaceTimer("Descanso", counterText(balance, countdown = true), false)
+        return PanelTimer(balance, TimerKind.REST, paused == null)
     }
-    return cardioRemainingMillis(now)?.let { SurfaceTimer("Cardio · tiempo restante", counterText(it, countdown = true), false) }
+    return cardioRemainingMillis(now)?.let { PanelTimer(it, TimerKind.CARDIO, paused == null && it > 0) }
+}
+
+fun WorkoutState.surfaceTimer(now: ClockSnapshot): SurfaceTimer? = panelTimer(now)?.let {
+    when (it.kind) {
+        TimerKind.WAIT -> SurfaceTimer("Espera por máquina", counterText(it.millis), true)
+        TimerKind.REST -> SurfaceTimer("Descanso", counterText(it.millis, countdown = true), false)
+        TimerKind.CARDIO -> SurfaceTimer("Cardio · tiempo restante", counterText(it.millis, countdown = true), false)
+    }
 }
 
 data class SeriesNotice(val heading: String, val detail: String, val changes: List<String>) {

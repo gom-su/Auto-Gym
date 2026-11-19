@@ -71,10 +71,42 @@ class SessionSurfaceDeviceTest {
         ContextCompat.startForegroundService(app, Intent(app, WorkoutOverlayService::class.java).setAction(if (overlay) WorkoutOverlayService.SHOW else WorkoutOverlayService.HIDE))
     }
 
-    private fun await(message: String, condition: () -> Boolean) {
-        val end = SystemClock.elapsedRealtime() + 8_000
+    private fun await(message: String, timeoutMillis: Long = 8_000, condition: () -> Boolean) {
+        val end = SystemClock.elapsedRealtime() + timeoutMillis
         while (SystemClock.elapsedRealtime() < end) { if (condition()) return; SystemClock.sleep(50) }
         fail(message)
+    }
+
+    @Test fun pairedWatchConfirmsAndCompletesTheNextSet() {
+        Assume.assumeTrue("Requires a paired Wear OS emulator",
+            InstrumentationRegistry.getArguments().getString("wearPair") == "true")
+        seed(fixture(45_000))
+        verifyWatchRecords()
+    }
+
+    @Test fun emulatedWatchCommitsThroughThePhoneRepository() {
+        val port = InstrumentationRegistry.getArguments().getString("wearRelayPort")?.toIntOrNull()
+        Assume.assumeTrue("Requires the local two-emulator ADB test relay", port != null && port in 1..65535)
+        seed(fixture(45_000))
+        PhonePanelTestRelay(app, requireNotNull(port)).use { verifyWatchRecords() }
+    }
+
+    private fun verifyWatchRecords() {
+        await("Confirm the expired rest from the paired watch", 120_000) {
+            val state = app.repository.state.value
+            state.phase == Phase.ActiveSet && state.index == 1
+        }
+        val afterConfirmation = app.repository.state.value
+        assertEquals(1, afterConfirmation.records.size)
+        assertTrue(afterConfirmation.restSegments.single().actualRestSeconds!! >= 75)
+        await("Complete the approach set from the paired watch", 45_000) {
+            app.repository.state.value.phase == Phase.Completed
+        }
+        val saved = runBlocking { app.repository.withBackupAccess { it.workout } }
+        assertEquals(2, saved.records.size)
+        assertEquals(1, saved.restSegments.size)
+        assertEquals(plan.last().exercise, saved.records.last().exercise)
+        SystemClock.sleep(4_000)
     }
 
     private fun click(id: String) {
