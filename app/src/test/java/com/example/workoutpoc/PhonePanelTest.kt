@@ -10,6 +10,7 @@ import com.example.workoutpoc.domain.SessionSource
 import com.example.workoutpoc.domain.WorkoutEvent
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.domain.command
+import com.example.workoutpoc.domain.openRestSegment
 import com.example.workoutpoc.wear.PanelRequestHandler
 import com.example.workoutpoc.wear.splitPanelSummary
 import com.example.workoutpoc.wearprotocol.ActionRequest
@@ -21,6 +22,7 @@ import com.example.workoutpoc.wearprotocol.PanelReply
 import com.example.workoutpoc.wearprotocol.PanelSnapshot
 import com.example.workoutpoc.wearprotocol.ReplyResult
 import com.example.workoutpoc.wearprotocol.SummaryRequest
+import com.example.workoutpoc.wearprotocol.WatchSetValues
 import java.io.IOException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
@@ -28,6 +30,32 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PhonePanelTest {
+    @Test fun `watch records the selected values in one write and corrects the last set with history`() = runTest {
+        val fixture = Fixture()
+        fixture.begin()
+        val active = fixture.panel()
+        val performed = WatchSetValues(305, 7, 0)
+        assertEquals(ReplyResult.REJECTED, fixture.action(active, RECORD_WATCH_SET, values = performed.copy(rir = null)).result)
+        assertTrue(fixture.storage.saved.records.isEmpty())
+        val rest = requireNotNull(fixture.action(active, RECORD_WATCH_SET, values = performed).snapshot)
+        assertEquals(PanelMode.REST, rest.mode)
+        assertEquals(performed, rest.watch?.lastSet?.values)
+        assertEquals(ReplyResult.STALE, fixture.action(active, RECORD_WATCH_SET, values = performed).result)
+
+        fixture.seconds = 20
+        val extended = requireNotNull(fixture.action(rest, EXTEND_WATCH_REST).snapshot)
+        assertEquals(105, fixture.storage.saved.openRestSegment?.configuredSeconds)
+        assertEquals(85_000L, extended.timer?.millis)
+        assertEquals(15, extended.watch?.restAddSeconds)
+        val corrected = performed.copy(reps = 8)
+        assertEquals(ReplyResult.STALE, fixture.action(rest, CORRECT_WATCH_SET, 0, corrected).result)
+        assertEquals(ReplyResult.OK, fixture.action(extended, CORRECT_WATCH_SET, 0, corrected).result)
+        val record = fixture.storage.saved.records.single()
+        assertEquals(8, record.values.reps)
+        assertEquals(7, record.revisions.single().values.reps)
+        assertEquals(105, fixture.storage.saved.openRestSegment?.configuredSeconds)
+    }
+
     @Test fun `expired rest is saved once when phone and watch confirm together`() = runTest {
         val fixture = Fixture()
         fixture.beginRest()
@@ -141,11 +169,15 @@ class PhonePanelTest {
         }
 
         suspend fun beginRest(cardio: Boolean = false) {
+            begin(cardio)
+            completeSet()
+        }
+
+        suspend fun begin(cardio: Boolean = false) {
             val source = SessionSource("program", "Programa", "block", "week", "Semana", 1, "day", "Día")
             repository.load(DemoWorkout.sets.take(2).map { it.copy(restSeconds = 75) }, source,
                 cardioPlan = if (cardio) listOf(PlannedCardio("bike", "Bici", 1_800)) else emptyList())
             event(WorkoutEvent.StartWorkout)
-            completeSet()
         }
 
         suspend fun completeSet() {
@@ -158,9 +190,10 @@ class PhonePanelTest {
         suspend fun panel(): PanelSnapshot =
             requireNotNull(handler.reply(PanelProtocol.STATE_PATH, byteArrayOf()).snapshot)
 
-        suspend fun action(panel: PanelSnapshot, action: PanelAction): PanelReply = handler.reply(
+        suspend fun action(panel: PanelSnapshot, action: PanelAction, argument: Int? = null,
+                           values: WatchSetValues? = null): PanelReply = handler.reply(
             PanelProtocol.ACTION_PATH, PanelProtocol.encode(
-                ActionRequest(panel.sessionId, panel.index, panel.revision, panel.restSegmentId, action)),
+                ActionRequest(panel.sessionId, panel.index, panel.revision, panel.restSegmentId, action, argument, values)),
         )
     }
 

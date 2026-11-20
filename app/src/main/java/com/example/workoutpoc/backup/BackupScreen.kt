@@ -1,5 +1,6 @@
 package com.example.workoutpoc.backup
 
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
@@ -12,14 +13,20 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun BackupScreen(ui: BackupUiState, onBack: () -> Unit, onExport: () -> Unit, onChooseRestore: () -> Unit,
-                 onCancel: () -> Unit, onConfirm: () -> Unit) {
+                 onCancel: () -> Unit, onConfirm: () -> Unit, automaticError: String?) {
     var confirming by remember(ui.review) { mutableStateOf(false) }
     BackHandler(ui.busy || ui.review != null) { if (!ui.busy) onCancel() }
     AppScreen("Respaldo completo", "Volver a Ajustes", { if (ui.review != null) onCancel() else onBack() },
         backEnabled = !ui.busy, busy = ui.busy, message = ui.message) {
         val review = ui.review
         if (review == null) {
-            item { SupportingText("Guarda tus datos locales en un archivo para trasladarlos a otra instalación de Auto-Gym.") }
+            item {
+                SupportingText(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                    "El último respaldo automático está en Descargas → Auto-Gym. Cada copia se verifica antes de reemplazar la anterior."
+                else
+                    "El último respaldo automático queda en el almacenamiento externo de la app. Puedes exportar una copia manual a Descargas para conservarla si desinstalas la app.")
+            }
+            if (automaticError != null) item { Banner(automaticError, tone = Tone.Warning) }
             item { PrimaryAction("Exportar respaldo completo", onExport, enabled = !ui.busy, icon = AppIcons.Download) }
             item { SecondaryAction("Restaurar respaldo", onChooseRestore, enabled = !ui.busy, icon = AppIcons.Upload) }
             item { SupportingText("El archivo incluye registros y mediciones personales. Guárdalo en un lugar seguro. Las claves de emparejamiento y la llave API de Claude no se incluyen.") }

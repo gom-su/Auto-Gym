@@ -45,6 +45,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
@@ -59,11 +60,13 @@ import com.example.workoutpoc.wearprotocol.PanelAction
 import com.example.workoutpoc.wearprotocol.PanelControl
 import com.example.workoutpoc.wearprotocol.PanelMode
 import com.example.workoutpoc.wearprotocol.PanelSnapshot
+import com.example.workoutpoc.wearprotocol.WatchSetValues
 import kotlinx.coroutines.launch
 
 class WearActivity : ComponentActivity() {
     private val connection get() = (application as WearApplication).connection
     private var monitorMessage by mutableStateOf<String?>(null)
+    private var ambient by mutableStateOf(false)
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -72,6 +75,19 @@ class WearActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(AmbientLifecycleObserver(this, object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+            override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                ambient = true
+                connection.setAmbient(true)
+            }
+
+            override fun onUpdateAmbient() = connection.updateAmbientTime()
+
+            override fun onExitAmbient() {
+                ambient = false
+                connection.setAmbient(false)
+            }
+        }))
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 var startedSession: String? = null
@@ -101,6 +117,8 @@ class WearActivity : ComponentActivity() {
                 onAction = connection::perform,
                 onRefresh = connection::refresh,
                 onLoadSummary = connection::loadSummary,
+                ambient = ambient,
+                onSubmitSet = connection::submitSet,
                 onClose = {
                     WearSessionService.close(this)
                     finish()
@@ -116,6 +134,8 @@ class WearActivity : ComponentActivity() {
 
     override fun onStop() {
         connection.hide()
+        ambient = false
+        connection.setAmbient(false)
         super.onStop()
     }
 
@@ -136,7 +156,7 @@ class WearActivity : ComponentActivity() {
     }
 }
 
-private val watchColors = ColorScheme(
+internal val watchColors = ColorScheme(
     primary = Color(0xFFB4EE80),
     onPrimary = Color(0xFF1A3700),
     background = Color(0xFF101612),
@@ -153,9 +173,19 @@ internal fun AutoGymWatchPanel(
     onAction: (PanelControl, PanelSnapshot) -> Unit,
     onRefresh: () -> Unit,
     onLoadSummary: (Int) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    ambient: Boolean = false,
+    onSubmitSet: (PanelAction, PanelSnapshot, WatchSetValues, Int?) -> Unit = { _, _, _, _ -> },
 ) {
     val snapshot = state.snapshot
+    if (snapshot?.watch != null) {
+        WatchWorkoutScreen(state, snapshot, monitorMessage, ambient, onAction, onSubmitSet, onRefresh, onClose)
+        return
+    }
+    if (ambient && snapshot != null && snapshot.mode in activeModes) {
+        AmbientWorkout(state, snapshot)
+        return
+    }
     val primary = snapshot?.primaryAction()
     val available = state.connected && !state.busy
     val fire: (PanelControl) -> Unit = { control ->
@@ -285,10 +315,12 @@ internal fun AutoGymWatchPanel(
     }
 }
 
+private val activeModes = setOf(PanelMode.SET, PanelMode.REST, PanelMode.WAIT, PanelMode.CARDIO)
+
 private val weightControls = setOf(PanelAction.WEIGHT_DOWN, PanelAction.WEIGHT_UP)
 private val repControls = setOf(PanelAction.REPS_DOWN, PanelAction.REPS_UP)
 
-private fun PanelSnapshot.primaryAction(): PanelControl? {
+internal fun PanelSnapshot.primaryAction(): PanelControl? {
     val preferred = if (paused) PanelAction.RESUME else when (mode) {
         PanelMode.SET -> PanelAction.COMPLETE_SET
         PanelMode.REST -> if (alert) PanelAction.REST_OK else PanelAction.REST_SKIP
@@ -393,7 +425,7 @@ private fun SummaryContinuation(state: WearPanelState, page: Int, onLoad: (Int) 
 }
 
 @Composable
-private fun PanelButton(
+internal fun PanelButton(
     text: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -421,7 +453,7 @@ private fun PanelButton(
 }
 
 @Composable
-private fun SupportingText(text: String, modifier: Modifier = Modifier) {
+internal fun SupportingText(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         modifier = modifier.fillMaxWidth().padding(horizontal = 5.dp),

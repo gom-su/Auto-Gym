@@ -31,7 +31,9 @@ On Windows, use `gradlew.bat` and PowerShell. APK location: `app/build/outputs/a
 
 ### Wear OS companion
 
-Auto-Gym on a paired Wear OS 4 or newer watch shows the floating panel controls for the session running on the Android phone. Open Auto-Gym on the watch during a session and allow notifications to receive rest alerts from the watch face. The **Fin del descanso** channel controls vibration for those alerts. **Cerrar panel** ends monitoring on the watch. **Editar última serie** posts a shortcut to the existing editor in the phone's notifications.
+Auto-Gym on a paired Wear OS 4 or newer watch shows a round workout panel for the active session on the phone. Tap the load, reps or RIR to edit a set. Swipe vertically or use the bezel in a numeric picker. Each work set asks you to confirm RIR. Swipe right inside the panel to review or correct the last recorded set, or scroll down for session controls and the load step setting.
+
+When a countdown expires with the panel open and connected, the watch vibrates and advances through the phone's session. With the panel in the background, rest ends with the existing notification and manual **OK**. Its vibration is controlled by the **Fin del descanso** channel. **Cerrar panel** ends monitoring on the watch. The simplified ambient view follows the watch's always-on display settings. Update the phone and watch apps together to enable the new controls.
 
 Build the two debug APKs together with `./gradlew :app:assembleDebug :wear:assembleDebug`. They share the package name and must share the same signing certificate. For an existing signed phone installation, set `AUTO_GYM_DEBUG_KEYSTORE` to the original debug keystore and use an appropriate `autoGymVersionCode` as described in [delivery setup](docs/FIREBASE_DISTRIBUTION.md). Update the phone from `app/build/outputs/apk/debug/app-debug.apk` and install the companion from `wear/build/outputs/apk/debug/wear-debug.apk`. Use `adb -s` with each device's serial to target the correct device.
 

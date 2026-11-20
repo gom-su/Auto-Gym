@@ -10,6 +10,8 @@ import com.example.workoutpoc.wearprotocol.PanelSnapshot
 import com.example.workoutpoc.wearprotocol.ReplyResult
 import com.example.workoutpoc.wearprotocol.SummaryRequest
 import com.example.workoutpoc.wearprotocol.TimerKind
+import com.example.workoutpoc.wearprotocol.WatchSetValues
+import com.example.workoutpoc.wearprotocol.allowsWatchAction
 import com.example.workoutpoc.wearprotocol.panelCounterText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -37,13 +39,17 @@ data class WearPanelState(
     internal val panelVisible: Boolean = false,
     internal val snapshotSequence: Long = 0,
     internal val restDeadlineElapsedMillis: Long? = null,
+    internal val advancingRest: Boolean = false,
 )
+
+internal enum class WorkoutHaptic { SET_RECORDED, REST_FINISHED }
 
 /** Main-thread state shared by the visible panel and the foreground session service. */
 class WearPanelConnection internal constructor(
     private val transport: WearPanelTransport,
     private val scope: CoroutineScope,
     private val elapsedMillis: () -> Long,
+    private val haptic: (WorkoutHaptic) -> Unit = {},
 ) {
     private val mutableState = MutableStateFlow(WearPanelState())
     val state = mutableState.asStateFlow()
@@ -53,6 +59,8 @@ class WearPanelConnection internal constructor(
     private var tickLoop: Job? = null
     private var nextRefresh: Job? = null
     private var activityOpen = false
+    private var ambient = false
+    private var visibleRest: Pair<String, String?>? = null
     private var monitoredSession: String? = null
     private var phone: String? = null
     private var snapshotPhone: String? = null
@@ -68,9 +76,18 @@ class WearPanelConnection internal constructor(
 
     fun hide() {
         activityOpen = false
-        mutableState.value = mutableState.value.copy(panelVisible = false)
+        visibleRest = null
+        mutableState.value = mutableState.value.copy(panelVisible = false, advancingRest = false)
         updateLifecycle()
     }
+
+    internal fun setAmbient(enabled: Boolean) {
+        ambient = enabled
+        updateLifecycle()
+        updateTimerText()
+    }
+
+    internal fun updateAmbientTime() = updateTimerText()
 
     internal fun monitor(sessionId: String) {
         monitoredSession = sessionId
@@ -85,10 +102,8 @@ class WearPanelConnection internal constructor(
     }
 
     internal fun dismissPanel() {
-        activityOpen = false
         monitoredSession = null
-        mutableState.value = mutableState.value.copy(panelVisible = false)
-        updateLifecycle()
+        hide()
     }
 
     fun refresh() {
@@ -96,21 +111,24 @@ class WearPanelConnection internal constructor(
     }
 
     private fun updateLifecycle() {
-        if (activityOpen && tickLoop == null) {
+        if (activityOpen && !ambient && tickLoop == null) {
             tickLoop = scope.launch {
                 while (isActive) {
                     updateTimerText()
                     delay(TIMER_TICK_MS)
                 }
             }
-        } else if (!activityOpen) {
+        } else if (!activityOpen || ambient) {
             tickLoop?.cancel()
             tickLoop = null
         }
         val active = activityOpen || monitoredSession != null
         if (active && refreshLoop == null) {
             refreshLoop = scope.launch {
-                for (signal in refreshSignals) requests.withLock { readPanel() }
+                for (signal in refreshSignals) {
+                    requests.withLock { readPanel() }
+                    advanceExpiredRest()
+                }
             }
             transport.listen(
                 onPhonesChanged = { phones ->
@@ -173,11 +191,15 @@ class WearPanelConnection internal constructor(
         performRequest(displayedSnapshot.toRequest(control.action, control.argument))
     }
 
+    fun submitSet(action: PanelAction, displayedSnapshot: PanelSnapshot, values: WatchSetValues, index: Int? = null) {
+        performRequest(displayedSnapshot.toRequest(action, index).copy(setValues = values))
+    }
+
     internal fun confirmRest(request: ActionRequest) {
         if (request.action == PanelAction.REST_OK) performRequest(request)
     }
 
-    private fun performRequest(request: ActionRequest) {
+    private fun performRequest(request: ActionRequest, automatic: Boolean = false) {
         val before = mutableState.value
         if (before.busy) return
         val node = phone
@@ -208,6 +230,11 @@ class WearPanelConnection internal constructor(
                         }
                         sample.reply.result == ReplyResult.OK -> {
                             acceptSnapshot(snapshot, sample.anchorElapsedMillis)
+                            when {
+                                automatic -> haptic(WorkoutHaptic.REST_FINISHED)
+                                request.action in setOf(PanelAction.RECORD_WATCH_SET, PanelAction.COMPLETE_SET) ->
+                                    haptic(WorkoutHaptic.SET_RECORDED)
+                            }
                             if (request.action == PanelAction.EDIT_LAST) {
                                 mutableState.value = mutableState.value.copy(feedback = "Abre la notificación en el teléfono")
                             }
@@ -220,7 +247,9 @@ class WearPanelConnection internal constructor(
                     }
                 }
             } finally {
-                mutableState.value = mutableState.value.copy(busy = false)
+                val latest = mutableState.value
+                mutableState.value = latest.copy(busy = false, advancingRest = !automatic && latest.advancingRest)
+                advanceExpiredRest()
             }
         }
     }
@@ -278,6 +307,19 @@ class WearPanelConnection internal constructor(
         val restDeadline = if (timer != null && timer.kind == TimerKind.REST && timer.running && timer.millis > 0) {
             anchor + timer.millis
         } else null
+        val restTarget = snapshot.sessionId to snapshot.restSegmentId
+        val advance = activityOpen && snapshot.watch != null && snapshot.alert && !snapshot.waitPending &&
+            snapshot.mode == PanelMode.REST && !snapshot.paused && visibleRest == restTarget &&
+            snapshot.controls.any { it.action == PanelAction.REST_OK && it.enabled }
+        if (activityOpen && snapshot.watch != null && restDeadline != null && !snapshot.waitPending) {
+            visibleRest = restTarget
+        } else if (!advance) {
+            val demoRestEnded = activityOpen && previous.connected && previous.snapshot?.mode == PanelMode.REST &&
+                visibleRest == restTarget && restTarget.second == null && snapshot.mode == PanelMode.SET &&
+                snapshot.index == previous.snapshot.index + 1 && !previous.busy
+            visibleRest = null
+            if (demoRestEnded) haptic(WorkoutHaptic.REST_FINISHED)
+        }
         mutableState.value = previous.copy(
             snapshot = snapshot,
             connected = true,
@@ -287,6 +329,7 @@ class WearPanelConnection internal constructor(
             summaryFailed = sameSummary && previous.summaryFailed,
             snapshotSequence = previous.snapshotSequence + 1,
             restDeadlineElapsedMillis = restDeadline.takeIf { snapshot.restSegmentId != null },
+            advancingRest = advance,
         )
         when {
             restDeadline != null -> scheduleRefresh((restDeadline - elapsedMillis()).coerceAtLeast(TIMER_TICK_MS))
@@ -298,6 +341,14 @@ class WearPanelConnection internal constructor(
         }
     }
 
+    private fun advanceExpiredRest() {
+        val current = mutableState.value
+        if (!current.advancingRest || current.busy || !activityOpen) return
+        val snapshot = current.snapshot ?: return
+        visibleRest = null
+        performRequest(snapshot.toRequest(PanelAction.REST_OK, null), automatic = true)
+    }
+
     private fun updateTimerText() {
         val current = mutableState.value
         val text = current.snapshot?.timerText(elapsedMillis() - anchorElapsedMillis, current.connected)
@@ -307,11 +358,13 @@ class WearPanelConnection internal constructor(
     private fun setDisconnected(feedback: String? = mutableState.value.feedback) {
         nextRefresh?.cancel()
         nextRefresh = null
+        visibleRest = null
         mutableState.value = mutableState.value.copy(
             connected = false,
             feedback = feedback,
             timerText = null,
             restDeadlineElapsedMillis = null,
+            advancingRest = false,
         )
     }
 
@@ -354,8 +407,9 @@ private fun PanelSnapshot.toRequest(action: PanelAction, argument: Int?) =
     ActionRequest(sessionId, index, revision, restSegmentId, action, argument)
 
 private fun PanelSnapshot.allows(request: ActionRequest): Boolean =
-    request == toRequest(request.action, request.argument) &&
-        controls.any { it.action == request.action && it.argument == request.argument && it.enabled }
+    request.copy(setValues = null) == toRequest(request.action, request.argument) &&
+        (allowsWatchAction(request) || (request.setValues == null &&
+            controls.any { it.action == request.action && it.argument == request.argument && it.enabled }))
 
 private fun PanelSnapshot.timerText(elapsedMillis: Long, connected: Boolean = true): String? {
     val timer = timer ?: return null
