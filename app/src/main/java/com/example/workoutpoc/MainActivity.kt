@@ -254,9 +254,11 @@ class MainActivity : ComponentActivity() {
         when (top) {
             Destination.Backup -> {
                 val backupUi by backupModel.ui.collectAsStateWithLifecycle()
+                val automaticError by workoutApp.backupExporter.automaticError.collectAsStateWithLifecycle()
                 com.example.workoutpoc.backup.BackupScreen(backupUi, nav::back,
                     { backupModel.prepareExport { backupDestination.launch(it) } },
-                    { backupFile.launch(arrayOf("*/*")) }, backupModel::cancelReview, backupModel::confirmRestore)
+                    { backupFile.launch(arrayOf("*/*")) }, backupModel::cancelReview, backupModel::confirmRestore,
+                    automaticError = automaticError)
             }
             Destination.Session -> SessionScreen(nav, state, ready, error)
             Destination.Settings -> {

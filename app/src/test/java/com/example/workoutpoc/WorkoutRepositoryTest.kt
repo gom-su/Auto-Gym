@@ -71,6 +71,43 @@ class WorkoutRepositoryTest {
         completeSet()
     }
 
+    @Test fun `backup is requested after completion and after review is archived`() = runTest {
+        val storage = MemoryStorage()
+        val snapshots = mutableListOf<WorkoutState>()
+        val repo = WorkoutRepository(storage, { time }, onWorkoutFinished = { snapshots += storage.saved })
+
+        repo.recordSession("program", "week")
+        val finished = repo.state.value
+        assertEquals(Phase.Completed, finished.phase)
+        assertEquals(listOf(finished), snapshots)
+        repo.dispatch(finished.command(WorkoutEvent.FinishWorkout))
+        assertEquals(listOf(finished), snapshots)
+
+        val record = finished.records.single()
+        assertTrue(repo.edit(finished.sessionId, finished.revision, 0, record.status, record.values, "Nota de revisión"))
+        val reviewed = repo.state.value
+        repo.dispatch(reviewed.command(WorkoutEvent.ResetDemo))
+        assertEquals(listOf(finished, repo.state.value), snapshots)
+        assertEquals(reviewed, repo.archived.value.sessions.single())
+    }
+
+    @Test fun `early completion requests a backup only when saved successfully`() = runTest {
+        val storage = MemoryStorage()
+        val snapshots = mutableListOf<WorkoutState>()
+        val repo = WorkoutRepository(storage, { time }, onWorkoutFinished = { snapshots += storage.saved })
+        repo.dispatch(repo.state.value.command(WorkoutEvent.StartWorkout))
+        val finish = repo.state.value.command(WorkoutEvent.FinishWorkout)
+        storage.fail = true
+        try { repo.dispatch(finish); fail("Expected IO error") }
+        catch (_: IOException) { }
+        assertTrue(snapshots.isEmpty())
+
+        storage.fail = false
+        repo.dispatch(finish)
+        assertTrue(repo.state.value.endedEarly)
+        assertEquals(listOf(repo.state.value), snapshots)
+    }
+
     @Test fun `program deletion removes current and archived sessions and returns their IDs`() = runTest {
         val storage = MemoryStorage()
         val history = MemorySessionHistory()

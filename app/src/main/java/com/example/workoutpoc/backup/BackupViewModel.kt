@@ -9,7 +9,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.ByteArrayOutputStream
-import java.time.Instant
 import java.time.LocalDate
 
 /** The selected backup and the current device are immutable until a new review is requested. */
@@ -38,12 +37,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun prepareExport(onReady: (String) -> Unit) = runOperation {
         pendingExport = null
-        val text = withContext(Dispatchers.IO) {
-            @Suppress("DEPRECATION")
-            val info = app.packageManager.getPackageInfo(app.packageName, 0)
-            BackupCodec.encode(app.backups.snapshot(), Instant.now(), BackupApp(info.versionName ?: "desconocida", androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(info).toInt()))
-        }
-        pendingExport = text
+        pendingExport = withContext(Dispatchers.IO) { app.backupExporter.encode() }
         onReady("auto-gym-respaldo-${LocalDate.now()}.json")
     }
 
@@ -53,10 +47,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         if (uri == null) return
         runOperation {
             if (text == null) throw BackupException("No se pudo recuperar el respaldo preparado. Vuelve a pulsar Exportar respaldo completo.")
-            withContext(Dispatchers.IO) {
-                app.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.encodeToByteArray()) }
-                    ?: throw java.io.IOException("No output stream")
-            }
+            withContext(Dispatchers.IO) { app.backupExporter.writeDocument(uri, text) }
             mutableUi.value = mutableUi.value.copy(message = "Respaldo completo exportado correctamente.")
         }
     }

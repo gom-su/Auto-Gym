@@ -9,6 +9,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import kotlin.coroutines.EmptyCoroutineContext
 
 enum class LoadResult { LOADED, SESSION_IN_PROGRESS }
 
@@ -17,7 +18,8 @@ class WorkoutRepository(
     private val storage: WorkoutStorage,
     private val clock: () -> ClockSnapshot,
     private val idFactory: () -> String = { UUID.randomUUID().toString() },
-    private val history: SessionHistory = MemorySessionHistory()
+    private val history: SessionHistory = MemorySessionHistory(),
+    private val onWorkoutFinished: () -> Unit = {},
 ) {
     private val reducer = WorkoutReducer(DemoWorkout.sets)
     private val mutex = Mutex()
@@ -36,8 +38,8 @@ class WorkoutRepository(
         val saved: WorkoutState = storage.read()
         mutableHistory.value = history.read()
         val restored: WorkoutState = reducer.reduce(saved, saved.command(WorkoutEvent.RestFinished), clock(), idFactory())
-        if (restored != saved) storage.write(restored)
-        mutableState.value = restored
+        if (restored != saved) persistTransition(saved, restored)
+        else mutableState.value = restored
         loaded = true
         mutableReady.value = true
     }
@@ -53,11 +55,20 @@ class WorkoutRepository(
         val previous: WorkoutState = mutableState.value
         val next: WorkoutState = reducer.reduce(previous, command, now, idFactory())
         if (next == previous) return false
-        // Resetting discards the snapshot: archive confirmed sets first so none are lost.
-        if (command.event == WorkoutEvent.ResetDemo) archiveLocked(previous)
-        storage.write(next)
-        mutableState.value = next
+        persistTransition(previous, next, archivePrevious = command.event == WorkoutEvent.ResetDemo)
         return true
+    }
+
+    private suspend fun persistTransition(previous: WorkoutState, next: WorkoutState, archivePrevious: Boolean = false) {
+        val finished = previous.phase.inProgress && next.phase == Phase.Completed
+        // Keep a finished write and its backup request together if a UI or service scope closes.
+        withContext(if (finished || archivePrevious) NonCancellable else EmptyCoroutineContext) {
+            val archived = archivePrevious && archiveLocked(previous)
+            storage.write(next)
+            mutableState.value = next
+            // Closing the review can archive corrections made after the session first reached Completed.
+            if (finished || archived) onWorkoutFinished()
+        }
     }
 
     internal suspend fun readLiveState(): Pair<WorkoutState, ClockSnapshot> = mutex.withLock {
@@ -210,15 +221,16 @@ class WorkoutRepository(
         }
     }
 
-    private suspend fun archiveLocked(session: WorkoutState) {
+    private suspend fun archiveLocked(session: WorkoutState): Boolean {
         if (session.records.isEmpty() && session.cardio.isEmpty() && session.cardioRun == null &&
-            session.timing?.open == null && session.timing?.segments.isNullOrEmpty()) return
+            session.timing?.open == null && session.timing?.segments.isNullOrEmpty()) return false
         // A session reset mid-way is archived as ended early, exactly as recorded so far.
         val now = clock()
         // An open pause is closed at archive time so its duration is not lost.
         val closed = reducer.reduce(session, session.command(WorkoutEvent.FinishWorkout), now, session.sessionId)
-        if (history.archive(closed))
-            mutableHistory.value = history.read()
+        if (!history.archive(closed)) return false
+        mutableHistory.value = history.read()
+        return true
     }
 
     private fun WorkoutState.belongsTo(programId: String, weekId: String) =

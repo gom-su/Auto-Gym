@@ -2,6 +2,12 @@
 
 A full backup transfers local training data between Auto-Gym installations. It is independent of [interchange v1](JSON_EXCHANGE.md), which remains unchanged. Interchange is for exchanging context, plans and results with an agent; it does not preserve every local store.
 
+## Automatic backup
+
+After a workout ends or its reviewed records are archived, Auto-Gym exports the complete backup in the background. It writes and reads back the new JSON before replacing the previous `auto-gym-respaldo-automatico.json`. On Android 10 and later, the file is in **Downloads → Auto-Gym**. If Android interrupts the replacement after publishing the new file, the verified JSON may still have its temporary name in the same folder.
+
+On Android 8 and 9 the file is under `Android/data/com.example.workoutpoc/files/Download/Auto-Gym/`. A manual export to Downloads survives uninstallation on those versions. Both forms can be opened using **Ajustes → Respaldo completo → Restaurar respaldo**.
+
 ## User flow
 
 1. Open **Ajustes > Respaldo completo > Exportar respaldo completo**. The app reads all stores under their repository locks, validates a lossless encode/decode round trip, and opens Android `CreateDocument` with MIME `application/json` and the suggested name `auto-gym-respaldo-YYYY-MM-DD.json`. Canceling the picker leaves local data untouched. The snapshot is taken before the picker opens; later edits are not included.

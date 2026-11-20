@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
+import com.example.workoutpoc.backup.BackupExporter
 import com.example.workoutpoc.data.*
 import com.example.workoutpoc.planning.ProgramRepository
 import com.example.workoutpoc.planning.ProgramLibrarySerializer
@@ -19,6 +20,7 @@ class WorkoutApplication : Application() {
         com.example.workoutpoc.backup.BackupRepository(repository, programs, outlines, exchanges, proposals,
             measurements, catalog, planningAnswers, weekAnnotations, migrations, settings, comments)
     }
+    internal val backupExporter by lazy { BackupExporter(this, backups) }
     val comments: SessionCommentRepository by lazy {
         SessionCommentRepository(DataStoreFactory.create(
             com.example.workoutpoc.domain.SessionCommentLogSerializer,
@@ -105,7 +107,8 @@ class WorkoutApplication : Application() {
             dataStoreFile("history-v1.json")
         }
         WorkoutRepository(DataStoreWorkoutStorage(store), { clockSnapshot(this) },
-            history = DataStoreSessionHistory(historyStore))
+            history = DataStoreSessionHistory(historyStore),
+            onWorkoutFinished = { scope.launch { backupExporter.exportAutomatically() } })
     }
     override fun onCreate() {
         super.onCreate()
