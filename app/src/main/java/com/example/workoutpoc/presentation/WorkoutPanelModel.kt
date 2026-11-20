@@ -3,14 +3,19 @@ package com.example.workoutpoc.presentation
 import com.example.workoutpoc.catalog.CatalogExercise
 import com.example.workoutpoc.data.activePlan
 import com.example.workoutpoc.domain.ClockSnapshot
+import com.example.workoutpoc.domain.MAX_SET_REVISIONS
 import com.example.workoutpoc.domain.Phase
+import com.example.workoutpoc.domain.PlannedSet
 import com.example.workoutpoc.domain.SetStatus
 import com.example.workoutpoc.domain.SetType
+import com.example.workoutpoc.domain.SetValues
+import com.example.workoutpoc.domain.WeightUnit
 import com.example.workoutpoc.domain.WorkoutEvent
 import com.example.workoutpoc.domain.WorkoutState
 import com.example.workoutpoc.domain.currentCardio
 import com.example.workoutpoc.domain.inProgress
 import com.example.workoutpoc.domain.loadLabel
+import com.example.workoutpoc.domain.nextCardio
 import com.example.workoutpoc.domain.openMachineWait
 import com.example.workoutpoc.domain.openRestSegment
 import com.example.workoutpoc.domain.plannedCardioComplete
@@ -23,6 +28,10 @@ import com.example.workoutpoc.wearprotocol.PanelControl
 import com.example.workoutpoc.wearprotocol.PanelMode
 import com.example.workoutpoc.wearprotocol.PanelSnapshot
 import com.example.workoutpoc.wearprotocol.TimerKind
+import com.example.workoutpoc.wearprotocol.WatchLoadUnit
+import com.example.workoutpoc.wearprotocol.WatchSet
+import com.example.workoutpoc.wearprotocol.WatchSetValues
+import com.example.workoutpoc.wearprotocol.WatchWorkout
 
 /** The session controls shared by the floating phone window and the Wear companion. */
 internal fun WorkoutState.panelSnapshot(
@@ -55,6 +64,8 @@ internal fun WorkoutState.panelSnapshot(
     val set = plan.getOrNull(index)
     val hint = completionHint().takeIf { mode == PanelMode.SET && !isPaused }
     val needsOk = planned && mode == PanelMode.REST && !isPaused && (restSignedBalance(now) ?: 1) <= 0
+    val seriesNotice = seriesNotice(catalog)
+    val nextCardio = if (mode == PanelMode.REST) nextCardio(plan, index + 1) else null
     val controls = buildList {
         if (mode == PanelMode.SET && !isPaused) {
             add(PanelControl(WEIGHT_DOWN, "Reducir peso"))
@@ -101,7 +112,7 @@ internal fun WorkoutState.panelSnapshot(
             else -> snapshot.title
         },
         subtitle = set?.let { "${it.setType.surfaceLabel()} · serie ${it.number}/${it.total}" }.orEmpty(),
-        notice = seriesNotice(catalog)?.text,
+        notice = seriesNotice?.text,
         weight = set?.let { loadLabel(values.weightTenths, it.unit) },
         reps = values.reps,
         rir = values.rir,
@@ -110,8 +121,34 @@ internal fun WorkoutState.panelSnapshot(
         waitPending = openMachineWait?.pending != null && mode != PanelMode.WAIT,
         alert = needsOk && openRestSegment != null,
         controls = controls,
+        watch = WatchWorkout(
+            activeSet = set?.takeIf { mode == PanelMode.SET }?.watchSet(index, values),
+            lastSet = records.lastOrNull { it.status == SetStatus.COMPLETED }?.let { record ->
+                plan.getOrNull(record.index)?.watchSet(
+                    record.index, record.values, record.recordedUnit,
+                    editable = planned && record.revisions.size < MAX_SET_REVISIONS,
+                )
+            },
+            nextTitle = if (mode == PanelMode.REST) nextCardio?.modality ?: plan.getOrNull(index + 1)?.exercise else null,
+            nextDetail = if (mode == PanelMode.REST) {
+                nextCardio?.let { counterText(it.plannedSeconds * 1000L) }
+                    ?: seriesNotice?.detail?.lineSequence()?.elementAtOrNull(1)
+            } else null,
+            restAddSeconds = if (mode == PanelMode.REST && !isPaused) {
+                openRestSegment?.let { (120 - it.configuredSeconds).coerceIn(0, 30) } ?: 30
+            } else 0,
+        ),
     )
 }
+
+private fun PlannedSet.watchSet(index: Int, values: SetValues, recordedUnit: WeightUnit? = null,
+                                editable: Boolean = false): WatchSet =
+    WatchSet(
+        index, exercise, number, total, setType.surfaceLabel(),
+        WatchSetValues(values.weightTenths, values.reps, values.rir),
+        WatchLoadUnit.valueOf((recordedUnit ?: unit).name), weightStepTenths, maxWeightTenths, maxReps,
+        setType == SetType.WORK, editable,
+    )
 
 internal fun PanelAction.workoutEvent(): WorkoutEvent? = when (this) {
     WEIGHT_DOWN -> WorkoutEvent.DecrementWeight
@@ -119,9 +156,9 @@ internal fun PanelAction.workoutEvent(): WorkoutEvent? = when (this) {
     REPS_DOWN -> WorkoutEvent.DecrementReps
     REPS_UP -> WorkoutEvent.IncrementReps
     SELECT_RIR -> WorkoutEvent.SelectRir
-    COMPLETE_SET -> WorkoutEvent.CompleteSet
+    COMPLETE_SET, RECORD_WATCH_SET -> WorkoutEvent.CompleteSet
     POSTPONE -> WorkoutEvent.PostponeExercise
-    REST_ADD -> WorkoutEvent.AddRestTime
+    REST_ADD, EXTEND_WATCH_REST -> WorkoutEvent.AddRestTime
     REST_REDUCE -> WorkoutEvent.ReduceRestTime
     REST_SKIP -> WorkoutEvent.SkipRest
     REST_OK -> WorkoutEvent.ConfirmRest
@@ -131,5 +168,5 @@ internal fun PanelAction.workoutEvent(): WorkoutEvent? = when (this) {
     PAUSE -> WorkoutEvent.PauseSession
     RESUME -> WorkoutEvent.ResumeSession
     CARDIO_FINISH -> WorkoutEvent.FinishCardio
-    EDIT_LAST -> null
+    EDIT_LAST, CORRECT_WATCH_SET -> null
 }

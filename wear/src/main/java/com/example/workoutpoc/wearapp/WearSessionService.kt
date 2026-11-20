@@ -104,7 +104,7 @@ class WearSessionService : Service() {
         }
         updateRestWakeup(state.restDeadlineElapsedMillis)
         val rest = snapshot?.restSegmentId
-        val alert = if (state.connected && snapshot?.sessionId == monitoredSession && snapshot.alert && rest != null &&
+        val alert = if (!state.advancingRest && state.connected && snapshot?.sessionId == monitoredSession && snapshot.alert && rest != null &&
             snapshot.controls.any { it.action == PanelAction.REST_OK && it.enabled }
         ) {
             RestNotice(snapshot.notice,
@@ -307,7 +307,7 @@ class WearSessionService : Service() {
         private const val NOTIFICATION_ID = 2
         private const val CHANNEL_ID = "wear_workout_monitor"
         private const val REST_NOTIFICATION_ID = 3
-        private const val REST_CHANNEL_ID = "wear_rest_ready"
+        internal const val REST_CHANNEL_ID = "wear_rest_ready"
         private const val DISCONNECTED_GRACE_MS = 120_000L
         private const val EXPIRY_RPC_GRACE_MS = 12_000L
         private const val DEADLINE_JITTER_MS = 500L

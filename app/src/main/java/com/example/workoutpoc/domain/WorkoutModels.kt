@@ -107,7 +107,7 @@ data class CardioRun(val stepId: String, val started: PauseMark, val pausedMilli
 data class RestSegment(
     val id: String, val afterStepId: String,
     val startedAtMillis: Long, val bootCount: Int,
-    /** Adjustable with -15 s / +15 s inside 45–120 s; the elapsed time is never reset by adjusting. */
+    /** Adjustable within 45–120 s without resetting elapsed time. */
     val configuredSeconds: Int,
     val pausedMillis: Long = 0,
     val confirmedAtMillis: Long? = null,
@@ -274,7 +274,8 @@ fun WorkoutState.postponeTarget(plan: List<PlannedSet>): PostponeTarget? {
 
 /** Every command targets an exact snapshot. Old notification/overlay taps become no-ops. */
 data class WorkoutCommand(val event: WorkoutEvent, val sessionId: String,
-                          val index: Int, val revision: Long, val rir: Int? = null, val restSegmentId: String? = null)
+                          val index: Int, val revision: Long, val rir: Int? = null, val restSegmentId: String? = null,
+                          val setValues: SetValues? = null, val restAdjustmentSeconds: Int? = null)
 
 data class ClockSnapshot(val elapsedMillis: Long, val wallMillis: Long, val bootCount: Int)
 

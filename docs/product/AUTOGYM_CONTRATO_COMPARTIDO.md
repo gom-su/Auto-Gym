@@ -58,7 +58,7 @@ data class RestSegment(
   val id: String,              // único por sesión; identifica el descanso en las acciones
   val afterStepId: String,     // paso que lo precede
   val startedAtMillis: Long,   // reloj monotónico + pared + bootCount, como RestDeadline
-  val configuredSeconds: Int,  // ajustable con −15 s/+15 s dentro de 45–120 s
+  val configuredSeconds: Int,  // ajustable dentro de 45–120 s
   val pausedMillis: Long,      // pausa de sesión ocurrida dentro del descanso, registrada aparte
   val confirmedAtMillis: Long?,// instante de OK o Saltar; null mientras está abierto
   val skipped: Boolean = false,
@@ -73,11 +73,11 @@ data class RestSegment(
 - **Saldo del descanso** (`restSignedBalance`) = objetivo − tiempo real medido hasta ahora. Es negativo tras vencer, se congela durante una espera en curso y lo consumen todas las superficies.
 - **Espera por máquina** (`MachineWait`): tramo independiente con `afterStepId`, `origin` (REST o EXERCISE) y, si viene de descanso, `restSegmentId`. Cuenta una vez en el total de la sesión (`TimedActivity.MACHINE_WAIT`) y queda fuera de descanso y de actividad. Como máximo una espera abierta por sesión.
 - **Pausa de sesión** sí se permite durante una espera pendiente o en curso. Al reanudar, una espera pendiente desplaza su vencimiento con la pausa; una espera en curso suma la pausa a su propio `pausedMillis`, de modo que su duración excluye la pausa. Una pausa que cruza el vencimiento pendiente no inicia la espera.
-- **Ajuste de ±15 s con espera armada:** el vencimiento de la espera se desplaza con el objetivo, pero nunca queda antes del instante del ajuste. El tiempo anterior al ajuste se mide con el objetivo que estaba vigente.
-- **Vencimiento ≠ confirmación.** Al llegar a cero el segmento sigue abierto y pendiente de OK, también tras reabrir la app. `RestFinished` **no** avanza el paso automáticamente, ni al restaurar.
+- **Ajuste con espera armada.** El vencimiento de la espera se desplaza con el objetivo, con el instante del ajuste como límite inferior. El tiempo anterior al ajuste se mide con el objetivo que estaba vigente.
+- **Vencimiento ≠ confirmación.** `RestFinished` deja el segmento pendiente de OK, también al restaurar. Si el panel del reloj sigue abierto y observó correr ese descanso conectado, envía el mismo OK al recibir el vencimiento del teléfono. Esto conserva una sola transición persistida y da prioridad a la espera por máquina. Fuera del panel del reloj sigue disponible el OK manual.
 - **OK** y **Saltar descanso** cierran el mismo segmento e inician el siguiente paso en una sola transición persistida.
 - La acción incluye `sessionId` y `restSegmentId`. Un toque duplicado o atrasado (reloj, burbuja, notificación) con un id ya cerrado no hace nada.
-- **−15 s / +15 s** cambian `configuredSeconds` dentro de 45–120 s sin reiniciar el tiempo transcurrido.
+- **−15 s / +15 s** y **+30 s desde el reloj** cambian `configuredSeconds` dentro de 45–120 s sin reiniciar el tiempo transcurrido. El reloj muestra el incremento disponible si faltan menos de 30 s para el máximo.
 - El tiempo real puede superar 120 s; solo el valor configurado está acotado.
 - Ejemplo de aceptación: 75 s programados, OK 20 s después del aviso, 10 s de pausa dentro del descanso → **95 s de descanso + 10 s de pausa**.
 

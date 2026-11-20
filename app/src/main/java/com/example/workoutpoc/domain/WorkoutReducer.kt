@@ -71,7 +71,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             } ?: s
             WorkoutEvent.AddWarmupSet -> if (s.source != null && plan.size < MAX_PLAN_SIZE &&
                 (s.phase == Phase.ActiveSet || (s.phase == Phase.Resting && s.index < plan.lastIndex))) addWarmup(s, plan) else s
-            WorkoutEvent.AddRestTime -> adjustRest(s, if (s.source == null) 10 else 15, now)
+            WorkoutEvent.AddRestTime -> adjustRest(s, c.restAdjustmentSeconds ?: if (s.source == null) 10 else 15, now)
             WorkoutEvent.ReduceRestTime -> if (s.source != null) adjustRest(s, -15, now) else s
             WorkoutEvent.SkipRest -> if (s.phase == Phase.Resting) advance(closeRest(s, now, skipped = true), plan, now) else s
             WorkoutEvent.ConfirmRest -> if (s.phase == Phase.Resting && s.rest?.remainingMillis(now) == 0L)
@@ -258,16 +258,20 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
             // Warm-ups and approaches have no RIR (requirement 13): the selector is ignored for them.
             WorkoutEvent.SelectRir -> if (c.rir in 0..4 && p.setType == SetType.WORK) s.copy(values = s.values.copy(rir = c.rir!!)) else s
             // A work set needs a valid RIR, including a preloaded one; RIR 0 is valid (requirement 6).
-            WorkoutEvent.CompleteSet -> if (s.values.reps == 0 || (p.setType == SetType.WORK && s.values.rir == null)) s else {
-                val record = SetRecord(s.index, p.exercise, p.number, s.values, now.wallMillis, p.prescriptionId)
-                when {
-                    p.restSeconds == 0 || (s.index == plan.lastIndex && s.nextCardio(plan, s.index + 1) == null) ->
-                        advance(s.copy(records = s.records + record), plan, now)
-                    else -> beginRest(s.copy(records = s.records + record), p, now)
-                }
-            }
+            WorkoutEvent.CompleteSet -> completeSet(s, plan, p, c.setValues ?: s.values, now)
             else -> s
         }
+    }
+
+    private fun completeSet(s: WorkoutState, plan: List<PlannedSet>, p: PlannedSet,
+                            values: SetValues, now: ClockSnapshot): WorkoutState {
+        if (values.weightTenths !in 0..p.maxWeightTenths || values.reps !in 1..p.maxReps ||
+            (p.setType == SetType.WORK && values.rir !in 0..4)) return s
+        val record = SetRecord(s.index, p.exercise, p.number, values, now.wallMillis, p.prescriptionId)
+        val recorded = s.copy(values = values, records = s.records + record)
+        return if (p.restSeconds == 0 || (s.index == plan.lastIndex && s.nextCardio(plan, s.index + 1) == null)) {
+            advance(recorded, plan, now)
+        } else beginRest(recorded, p, now)
     }
 
     private fun advance(s: WorkoutState, plan: List<PlannedSet>, now: ClockSnapshot): WorkoutState {
@@ -317,7 +321,7 @@ class WorkoutReducer(private val defaultPlan: List<PlannedSet>) {
     }
 
     /**
-     * ±15 s on the objective. Earlier history is not rewritten: a pending wait's start is never placed before the
+     * Adjusts the current objective. A pending wait's start is never placed before the
      * adjustment itself, so time before the tap is measured against the objective that was in force.
      */
     private fun adjustRest(s: WorkoutState, deltaSeconds: Int, now: ClockSnapshot): WorkoutState {

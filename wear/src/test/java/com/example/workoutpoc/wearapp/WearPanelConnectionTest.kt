@@ -10,6 +10,7 @@ import com.example.workoutpoc.wearprotocol.PanelSnapshot
 import com.example.workoutpoc.wearprotocol.PanelTimer
 import com.example.workoutpoc.wearprotocol.ReplyResult
 import com.example.workoutpoc.wearprotocol.TimerKind
+import com.example.workoutpoc.wearprotocol.WatchWorkout
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -95,6 +96,7 @@ class WearPanelConnectionTest {
             alert = false,
             controls = emptyList(),
             timer = PanelTimer(1_500, TimerKind.REST, true),
+            watch = WatchWorkout(),
         ))
         val connection = open(phone)
         connection.monitor("session")
@@ -106,14 +108,41 @@ class WearPanelConnectionTest {
         advanceTimeBy(1_500)
         assertEquals(reads, phone.reads)
         assertEquals(false, connection.state.value.snapshot?.alert)
-        phone.snapshot = restReady()
+        phone.snapshot = restReady().copy(watch = WatchWorkout())
         runCurrent()
         assertEquals(reads + 1, phone.reads)
         assertEquals(true, connection.state.value.snapshot?.alert)
+        assertTrue(phone.actions.isEmpty())
     }
 
-    private fun TestScope.open(phone: FakePhone): WearPanelConnection =
-        WearPanelConnection(phone, backgroundScope) { currentTime }.also {
+    @Test fun foregroundRestAdvancesOnceAndVibratesOnAcknowledgement() = runTest {
+        val ready = restReady().copy(watch = WatchWorkout())
+        val phone = FakePhone(ready.copy(alert = false, controls = emptyList(),
+            timer = PanelTimer(1_500, TimerKind.REST, true)))
+        val response = CompletableDeferred<PanelReply>()
+        phone.applyAction = { response.await() }
+        val haptics = mutableListOf<WorkoutHaptic>()
+        val connection = open(phone) { haptics.add(it) }
+        connection.setAmbient(true)
+
+        phone.snapshot = ready
+        advanceTimeBy(1_501)
+        runCurrent()
+        assertEquals(listOf(PanelAction.REST_OK), phone.actions.map { it.action })
+        assertTrue(connection.state.value.advancingRest)
+        assertTrue(haptics.isEmpty())
+
+        phone.snapshot = ready.copy(index = 2, mode = PanelMode.SET, alert = false, restSegmentId = null, controls = emptyList())
+        response.complete(PanelReply(ReplyResult.OK, phone.snapshot))
+        phone.invalidate()
+        runCurrent()
+        assertEquals(PanelMode.SET, connection.state.value.snapshot?.mode)
+        assertEquals(listOf(WorkoutHaptic.REST_FINISHED), haptics)
+        assertEquals(1, phone.actions.size)
+    }
+
+    private fun TestScope.open(phone: FakePhone, haptic: (WorkoutHaptic) -> Unit = {}): WearPanelConnection =
+        WearPanelConnection(phone, backgroundScope, { currentTime }, haptic).also {
             it.open()
             runCurrent()
             assertTrue(it.state.value.connected)
